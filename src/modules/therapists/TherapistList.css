@@ -1,0 +1,168 @@
+.page-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 2.5rem;
+}
+
+.page-subtitle {
+    color: var(--color-text-secondary);
+    font-size: 0.95rem;
+    margin-top: 0.25rem;
+}
+
+.btn-primary {
+    background-color: var(--color-accent-blue);
+    color: #1A5F7A;
+    border: none;
+    border-radius: var(--radius-button);
+    padding: 0.75rem 1.25rem;
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    transition: all 0.2s ease;
+    box-shadow: 0 4px 6px rgba(188, 228, 234, 0.4);
+}
+
+.btn-primary:hover {
+    background-color: var(--color-accent-hover);
+    transform: translateY(-1px);
+}
+
+.therapist-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+    gap: 1.5rem;
+}
+
+.therapist-card {
+    transition: transform 0.2s ease;
+}
+
+.therapist-card:hover {
+    transform: translateY(-4px);
+}
+
+.therapist-header {
+    display: flex;
+    align-items: flex-start;
+    gap: 1rem;
+    margin-bottom: 1.5rem;
+    padding-top: 0.5rem;
+    /* Space for top border */
+}
+
+.therapist-avatar {
+    width: 56px;
+    height: 56px;
+    border-radius: 16px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.5rem;
+    font-weight: 700;
+    flex-shrink: 0;
+}
+
+.therapist-info {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+}
+
+.therapist-name {
+    font-size: 1.1rem;
+    font-weight: 700;
+    color: var(--color-text-primary);
+    margin-bottom: 0.1rem;
+}
+
+.therapist-specialty {
+    font-size: 0.9rem;
+    font-weight: 600;
+    color: var(--color-accent-green);
+    /* Or another accent */
+    margin-bottom: 0.1rem;
+}
+
+.therapist-license {
+    font-size: 0.8rem;
+    color: var(--color-text-secondary);
+}
+
+.btn-icon {
+    background: none;
+    border: none;
+    color: var(--color-text-secondary);
+    padding: 0.5rem;
+    border-radius: 8px;
+    transition: background-color 0.2s;
+}
+
+.btn-icon:hover {
+    background-color: var(--color-bg-primary);
+    color: var(--color-primary);
+}
+
+.therapist-contact {
+    background-color: var(--color-bg-primary);
+    padding: 1rem;
+    border-radius: 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    margin-bottom: 1.5rem;
+}
+
+.contact-item {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    font-size: 0.9rem;
+    color: var(--color-text-secondary);
+}
+
+.btn-secondary {
+    background-color: transparent;
+    border: 1px solid rgba(0, 0, 0, 0.1);
+    color: var(--color-text-primary);
+    padding: 0.6rem 1rem;
+    border-radius: var(--radius-button);
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    transition: all 0.2s ease;
+}
+
+.btn-secondary:hover {
+    background-color: var(--color-bg-primary);
+    border-color: var(--color-accent-blue);
+    color: #1A5F7A;
+}
+
+.full-width {
+    width: 100%;
+}
+
+.btn-danger {
+    background-color: #fee2e2;
+    border: 1px solid #fca5a5;
+    color: #b91c1c;
+    padding: 0.6rem 1rem;
+    border-radius: var(--radius-button);
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    transition: all 0.2s ease;
+}
+
+.btn-danger:hover {
+    background-color: #fca5a5;
+    border-color: #ef4444;
+    color: #7f1d1d;
+}

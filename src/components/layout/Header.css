@@ -1,0 +1,245 @@
+.app-header {
+    height: 70px;
+    background-color: white;
+    border-bottom: 1px solid rgba(0, 0, 0, 0.05);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 2rem;
+    position: sticky;
+    top: 0;
+    z-index: 90;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.01);
+}
+
+/* Main container for the "icon + title" block */
+.header-page-info {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    /* Vertical center alignment */
+    gap: 12px;
+    height: 100%;
+}
+
+/* The title itself */
+.page-title {
+    font-size: 1.25rem;
+    font-weight: 700;
+    color: var(--color-text-primary);
+    margin: 0;
+    margin-bottom: 0 !important;
+    /* Reset potential global overrides */
+    padding: 0;
+    line-height: 1;
+}
+
+/* The icon wrapper */
+.header-icon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--color-text-secondary);
+    height: 100%;
+    /* Ensure no margins interfere */
+    margin: 0;
+    padding: 0;
+}
+
+/* Specific icon colors */
+.header-icon.text-primary {
+    color: var(--color-primary, #646cff);
+}
+
+.header-icon.text-secondary {
+    color: var(--color-text-secondary);
+}
+
+.header-icon.text-emerald-500 {
+    color: #10b981;
+}
+
+.header-icon.text-amber-500 {
+    color: #f59e0b;
+}
+
+.header-icon.text-indigo-500 {
+    color: #6366f1;
+}
+
+.header-icon.text-blue-500 {
+    color: #3b82f6;
+}
+
+.header-icon.text-slate-500 {
+    color: #64748b;
+}
+
+.header-right {
+    display: flex;
+    align-items: center;
+    gap: 1.5rem;
+}
+
+.header-action-item {
+    position: relative;
+    display: flex;
+    align-items: center;
+}
+
+.btn-icon-text {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.5rem 1rem;
+    border-radius: full;
+    border: 1px solid var(--color-border);
+    background-color: white;
+    color: var(--color-text-secondary);
+    font-weight: 500;
+    font-size: 0.875rem;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.btn-icon-text:hover {
+    background-color: var(--color-bg-primary);
+    color: var(--color-primary);
+}
+
+.btn-icon-round {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    border: 1px solid var(--color-border);
+    background-color: white;
+    color: var(--color-text-secondary);
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.btn-icon-round:hover {
+    background-color: var(--color-bg-primary);
+    color: var(--color-primary);
+}
+
+.notification-badge {
+    position: absolute;
+    top: -2px;
+    right: -2px;
+    background-color: #ef4444;
+    color: white;
+    font-size: 0.65rem;
+    font-weight: 700;
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: 2px solid white;
+}
+
+.header-profile-btn {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    background: none;
+    border: none;
+    cursor: pointer;
+    padding: 0.25rem;
+    border-radius: 8px;
+    transition: background-color 0.2s;
+}
+
+.header-profile-btn:hover {
+    background-color: var(--color-bg-primary);
+}
+
+.avatar.small {
+    width: 32px;
+    height: 32px;
+    font-size: 0.875rem;
+}
+
+.profile-name {
+    font-weight: 600;
+    font-size: 0.9rem;
+    color: var(--color-text-primary);
+}
+
+/* Dropdowns & Popovers */
+.profile-dropdown,
+.workforce-popover {
+    position: absolute;
+    top: 100%;
+    right: 0;
+    margin-top: 0.5rem;
+    background-color: white;
+    border-radius: 12px;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+    border: 1px solid rgba(0, 0, 0, 0.05);
+    min-width: 200px;
+    z-index: 100;
+    animation: slideDown 0.2s ease-out;
+}
+
+.workforce-popover {
+    min-width: 280px;
+    padding: 0;
+}
+
+.dropdown-header {
+    padding: 1rem;
+    background-color: var(--color-bg-primary);
+    border-radius: 12px 12px 0 0;
+}
+
+.dropdown-divider {
+    height: 1px;
+    background-color: rgba(0, 0, 0, 0.05);
+    margin: 0;
+}
+
+.dropdown-item {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    width: 100%;
+    padding: 0.75rem 1rem;
+    border: none;
+    background: none;
+    text-align: left;
+    cursor: pointer;
+    font-size: 0.9rem;
+    color: var(--color-text-secondary);
+    transition: background 0.2s;
+}
+
+.dropdown-item:hover {
+    background-color: var(--color-bg-primary);
+    color: var(--color-text-primary);
+}
+
+.dropdown-item:first-of-type {
+    border-radius: 0 0 0 0;
+}
+
+.dropdown-item:last-child {
+    border-radius: 0 0 12px 12px;
+}
+
+@keyframes slideDown {
+    from {
+        opacity: 0;
+        transform: translateY(-10px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}

@@ -1,0 +1,94 @@
+.workforce-widget {
+    background-color: white;
+    margin: 1rem 0 1.5rem 0;
+    /* Added top margin for separation */
+    padding: 1rem;
+    border-radius: 12px;
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.05);
+    border: 1px solid rgba(0, 0, 0, 0.04);
+}
+
+.workforce-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 12px;
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: var(--color-text-secondary);
+}
+
+.status-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+}
+
+.status-dot.offline {
+    background-color: #ef4444;
+    box-shadow: 0 0 0 2px rgba(239, 68, 68, 0.2);
+}
+
+.status-dot.working {
+    background-color: #22c55e;
+    box-shadow: 0 0 0 2px rgba(34, 197, 94, 0.2);
+}
+
+.status-dot.break {
+    background-color: #f59e0b;
+    box-shadow: 0 0 0 2px rgba(245, 158, 11, 0.2);
+}
+
+.workforce-controls {
+    display: flex;
+    gap: 8px;
+}
+
+.wf-btn {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    padding: 8px;
+    border-radius: 8px;
+    border: none;
+    font-size: 0.8rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.wf-btn:disabled {
+    opacity: 0.7;
+    cursor: not-allowed;
+}
+
+.wf-btn.start,
+.wf-btn.resume {
+    background-color: #ecfdf5;
+    color: #059669;
+}
+
+.wf-btn.start:hover,
+.wf-btn.resume:hover {
+    background-color: #d1fae5;
+}
+
+.wf-btn.pause {
+    background-color: #fffbeb;
+    color: #d97706;
+}
+
+.wf-btn.pause:hover {
+    background-color: #fde68a;
+}
+
+.wf-btn.stop {
+    background-color: #fef2f2;
+    color: #dc2626;
+}
+
+.wf-btn.stop:hover {
+    background-color: #fee2e2;
+}

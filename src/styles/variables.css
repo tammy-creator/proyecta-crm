@@ -1,0 +1,47 @@
+:root {
+  /* Paleta de Colores: El Efecto "Calma" */
+  --color-bg-primary: #F0F2F5;
+  /* Gris suave neutro para mejor contraste */
+  --color-bg-secondary: #ffffff;
+  /* Blanco puro para tarjetas */
+  --color-text-primary: #2C3E50;
+  /* Gris oscuro para texto principal (legibilidad) */
+  --color-text-secondary: #64748B;
+  /* Gris medio para texto secundario */
+
+  /* Colores de Marca (Acentos) */
+  --color-accent-blue: #BCE4EA;
+  /* Azul pastel */
+  --color-accent-green: #A8D5BA;
+  /* Verde agua (estimado para complementar) */
+  --color-accent-hover: #A5D6DE;
+  /* Un poco más oscuro para hover */
+
+  /* Colores de Estado (Semántica) */
+  --color-status-success: #88D8B0;
+  /* Verde: Cobrado/Asistido (suave) */
+  --color-status-success-bg: #E8F8F0;
+
+  --color-status-warning: #FFD6A5;
+  /* Naranja suave: Pendiente */
+  --color-status-warning-bg: #FFF8EE;
+
+  --color-status-error: #FFADAD;
+  /* Rojo coral: Cancelación */
+  --color-status-error-bg: #FFF0F0;
+  --color-status-info: #A0C4FF;
+  /* Azul claro: Programada */
+  --color-status-info-bg: #EDF4FF;
+
+  /* Sombra y Bordes */
+  --shadow-soft: 0 4px 20px -2px rgba(0, 0, 0, 0.08);
+  /* Sombra un poco más profunda */
+  --shadow-card: 0 10px 15px -3px rgba(0, 0, 0, 0.06), 0 4px 6px -2px rgba(0, 0, 0, 0.04);
+  --radius-card: 16px;
+  /* 12px - 15px mínimo */
+  --radius-button: 12px;
+
+  /* Tipografía */
+  --font-family-base: 'Quicksand', 'Montserrat', system-ui, sans-serif;
+  --font-family-heading: 'Montserrat', system-ui, sans-serif;
+}

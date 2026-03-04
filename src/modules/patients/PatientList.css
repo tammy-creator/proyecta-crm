@@ -1,0 +1,242 @@
+.patient-list-container {
+    animation: fadeIn 0.4s ease-out;
+}
+
+.patient-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+    gap: 1.5rem;
+    margin-top: 1.5rem;
+}
+
+.patient-card {
+    display: flex;
+    flex-direction: column;
+    padding: 0 !important;
+    overflow: hidden;
+    position: relative;
+}
+
+.patient-card-header {
+    padding: 1.5rem;
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    background-color: var(--color-bg-secondary);
+}
+
+.modal-tabs {
+    border-bottom: 2px solid #f0f2f5;
+    margin-bottom: 2rem;
+}
+
+.tab-btn {
+    padding: 0.75rem 1rem;
+    background: none;
+    border: none;
+    border-bottom: 3px solid transparent;
+    color: var(--color-text-secondary);
+    font-weight: 600;
+    font-size: 0.95rem;
+    transition: all 0.2s;
+    cursor: pointer;
+}
+
+.tab-btn:hover {
+    color: var(--color-text-primary);
+}
+
+.tab-btn.active {
+    color: #1A5F7A;
+    border-bottom-color: #1A5F7A;
+}
+
+.patient-avatar {
+    width: 48px;
+    height: 48px;
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 700;
+    font-size: 1.25rem;
+    color: var(--color-text-primary);
+}
+
+.patient-avatar.small {
+    width: 32px;
+    height: 32px;
+    font-size: 0.9rem;
+}
+
+.empty-state {
+    padding: 3rem;
+    text-align: center;
+    background: #f8fafc;
+    border-radius: 12px;
+    color: var(--color-text-secondary);
+    border: 2px dashed #e2e8f0;
+}
+
+.file-item {
+    transition: all 0.2s;
+}
+
+.file-item:hover {
+    background-color: #f8fafc;
+    border-color: #cbd5e1;
+}
+
+.file-icon {
+    width: 40px;
+    height: 40px;
+    background: #f1f5f9;
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.avatar.micro {
+    width: 24px;
+    height: 24px;
+    font-size: 0.75rem;
+    background-color: var(--color-status-warning-bg);
+    color: #D97706;
+}
+
+.patient-main-info {
+    display: flex;
+    flex-direction: column;
+}
+
+.patient-name {
+    font-size: 1.1rem;
+    font-weight: 600;
+    color: var(--color-text-primary);
+}
+
+.patient-age {
+    font-size: 0.85rem;
+    color: var(--color-text-secondary);
+}
+
+.status-badge {
+    position: absolute;
+    top: 1.5rem;
+    right: 1.5rem;
+    padding: 0.25rem 0.6rem;
+    border-radius: 20px;
+    font-size: 0.75rem;
+    font-weight: 600;
+}
+
+.status-activo {
+    background-color: var(--color-status-success-bg);
+    color: #2E7D32;
+}
+
+.status-pausa {
+    background-color: var(--color-status-warning-bg);
+    color: #D97706;
+}
+
+.status-alta {
+    background-color: var(--color-status-error-bg);
+    color: #DC2626;
+}
+
+.patient-details {
+    padding: 1rem 1.5rem;
+    border-top: 1px solid rgba(0, 0, 0, 0.03);
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+}
+
+.detail-item {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    font-size: 0.9rem;
+    color: var(--color-text-secondary);
+}
+
+.detail-item svg {
+    color: var(--color-accent-blue);
+}
+
+.detail-label {
+    font-weight: 500;
+    min-width: 80px;
+}
+
+.patient-card-footer {
+    padding: 1rem 1.5rem;
+    background-color: var(--color-bg-primary);
+    border-top: 1px solid rgba(0, 0, 0, 0.03);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.last-visit {
+    font-size: 0.8rem;
+    color: var(--color-text-secondary);
+}
+
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+        transform: translateY(10px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+/* Consent Form Styles */
+.consent-document {
+    font-family: 'Inter', system-ui, -apple-system, sans-serif;
+    max-width: 800px;
+    margin: 0 auto;
+    background: #fff;
+    box-shadow: 0 0 20px rgba(0, 0, 0, 0.05);
+}
+
+.doc-section h4 {
+    color: var(--color-primary);
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.signature-area {
+    transition: all 0.3s ease;
+}
+
+#signature-pad-container {
+    transition: border-color 0.2s;
+    border-radius: 8px;
+    overflow: hidden;
+}
+
+#signature-pad-container:hover {
+    border-color: var(--color-status-info);
+}
+
+.consent-form-modal .modal-header.sticky-header {
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.03);
+}
+
+/* Print simulation for web view */
+.consent-document p {
+    color: #444;
+    margin-bottom: 1rem;
+}
+
+.doc-header .center-info h1 {
+    letter-spacing: -0.5px;
+}

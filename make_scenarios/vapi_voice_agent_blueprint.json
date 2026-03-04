@@ -1,0 +1,387 @@
+{
+    "name": "Proyecta Voice Agent Backend (Vapi)",
+    "flow": [
+        {
+            "id": 1,
+            "module": "gateway:CustomWebHook",
+            "version": 1,
+            "parameters": {
+                "hook": null,
+                "maxResults": 1
+            },
+            "mapper": {},
+            "metadata": {
+                "designer": {
+                    "x": 0,
+                    "y": 0
+                },
+                "restore": {},
+                "expect": [
+                    {
+                        "name": "nombre_padre",
+                        "type": "text",
+                        "label": "Nombre del padre/tutor"
+                    },
+                    {
+                        "name": "telefono",
+                        "type": "text",
+                        "label": "Teléfono"
+                    },
+                    {
+                        "name": "accion",
+                        "type": "text",
+                        "label": "Acción (disponibilidad|reserva|cancelacion|informacion)"
+                    },
+                    {
+                        "name": "fecha",
+                        "type": "text",
+                        "label": "Fecha solicitada (YYYY-MM-DD)"
+                    },
+                    {
+                        "name": "hora",
+                        "type": "text",
+                        "label": "Hora solicitada (HH:MM)"
+                    },
+                    {
+                        "name": "terapeuta",
+                        "type": "text",
+                        "label": "Nombre del terapeuta"
+                    },
+                    {
+                        "name": "servicio",
+                        "type": "text",
+                        "label": "Servicio solicitado"
+                    },
+                    {
+                        "name": "mensaje",
+                        "type": "text",
+                        "label": "Mensaje o duda del usuario"
+                    },
+                    {
+                        "name": "cita_id",
+                        "type": "text",
+                        "label": "ID de la cita (para cancelación)"
+                    }
+                ]
+            }
+        },
+        {
+            "id": 2,
+            "module": "supabase:SearchRows",
+            "version": 1,
+            "parameters": {
+                "__IMTCONN__": null
+            },
+            "mapper": {
+                "table": "patient_tutors",
+                "limit": 1,
+                "filter": [
+                    [
+                        {
+                            "a": "phone",
+                            "o": "text:equal",
+                            "b": "{{1.telefono}}"
+                        }
+                    ]
+                ]
+            },
+            "metadata": {
+                "designer": {
+                    "x": 300,
+                    "y": 0
+                }
+            }
+        },
+        {
+            "id": 3,
+            "module": "builtin:BasicRouter",
+            "version": 1,
+            "parameters": {},
+            "mapper": null,
+            "metadata": {
+                "designer": {
+                    "x": 600,
+                    "y": 0
+                }
+            },
+            "routes": [
+                {
+                    "flow": [
+                        {
+                            "id": 4,
+                            "module": "supabase:SearchRows",
+                            "version": 1,
+                            "parameters": {
+                                "__IMTCONN__": null
+                            },
+                            "mapper": {
+                                "table": "appointments",
+                                "limit": 50,
+                                "filter": [
+                                    [
+                                        {
+                                            "a": "start_time",
+                                            "o": "date:isAfterOrEqual",
+                                            "b": "{{1.fecha}}T00:00:00Z"
+                                        },
+                                        {
+                                            "a": "start_time",
+                                            "o": "date:isBeforeOrEqual",
+                                            "b": "{{1.fecha}}T23:59:59Z"
+                                        },
+                                        {
+                                            "a": "therapist_name",
+                                            "o": "text:equal",
+                                            "b": "{{1.terapeuta}}"
+                                        },
+                                        {
+                                            "a": "status",
+                                            "o": "text:notEqual",
+                                            "b": "Cancelada"
+                                        }
+                                    ]
+                                ]
+                            },
+                            "metadata": {
+                                "designer": {
+                                    "x": 900,
+                                    "y": -300
+                                }
+                            }
+                        },
+                        {
+                            "id": 5,
+                            "module": "gemini-ai:CreateCompletion",
+                            "version": 1,
+                            "parameters": {
+                                "__IMTCONN__": null
+                            },
+                            "mapper": {
+                                "model": "models/gemini-1.5-flash",
+                                "contents": [
+                                    {
+                                        "role": "user",
+                                        "parts": [
+                                            {
+                                                "text": "Eres un asistente de recepción de la clínica infantil Proyecta. El horario de la clínica es de 9:00 a 20:00 con sesiones de 1 hora.\n\nEl padre/tutor {{1.nombre_padre}} quiere conocer la disponibilidad del terapeuta {{1.terapeuta}} para el día {{1.fecha}}.\n\nEstas son las citas ya ocupadas ese día (formato start_time → end_time):\n{{4.output}}\n\nPor favor, analiza los huecos libres y responde de forma natural, breve y amable. Ejemplo: 'Marta tiene libre a las 10:00, 12:00 y 17:00'. Si no hay huecos, sugiere otro día. Responde en español y en máximo 2 frases."
+                                            }
+                                        ]
+                                    }
+                                ],
+                                "generationConfig": {
+                                    "temperature": 0.3,
+                                    "maxOutputTokens": 150
+                                }
+                            },
+                            "metadata": {
+                                "designer": {
+                                    "x": 1200,
+                                    "y": -300
+                                }
+                            }
+                        },
+                        {
+                            "id": 6,
+                            "module": "gateway:WebhookRespond",
+                            "version": 1,
+                            "parameters": {},
+                            "mapper": {
+                                "status": 200,
+                                "headers": [
+                                    {
+                                        "key": "Content-Type",
+                                        "value": "application/json"
+                                    }
+                                ],
+                                "body": "{\"result\": \"success\", \"action\": \"disponibilidad\", \"reply\": \"{{5.candidates[].content.parts[].text}}\"}"
+                            },
+                            "metadata": {
+                                "designer": {
+                                    "x": 1500,
+                                    "y": -300
+                                }
+                            }
+                        }
+                    ]
+                },
+                {
+                    "flow": [
+                        {
+                            "id": 7,
+                            "module": "supabase:CreateRow",
+                            "version": 1,
+                            "parameters": {
+                                "__IMTCONN__": null
+                            },
+                            "mapper": {
+                                "table": "appointments",
+                                "record": {
+                                    "patient_name": "{{2.first_name}} {{2.last_name}}",
+                                    "therapist_name": "{{1.terapeuta}}",
+                                    "start_time": "{{1.fecha}}T{{1.hora}}:00Z",
+                                    "end_time": "{{addHours(parseDate(formatDate(parseDate(1.fecha; \"YYYY-MM-DD\"); \"YYYY-MM-DD\") + \"T\" + 1.hora + \":00Z\"; \"YYYY-MM-DDTHH:mm:ssZ\"); 1)}}",
+                                    "status": "Programada",
+                                    "type": "{{1.servicio}}",
+                                    "is_paid": false
+                                }
+                            },
+                            "metadata": {
+                                "designer": {
+                                    "x": 900,
+                                    "y": -100
+                                }
+                            }
+                        },
+                        {
+                            "id": 8,
+                            "module": "gateway:WebhookRespond",
+                            "version": 1,
+                            "parameters": {},
+                            "mapper": {
+                                "status": 200,
+                                "headers": [
+                                    {
+                                        "key": "Content-Type",
+                                        "value": "application/json"
+                                    }
+                                ],
+                                "body": "{\"result\": \"success\", \"action\": \"reserva\", \"reply\": \"Perfecto, la cita ha sido reservada para el {{1.fecha}} a las {{1.hora}} con {{1.terapeuta}}. Se ha enviado la confirmación.\", \"appointment_id\": \"{{7.id}}\"}"
+                            },
+                            "metadata": {
+                                "designer": {
+                                    "x": 1200,
+                                    "y": -100
+                                }
+                            }
+                        }
+                    ]
+                },
+                {
+                    "flow": [
+                        {
+                            "id": 9,
+                            "module": "supabase:UpdateRow",
+                            "version": 1,
+                            "parameters": {
+                                "__IMTCONN__": null
+                            },
+                            "mapper": {
+                                "table": "appointments",
+                                "id": "{{1.cita_id}}",
+                                "record": {
+                                    "status": "Cancelada",
+                                    "cancellation_reason": "Cancelada por {{1.nombre_padre}} vía agente de voz"
+                                }
+                            },
+                            "metadata": {
+                                "designer": {
+                                    "x": 900,
+                                    "y": 100
+                                }
+                            }
+                        },
+                        {
+                            "id": 10,
+                            "module": "gateway:WebhookRespond",
+                            "version": 1,
+                            "parameters": {},
+                            "mapper": {
+                                "status": 200,
+                                "headers": [
+                                    {
+                                        "key": "Content-Type",
+                                        "value": "application/json"
+                                    }
+                                ],
+                                "body": "{\"result\": \"success\", \"action\": \"cancelacion\", \"reply\": \"La cita ha sido cancelada correctamente. Si necesitas reprogramarla, estaré encantada de ayudarte.\"}"
+                            },
+                            "metadata": {
+                                "designer": {
+                                    "x": 1200,
+                                    "y": 100
+                                }
+                            }
+                        }
+                    ]
+                },
+                {
+                    "flow": [
+                        {
+                            "id": 11,
+                            "module": "gemini-ai:CreateCompletion",
+                            "version": 1,
+                            "parameters": {
+                                "__IMTCONN__": null
+                            },
+                            "mapper": {
+                                "model": "models/gemini-1.5-flash",
+                                "contents": [
+                                    {
+                                        "role": "user",
+                                        "parts": [
+                                            {
+                                                "text": "Eres un asistente amable de la clínica infantil Proyecta, especializada en desarrollo infanto-juvenil. Los servicios que ofrece la clínica son:\n\n1. **Logopedia** – Evaluación y tratamiento de trastornos del lenguaje, habla y comunicación. Sesiones de 45-60 minutos.\n2. **Psicología Clínica** – Terapia cognitivo-conductual, intervención emocional y acompañamiento familiar. Sesiones de 50 minutos.\n3. **Neuropsicología** – Evaluación neuropsicológica, estimulación cognitiva y rehabilitación. Sesiones de 60 minutos.\n4. **Terapia Ocupacional** – Integración sensorial, psicomotricidad y autonomía funcional. Sesiones de 45 minutos.\n5. **Psicopedagogía** – Dificultades de aprendizaje, TDAH, técnicas de estudio. Sesiones de 50 minutos.\n\nEl padre/tutor pregunta: {{1.mensaje}}\n\nResponde de forma breve, profesional, cálida y comercial. Si puedes, recomienda agendar una cita de valoración. Máximo 3 frases. Responde en español."
+                                            }
+                                        ]
+                                    }
+                                ],
+                                "generationConfig": {
+                                    "temperature": 0.5,
+                                    "maxOutputTokens": 200
+                                }
+                            },
+                            "metadata": {
+                                "designer": {
+                                    "x": 900,
+                                    "y": 300
+                                }
+                            }
+                        },
+                        {
+                            "id": 12,
+                            "module": "gateway:WebhookRespond",
+                            "version": 1,
+                            "parameters": {},
+                            "mapper": {
+                                "status": 200,
+                                "headers": [
+                                    {
+                                        "key": "Content-Type",
+                                        "value": "application/json"
+                                    }
+                                ],
+                                "body": "{\"result\": \"success\", \"action\": \"informacion\", \"reply\": \"{{11.candidates[].content.parts[].text}}\"}"
+                            },
+                            "metadata": {
+                                "designer": {
+                                    "x": 1200,
+                                    "y": 300
+                                }
+                            }
+                        }
+                    ]
+                }
+            ]
+        }
+    ],
+    "metadata": {
+        "version": 1,
+        "instant": true,
+        "zone": "eu1.make.com",
+        "designer": {
+            "orphans": []
+        },
+        "scenario": {
+            "roundtrips": 1,
+            "maxErrors": 3,
+            "autoCommit": true,
+            "autoCommitTriggerLast": true,
+            "sequential": false,
+            "slots": null,
+            "confidential": false,
+            "dataloss": false,
+            "dlq": false,
+            "freshVariables": false
+        }
+    }
+}

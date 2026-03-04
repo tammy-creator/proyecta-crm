@@ -1,0 +1,146 @@
+import React, { useState, useEffect } from 'react';
+import { useAuth, type UserRole } from '../../context/AuthContext';
+import { Bell, User, LogOut, ChevronDown, Clock, LayoutDashboard, Calendar, Users, FileText, ShieldCheck, UserRound } from 'lucide-react';
+import './Header.css';
+import { useLocation } from 'react-router-dom';
+import WorkforceWidget from '../../modules/workforce/WorkforceWidget';
+import NotificationPanel from '../notifications/NotificationPanel';
+import { getNotifications } from '../../modules/notifications/service';
+import type { Notification } from '../../modules/notifications/types';
+
+const Header: React.FC = () => {
+    const { user, login, isRole } = useAuth();
+    const location = useLocation();
+    const [isProfileOpen, setIsProfileOpen] = useState(false);
+    const [isWorkforceOpen, setIsWorkforceOpen] = useState(false);
+
+    // Notification State
+    const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
+    const [notifications, setNotifications] = useState<Notification[]>([]);
+    const [unreadCount, setUnreadCount] = useState(0);
+
+    // Fetch notifications
+    useEffect(() => {
+        if (user) {
+            loadNotifications();
+        }
+    }, [user, location.pathname]); // Reload on nav change to check logic
+
+    const loadNotifications = async () => {
+        if (!user) return;
+        const role = user.role as 'ADMIN' | 'THERAPIST';
+        const notifs = await getNotifications(role, user.id);
+        setNotifications(notifs);
+        setUnreadCount(notifs.filter(n => !n.read).length);
+    };
+
+    const handleMarkAsRead = (id: string) => {
+        const updated = notifications.map(n =>
+            n.id === id ? { ...n, read: true } : n
+        );
+        setNotifications(updated);
+        setUnreadCount(updated.filter(n => !n.read).length);
+    };
+
+    const getPageInfo = () => {
+        const path = location.pathname;
+        if (path === '/') return { title: 'Dashboard', icon: <span className="header-icon text-secondary"><LayoutDashboard size={24} /></span> };
+        if (path.startsWith('/calendar')) return { title: 'Agenda', icon: <span className="header-icon text-primary"><Calendar size={24} /></span> };
+        if (path.startsWith('/patients')) return { title: 'Pacientes', icon: <span className="header-icon text-emerald-500"><Users size={24} /></span> };
+        if (path.startsWith('/waiting-list')) return { title: 'Lista de Espera', icon: <span className="header-icon text-amber-500"><Clock size={24} /></span> };
+        if (path.startsWith('/therapists')) return { title: 'Terapeutas', icon: <span className="header-icon text-indigo-500"><UserRound size={24} /></span> };
+        if (path.startsWith('/billing')) return { title: 'Facturación', icon: <span className="header-icon text-blue-500"><FileText size={24} /></span> };
+        if (path.startsWith('/admin')) return { title: 'Configuración', icon: <span className="header-icon text-slate-500"><ShieldCheck size={24} /></span> };
+
+        return { title: 'Proyecta CRM', icon: null };
+    };
+
+    const { title, icon } = getPageInfo();
+
+    const toggleRole = () => {
+        const nextRole: UserRole = isRole('ADMIN') ? 'THERAPIST' : 'ADMIN';
+        login(nextRole);
+        setIsProfileOpen(false);
+    };
+
+    return (
+        <header className="app-header">
+            <div className="header-left">
+                <div className="header-page-info">
+                    {icon}
+                    <h1 className="page-title">{title}</h1>
+                </div>
+            </div>
+
+            <div className="header-right">
+                {/* Workforce Compact Widget - Click to expand */}
+                <div className="header-action-item">
+                    <button
+                        className="btn-icon-text workforce-trigger"
+                        onClick={() => setIsWorkforceOpen(!isWorkforceOpen)}
+                    >
+                        <Clock size={18} />
+                        <span>Fichar</span>
+                    </button>
+                    {isWorkforceOpen && (
+                        <div className="workforce-popover">
+                            <WorkforceWidget />
+                        </div>
+                    )}
+                </div>
+
+                {/* Notifications */}
+                <div className="header-action-item">
+                    <button
+                        className="btn-icon-round relative"
+                        onClick={() => setIsNotificationsOpen(!isNotificationsOpen)}
+                    >
+                        <Bell size={20} />
+                        {unreadCount > 0 && <span className="notification-badge">{unreadCount}</span>}
+                    </button>
+                    {isNotificationsOpen && (
+                        <div style={{ position: 'absolute', top: '100%', right: 0, zIndex: 9999 }}>
+                            <NotificationPanel
+                                notifications={notifications}
+                                onClose={() => setIsNotificationsOpen(false)}
+                                onMarkAsRead={handleMarkAsRead}
+                            />
+                        </div>
+                    )}
+                </div>
+
+                {/* Profile */}
+                <div className="header-profile-container">
+                    <button
+                        className="header-profile-btn"
+                        onClick={() => setIsProfileOpen(!isProfileOpen)}
+                    >
+                        <div className="avatar small">{user?.name.charAt(0)}</div>
+                        <span className="profile-name">{user?.name}</span>
+                        <ChevronDown size={14} className={`transition-transform ${isProfileOpen ? 'rotate-180' : ''}`} />
+                    </button>
+
+                    {isProfileOpen && (
+                        <div className="profile-dropdown">
+                            <div className="dropdown-header">
+                                <p className="font-bold">{user?.name}</p>
+                                <p className="text-xs text-gray-500">{user?.role}</p>
+                            </div>
+                            <div className="dropdown-divider"></div>
+                            <button className="dropdown-item" onClick={toggleRole}>
+                                <User size={16} />
+                                <span>Cambiar a {isRole('ADMIN') ? 'Terapeuta' : 'Admin'}</span>
+                            </button>
+                            <button className="dropdown-item text-red-600">
+                                <LogOut size={16} />
+                                <span>Cerrar Sesión</span>
+                            </button>
+                        </div>
+                    )}
+                </div>
+            </div>
+        </header>
+    );
+};
+
+export default Header;

@@ -1,0 +1,149 @@
+.page-title {
+    font-size: 1.75rem;
+    font-weight: 700;
+    margin-bottom: 2rem;
+    color: var(--color-text-primary);
+}
+
+.stats-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+    gap: 1.5rem;
+    margin-bottom: 2rem;
+}
+
+.stat-card {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+}
+
+.stat-icon-wrapper {
+    width: 50px;
+    height: 50px;
+    border-radius: 12px;
+    background-color: var(--color-bg-primary);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.stat-icon-wrapper .text-blue {
+    color: var(--color-status-info);
+}
+
+.stat-icon-wrapper .text-green {
+    color: #2E7D32;
+}
+
+.stat-icon-wrapper .text-orange {
+    color: #F57C00;
+}
+
+.stat-icon-wrapper .text-purple {
+    color: #7B1FA2;
+}
+
+.stat-info {
+    display: flex;
+    flex-direction: column;
+}
+
+.stat-value {
+    font-size: 1.5rem;
+    font-weight: 700;
+    line-height: 1.2;
+}
+
+.stat-title {
+    font-size: 0.9rem;
+    color: var(--color-text-secondary);
+}
+
+.stat-trend {
+    font-size: 0.8rem;
+    color: var(--color-accent-green);
+    font-weight: 600;
+}
+
+.dashboard-content-grid {
+    display: grid;
+    grid-template-columns: 2fr 1fr;
+    gap: 1.5rem;
+}
+
+.appointment-item {
+    display: flex;
+    align-items: center;
+    padding: 0.75rem 0;
+    border-bottom: 1px solid rgba(0, 0, 0, 0.03);
+}
+
+.appointment-item:last-child {
+    border-bottom: none;
+}
+
+.time-badge {
+    background-color: var(--color-status-info-bg);
+    color: var(--color-status-info);
+    padding: 0.25rem 0.5rem;
+    border-radius: 8px;
+    font-weight: 600;
+    font-size: 0.85rem;
+    margin-right: 1rem;
+}
+
+.appt-details {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+}
+
+.patient-name {
+    font-weight: 600;
+    color: var(--color-text-primary);
+}
+
+.therapy-type {
+    font-size: 0.85rem;
+    color: var(--color-text-secondary);
+}
+
+.status-indicator {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+}
+
+.status-scheduled {
+    background-color: var(--color-status-info);
+}
+
+.alert-item {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.75rem;
+    background-color: var(--color-status-error-bg);
+    border-radius: 8px;
+    color: #c0392b;
+    font-weight: 500;
+}
+
+.text-red {
+    color: #c0392b;
+}
+
+.btn-link {
+    background: none;
+    border: none;
+    color: var(--color-accent-blue);
+    font-weight: 600;
+    font-size: 0.9rem;
+}
+
+@media (max-width: 1024px) {
+    .dashboard-content-grid {
+        grid-template-columns: 1fr;
+    }
+}

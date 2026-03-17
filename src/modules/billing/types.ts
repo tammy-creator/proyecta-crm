@@ -13,6 +13,7 @@ export interface Transaction {
     method?: PaymentMethod;
     category: string; // e.g., 'Terapia', 'Evaluación Material'
     invoiceId?: string; // Link to generated invoice of this transaction
+    isReconciled?: boolean; // For bank transfer reconciliation
 }
 
 export interface FinanceSummary {

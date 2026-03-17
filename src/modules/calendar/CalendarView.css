@@ -28,31 +28,33 @@
 
 .calendar-grid-wrapper {
     flex: 1;
-    background-color: var(--color-bg-secondary);
-    border-radius: var(--radius-card);
-    box-shadow: var(--shadow-soft);
+    background-color: #fffdfa;
+    /* Blanco muy cálido */
+    border-radius: 16px;
+    border: 1px solid #d4c5b4;
+    box-shadow: 0 10px 30px rgba(210, 200, 190, 0.25);
     overflow: hidden;
     display: flex;
     flex-direction: column;
 }
 
 .calendar-header {
-    display: grid;
-    grid-template-columns: 80px repeat(7, 1fr);
-    border-bottom: 1px solid rgba(0, 0, 0, 0.08);
-    background-color: var(--color-bg-secondary);
+    border-bottom: 1px solid #d4c5b4;
+    background-color: #fcfbfa;
 }
 
 .header-cell {
     padding: 1rem 0;
     text-align: center;
     font-weight: 600;
-    color: var(--color-text-secondary);
+    color: #8c7a6b;
+    /* Marrón/gris cálido */
     font-size: 0.9rem;
 }
 
 .header-cell.today {
-    color: var(--color-accent-blue);
+    color: #e07a5f;
+    /* Naranja/Coral cálido */
     position: relative;
 }
 
@@ -63,20 +65,20 @@
     left: 20%;
     right: 20%;
     height: 3px;
-    background-color: var(--color-accent-blue);
+    background-color: #e07a5f;
     border-radius: 3px 3px 0 0;
 }
 
 .calendar-body {
     flex: 1;
     overflow-y: auto;
-    display: grid;
-    grid-template-columns: 80px repeat(7, 1fr);
     position: relative;
 }
 
 .time-column {
-    border-right: 2px solid rgba(0, 0, 0, 0.1);
+    border-right: 1px solid #d4c5b4;
+    background-color: #fcfbfa;
+    /* Levemente diferenciado del fondo */
 }
 
 .time-cell {
@@ -85,34 +87,48 @@
     justify-content: center;
     padding-top: 0.5rem;
     font-size: 0.75rem;
-    color: var(--color-text-secondary);
-    border-bottom: 1px solid rgba(0, 0, 0, 0.08);
-    /* Más visible */
+    color: #8c7a6b;
+    /* Más cálido */
+    border-bottom: 1px solid #e0d4c8;
 }
 
 .day-column {
     flex: 1;
-    min-width: 150px;
-    border-right: 2px solid rgba(0, 0, 0, 0.08);
-    /* Más grueso y oscuro */
-    background-image: linear-gradient(rgba(0, 0, 0, 0.08) 1px, transparent 1px);
-    /* Grid horizontal más marcado */
+    min-width: 100px;
+    border-right: 1px solid #d4c5b4;
+    background-image: linear-gradient(#e0d4c8 1px, transparent 1px);
     background-size: 100% 80px;
     position: relative;
     cursor: cell;
-    background-color: white;
-    /* Asegurar fondo blanco puro para contraste */
+    background-color: #fffdfa;
 }
 
 .grid-slot {
     height: 80px;
     width: 100%;
     transition: background-color 0.2s;
+    border-bottom: 1px dashed rgba(180, 165, 150, 0.6);
 }
 
 .grid-slot:hover {
-    background-color: rgba(188, 228, 234, 0.15);
-    /* Basado en --color-accent-blue */
+    background-color: rgba(224, 122, 95, 0.05);
+    /* Coral muy suave al hacer hover */
+}
+
+.slot-disabled {
+    background-color: #f6f2e9;
+    /* Un tono marfil muy suave */
+    background-image: repeating-linear-gradient(45deg,
+            rgba(180, 160, 140, 0.15),
+            rgba(180, 160, 140, 0.15) 10px,
+            rgba(180, 160, 140, 0) 10px,
+            rgba(180, 160, 140, 0) 20px);
+    cursor: not-allowed;
+    opacity: 0.8;
+}
+
+.slot-disabled:hover {
+    background-color: #f6f2e9;
 }
 
 /* Modal Specifics for Calendar */
@@ -151,7 +167,7 @@
     border-radius: 8px;
     padding: 0.5rem;
     font-size: 0.8rem;
-    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.05);
+    box-shadow: 0 4px 6px rgba(210, 200, 190, 0.2);
     cursor: pointer;
     transition: transform 0.2s, box-shadow 0.2s;
     z-index: 10;
@@ -160,7 +176,7 @@
 
 .appointment-block:hover {
     transform: translateY(-2px);
-    box-shadow: 0 4px 12px rgba(6, 147, 227, 0.2);
+    box-shadow: 0 6px 12px rgba(210, 200, 190, 0.4);
 }
 
 .embedded-mode {
@@ -180,7 +196,7 @@
 }
 
 .day-col-header.today .day-number {
-    background: var(--color-accent-blue);
+    background: #e07a5f;
     color: white;
     width: 32px;
     height: 32px;

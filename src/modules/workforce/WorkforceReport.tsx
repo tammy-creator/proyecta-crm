@@ -9,21 +9,37 @@ import type { Therapist } from '../therapists/types';
 
 const WorkforceReport: React.FC = () => {
     const [month, setMonth] = useState(format(new Date(), 'yyyy-MM'));
-    const [selectedTherapistId, setSelectedTherapistId] = useState<string>('t1');
+    const [selectedTherapistId, setSelectedTherapistId] = useState<string>('');
     const [therapists, setTherapists] = useState<Therapist[]>([]);
     const [logs, setLogs] = useState<WorkLog[]>([]);
+    const [loading, setLoading] = useState(false);
 
     useEffect(() => {
-        getTherapists().then(setTherapists);
+        getTherapists().then(data => {
+            setTherapists(data);
+            if (data.length > 0 && !selectedTherapistId) {
+                setSelectedTherapistId(data[0].id);
+            }
+        });
     }, []);
 
     useEffect(() => {
-        fetchLogs();
+        if (selectedTherapistId) {
+            fetchLogs();
+        }
     }, [month, selectedTherapistId]);
 
     const fetchLogs = async () => {
-        const data = await getMonthlyReport(selectedTherapistId, month);
-        setLogs(data);
+        if (!selectedTherapistId) return;
+        setLoading(true);
+        try {
+            const data = await getMonthlyReport(selectedTherapistId, month);
+            setLogs(data);
+        } catch (error) {
+            console.error("Error fetching logs:", error);
+        } finally {
+            setLoading(false);
+        }
     };
 
     const calculateDailyStats = (log: WorkLog) => {
@@ -115,7 +131,16 @@ const WorkforceReport: React.FC = () => {
                         </tr>
                     </thead>
                     <tbody>
-                        {daysInMonth.map(day => {
+                        {loading ? (
+                            <tr>
+                                <td colSpan={6} style={{ textAlign: 'center', padding: '3rem', color: '#6b7280' }}>
+                                    <div className="flex flex-col items-center gap-2">
+                                        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+                                        <span>Cargando registros...</span>
+                                    </div>
+                                </td>
+                            </tr>
+                        ) : daysInMonth.map(day => {
                             const dateStr = format(day, 'yyyy-MM-dd');
                             const log = logs.find(l => l.date === dateStr);
                             const stats = log ? calculateDailyStats(log) : null;

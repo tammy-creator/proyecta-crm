@@ -4,25 +4,26 @@
     right: 0;
     margin-top: 0.5rem;
     width: 320px;
-    background-color: white;
-    border-radius: 12px;
-    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.15);
-    border: 1px solid rgba(0, 0, 0, 0.05);
+    background-color: rgba(255, 255, 255, 0.95);
+    backdrop-filter: blur(10px);
+    border-radius: 16px;
+    box-shadow: 0 20px 40px rgba(0, 0, 0, 0.12);
+    border: 1px solid rgba(255, 255, 255, 0.2);
     z-index: 200;
-    animation: slideDown 0.2s ease-out;
+    animation: slideDown 0.2s cubic-bezier(0, 0.55, 0.45, 1);
     display: flex;
     flex-direction: column;
     max-height: 480px;
+    overflow: hidden;
 }
 
 .notification-header {
-    padding: 1rem;
-    border-bottom: 1px solid rgba(0, 0, 0, 0.03);
+    padding: 1rem 1.25rem;
+    border-bottom: 1px solid rgba(0, 0, 0, 0.04);
     display: flex;
     justify-content: space-between;
     align-items: center;
-    background-color: #fafafa;
-    border-radius: 12px 12px 0 0;
+    background-color: rgba(250, 250, 250, 0.5);
 }
 
 .notification-header h3 {
@@ -89,10 +90,29 @@
     display: block;
 }
 
+.close-panel-btn {
+    border: none;
+    background: transparent;
+    color: #94a3b8;
+    cursor: pointer;
+    padding: 0.5rem;
+    border-radius: 8px;
+    transition: all 0.2s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.close-panel-btn:hover {
+    background-color: #f1f5f9;
+    color: #475569;
+}
+
 .mark-read-btn {
     position: absolute;
-    top: 1rem;
-    right: 1rem;
+    top: 0.75rem;
+    right: 2.75rem;
+    /* Separado del dismiss-btn */
     border: none;
     background: none;
     cursor: pointer;
@@ -110,4 +130,37 @@
 
 .notification-item.priority-low {
     border-left: 3px solid #3b82f6;
+}
+
+.dismiss-btn {
+    position: absolute;
+    top: 0.75rem;
+    right: 0.75rem;
+    border: none;
+    background: transparent;
+    color: #cbd5e1;
+    /* slate-300 */
+    cursor: pointer;
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    opacity: 0;
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+    transform: scale(0.8);
+}
+
+.notification-item:hover .dismiss-btn {
+    opacity: 1;
+    transform: scale(1);
+}
+
+.dismiss-btn:hover {
+    background-color: #fee2e2;
+    /* red-100 */
+    color: #ef4444;
+    /* red-500 */
+    box-shadow: 0 2px 5px rgba(239, 68, 68, 0.1);
 }

@@ -1,6 +1,6 @@
 import React from 'react';
 import type { Notification } from '../../modules/notifications/types';
-import { Bell, AlertCircle, FileText, CalendarX, Info, Clock } from 'lucide-react';
+import { Bell, AlertCircle, FileText, CalendarX, Info, Clock, X } from 'lucide-react';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
 import './NotificationPanel.css';
@@ -9,9 +9,10 @@ interface NotificationPanelProps {
     notifications: Notification[];
     onClose: () => void;
     onMarkAsRead: (id: string) => void;
+    onDismiss: (id: string) => void;
 }
 
-const NotificationPanel: React.FC<NotificationPanelProps> = ({ notifications, onClose, onMarkAsRead }) => {
+const NotificationPanel: React.FC<NotificationPanelProps> = ({ notifications, onClose, onMarkAsRead, onDismiss }) => {
 
     const getIcon = (type: string) => {
         switch (type) {
@@ -27,8 +28,8 @@ const NotificationPanel: React.FC<NotificationPanelProps> = ({ notifications, on
         <div className="notification-panel">
             <div className="notification-header">
                 <h3>Notificaciones</h3>
-                <button className="text-xs text-primary font-medium hover:underline" onClick={onClose}>
-                    Cerrar
+                <button className="close-panel-btn" onClick={onClose} title="Cerrar">
+                    <X size={18} />
                 </button>
             </div>
 
@@ -60,6 +61,16 @@ const NotificationPanel: React.FC<NotificationPanelProps> = ({ notifications, on
                                     <div className="w-2 h-2 rounded-full bg-blue-500"></div>
                                 </button>
                             )}
+                            <button
+                                className="dismiss-btn"
+                                title="Descartar"
+                                onClick={(e) => {
+                                    e.stopPropagation();
+                                    onDismiss(n.id);
+                                }}
+                            >
+                                <X size={14} />
+                            </button>
                         </div>
                     ))
                 )}

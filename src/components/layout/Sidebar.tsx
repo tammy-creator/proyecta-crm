@@ -13,7 +13,7 @@ const Sidebar: React.FC = () => {
         {
             title: 'General',
             items: [
-                { path: '/', icon: <LayoutDashboard size={20} />, label: 'Dashboard', roles: ['ADMIN'] },
+                { path: '/dashboard', icon: <LayoutDashboard size={20} />, label: 'Dashboard', roles: ['ADMIN'] },
                 { path: '/calendar', icon: <Calendar size={20} />, label: 'Agenda', roles: ['ADMIN', 'THERAPIST'] },
             ]
         },

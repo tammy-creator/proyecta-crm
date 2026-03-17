@@ -101,11 +101,18 @@ export const addEvent = async (therapistId: string, type: WorkLogEvent['type']):
 };
 
 export const getMonthlyReport = async (therapistId: string, month: string): Promise<WorkLog[]> => {
+    const startDate = `${month}-01`;
+    const lastDay = new Date(parseISO(startDate));
+    lastDay.setMonth(lastDay.getMonth() + 1);
+    lastDay.setDate(0);
+    const endDate = format(lastDay, 'yyyy-MM-dd');
+
     const { data, error } = await supabase
         .from('work_logs')
         .select('*, work_log_events(*)')
         .eq('therapist_id', therapistId)
-        .like('date', `${month}%`);
+        .gte('date', startDate)
+        .lte('date', endDate);
     if (error) throw error;
     return (data ?? []).map(row => ({
         id: row.id,

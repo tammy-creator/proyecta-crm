@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { getTransactions, recordPayment, updateTransaction, createTransaction } from './service';
+import { getTransactions, recordPayment, updateTransaction, createTransaction, toggleReconciliation } from './service';
 import { type Transaction, type PaymentMethod } from './types';
 import Card from '../../components/ui/Card';
 import { DollarSign, Clock, CheckCircle, CreditCard, Wallet, Send, Download, Calendar as CalendarIcon, Edit2, X, FileText, Receipt, Filter } from 'lucide-react';
@@ -7,25 +7,27 @@ import { format, parseISO, startOfDay, endOfDay } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { getPatients } from '../patients/service';
 import { type Patient } from '../patients/types';
-import { getAppointments } from '../calendar/service';
+import { getAppointments, getUnpaidAppointments } from '../calendar/service';
 import { markAppointmentPaid, setAppointmentPaidStatus } from '../calendar/service';
 import { type Appointment } from '../calendar/types';
 import './BillingView.css';
-import { createInvoice, getNextInvoiceNumber } from '../invoices/service';
+import { createInvoice, getNextInvoiceNumber, existsInvoiceNumber } from '../invoices/service';
 import type { Invoice } from '../invoices/types';
 import InvoiceList from '../invoices/InvoiceList';
 import InvoiceDocument from '../invoices/InvoiceDocument';
 
 
 const BillingView: React.FC = () => {
-    const [activeTab, setActiveTab] = useState<'TRANSACTIONS' | 'INVOICES'>('TRANSACTIONS');
+    const [activeTab, setActiveTab] = useState<'TRANSACTIONS' | 'INVOICES' | 'RECONCILIATION'>('TRANSACTIONS');
     const [transactions, setTransactions] = useState<Transaction[]>([]);
     const [todayAppointments, setTodayAppointments] = useState<Appointment[]>([]);
+    const [historicalUnpaidAppointments, setHistoricalUnpaidAppointments] = useState<Appointment[]>([]);
     const [patients, setPatients] = useState<Patient[]>([]);
     const [loading, setLoading] = useState(true);
     const [selectedDate, setSelectedDate] = useState<string>(format(new Date(), 'yyyy-MM-dd'));
     const [statusFilter, setStatusFilter] = useState<'ALL' | 'Pendiente' | 'Pagado'>('ALL');
     const [methodFilter, setMethodFilter] = useState<'ALL' | 'Efectivo' | 'Tarjeta' | 'Transferencia'>('ALL');
+    const [reconciledFilter, setReconciledFilter] = useState<'ALL' | 'VERIFIED' | 'PENDING'>('ALL');
 
 
     // Transaction Modals
@@ -37,6 +39,7 @@ const BillingView: React.FC = () => {
     const [isInvoiceModalOpen, setIsInvoiceModalOpen] = useState(false);
     const [invoiceNumber, setInvoiceNumber] = useState('');
     const [selectedInvoiceTx, setSelectedInvoiceTx] = useState<Transaction | null>(null);
+    const [isCreatingInvoice, setIsCreatingInvoice] = useState(false);
 
     // Invoice Printing
     const [printingInvoice, setPrintingInvoice] = useState<Invoice | null>(null);
@@ -65,15 +68,22 @@ const BillingView: React.FC = () => {
     const fetchData = async () => {
         setLoading(true);
         const dateObj = parseISO(selectedDate);
-        const [txData, pData, apptData] = await Promise.all([
+        const [txData, pData, apptData, unpaidAppts] = await Promise.all([
             getTransactions(),
             getPatients(),
             getAppointments(startOfDay(dateObj), endOfDay(dateObj)),
+            getUnpaidAppointments()
         ]);
         setTransactions(txData);
         setPatients(pData);
         // Solo citas no canceladas del día seleccionado
         setTodayAppointments(apptData.filter(a => a.status !== 'Cancelada'));
+        // Todas las citas no pagadas hasta hoy (evitar contar citas futuras como deuda)
+        const now = new Date();
+        setHistoricalUnpaidAppointments(unpaidAppts.filter(a =>
+            a.status !== 'Cancelada' &&
+            new Date(a.start) <= now
+        ));
         setLoading(false);
     };
 
@@ -87,8 +97,14 @@ const BillingView: React.FC = () => {
     // }, [isInvoiceModalOpen]);
 
     const handlePayment = async (id: string, method: PaymentMethod) => {
+        const tx = transactions.find(t => t.id === id);
         const success = await recordPayment(id, method);
-        if (success) fetchData();
+        if (success) {
+            if (tx?.appointmentId) {
+                await markAppointmentPaid(tx.appointmentId);
+            }
+            fetchData();
+        }
     };
 
     // Cobrar una cita que todavía no tiene transacción
@@ -141,44 +157,80 @@ const BillingView: React.FC = () => {
     };
 
     const handleCreateAndPrintInvoice = async () => {
-        if (!selectedInvoiceTx) return;
-
-        const newInvoice = await createInvoice({
-            date: new Date().toISOString(),
-            patientId: selectedInvoiceTx.patientId,
-            patientName: selectedInvoiceTx.patientName,
-            amount: selectedInvoiceTx.amount,
-            status: 'Issued',
-            items: [{ description: selectedInvoiceTx.category, amount: selectedInvoiceTx.amount }],
-            transactionId: selectedInvoiceTx.id
-        });
-
-        // Update transaction to link invoice
-        const updatedTx = { ...selectedInvoiceTx, invoiceId: newInvoice.id };
-        await updateTransaction(updatedTx);
-
-        // Optimistic UI update
-        setTransactions(prev => prev.map(t => t.id === updatedTx.id ? updatedTx : t));
-
-        await fetchData();
-
-        // Close generation modal
-        setIsInvoiceModalOpen(false);
-        setSelectedInvoiceTx(null); // Clear selection
-
-        // Open print view
-        handlePrintInvoice(newInvoice);
+        const newInvoice = await performCreateInvoice();
+        if (newInvoice) {
+            handlePrintInvoice(newInvoice);
+        }
     };
 
-    const handlePrintInvoice = (invoice: Invoice) => {
+    const performCreateInvoice = async (): Promise<Invoice | null> => {
+        if (!selectedInvoiceTx || isCreatingInvoice) return null;
+        
+        const trimmedNumber = invoiceNumber.trim();
+        if (!trimmedNumber) {
+            alert("⚠️ El número de factura no puede estar vacío.");
+            return null;
+        }
+
+        setIsCreatingInvoice(true);
+
+        try {
+            // Validation: Unique invoice number
+            const exists = await existsInvoiceNumber(trimmedNumber);
+            
+            if (exists) {
+                alert(`⚠️ Error: El número de factura "${trimmedNumber}" ya existe.\nPor favor, introduce un número diferente.`);
+                setIsCreatingInvoice(false);
+                return null;
+            }
+
+            const newInvoice = await createInvoice({
+                number: trimmedNumber,
+                date: new Date().toISOString(),
+                patientId: selectedInvoiceTx.patientId,
+                patientName: selectedInvoiceTx.patientName,
+                amount: selectedInvoiceTx.amount,
+                status: 'Issued',
+                items: [{ description: selectedInvoiceTx.category || 'Servicio Clínico', amount: selectedInvoiceTx.amount }],
+                transactionId: selectedInvoiceTx.id
+            });
+
+            // Update transaction to link invoice
+            const updatedTx = { ...selectedInvoiceTx, invoiceId: newInvoice.id };
+            await updateTransaction(updatedTx);
+
+            // Optimistic UI update
+            setTransactions(prev => prev.map(t => t.id === updatedTx.id ? updatedTx : t));
+
+            await fetchData();
+
+            // Close generation modal
+            setIsInvoiceModalOpen(false);
+            setSelectedInvoiceTx(null);
+            setIsCreatingInvoice(false);
+
+            return newInvoice;
+        } catch (error: any) {
+            setIsCreatingInvoice(false);
+            console.error("Critical Error creating invoice:", error);
+            const msg = error.message || (typeof error === 'object' ? JSON.stringify(error) : String(error));
+            alert(`No se pudo crear la factura:\n${msg}`);
+            return null;
+        }
+    };
+
+    const handlePrintInvoice = (invoice: any) => {
         setPrintingInvoice(invoice);
-        // Small delay to allow render before printing
         setTimeout(() => {
             window.print();
-            // Optional: clear printing invoice after print dialog closes? 
-            // Usually keeping it allows user to reprint if needed or just close.
-            // setPrintingInvoice(null);
         }, 500);
+    };
+
+    const handleToggleReconciliation = async (txId: string, current: boolean) => {
+        const success = await toggleReconciliation(txId, !current);
+        if (success) {
+            setTransactions(prev => prev.map(t => t.id === txId ? { ...t, isReconciled: !current } : t));
+        }
     };
 
     // ─── Listado diario: combina citas del día + transacciones ─────────────────
@@ -204,12 +256,30 @@ const BillingView: React.FC = () => {
 
 
 
-    // Totals — all transactions (not filtered by date, to show global balance)
-    const totalInvoiced = transactions.reduce((acc: number, t: Transaction) => acc + t.amount, 0);
-    const totalCollected = transactions
+    // Totals for the cards
+    // 1. Facturado y Cobrado del día seleccionado
+    const transactionsForSelectedDate = transactions.filter(t => (t.date ?? '').slice(0, 10) === selectedDate);
+
+    const totalInvoiced = transactionsForSelectedDate.reduce((acc: number, t: Transaction) => acc + Number(t.amount || 0), 0);
+    const totalCollected = transactionsForSelectedDate
         .filter((t: Transaction) => t.status === 'Pagado')
-        .reduce((acc: number, t: Transaction) => acc + t.amount, 0);
-    const pendingAmount = totalInvoiced - totalCollected;
+        .reduce((acc: number, t: Transaction) => acc + Number(t.amount || 0), 0);
+
+    // 2. Pendiente Histórico (todas las transacciones no pagadas + citas nunca cobradas)
+    // IDs de citas con transacción
+    const allTxApptIds = new Set(transactions.map(t => t.appointmentId).filter(Boolean));
+
+    // Transacciones con estado Pendiente
+    const pendingTransactionsAmount = transactions
+        .filter(t => t.status === 'Pendiente')
+        .reduce((acc, t) => acc + Number(t.amount || 0), 0);
+
+    // Citas que no están pagadas Y no tienen transacción asociada
+    const unchargedAppointmentsAmount = historicalUnpaidAppointments
+        .filter(a => !allTxApptIds.has(a.id))
+        .reduce((acc, a) => acc + Number(a.price || 0), 0);
+
+    const pendingAmount = pendingTransactionsAmount + unchargedAppointmentsAmount;
 
 
     if (loading && transactions.length === 0) return <div className="loading">Cargando histórico financiero...</div>;
@@ -226,10 +296,36 @@ const BillingView: React.FC = () => {
     };
 
     const getBreakdownTransactions = () => {
+        // IDs de citas con transacción (para evitar duplicados en el listado de pendientes)
+        const allTxApptIds = new Set(transactions.map(t => t.appointmentId).filter(Boolean));
+
+        if (breakdownFilter === 'PENDING') {
+            // Histórico de Pendientes: Transacciones Pendientes + Citas no cobradas
+            const pendingTxs = transactions.filter(t => t.status === 'Pendiente');
+            const unchargedAppts = historicalUnpaidAppointments
+                .filter(a => !allTxApptIds.has(a.id))
+                .map(a => ({
+                    id: `appt-pending-${a.id}`,
+                    appointmentId: a.id,
+                    patientId: a.patientId,
+                    patientName: a.patientName,
+                    therapistName: a.therapistName,
+                    amount: a.price || 0,
+                    date: a.start,
+                    status: 'Pendiente' as const,
+                    category: a.type,
+                    _rawAppt: a // Store for later payment
+                }));
+            return [...pendingTxs, ...unchargedAppts].sort((a, b) => b.date.localeCompare(a.date));
+        }
+
+        // Para INVOICED (ALL) y COLLECTED (PAID), filtramos por la fecha seleccionada
         return transactions.filter(t => {
+            const isSameDate = (t.date ?? '').slice(0, 10) === selectedDate;
+            if (!isSameDate) return false;
+
             if (breakdownFilter === 'ALL') return true;
             if (breakdownFilter === 'PAID') return t.status === 'Pagado';
-            if (breakdownFilter === 'PENDING') return t.status !== 'Pagado'; // Matches logic: Total - Paid
             return true;
         });
     };
@@ -343,10 +439,94 @@ const BillingView: React.FC = () => {
                         Registro de Facturas
                     </div>
                 </button>
+                <button
+                    className={`tab-btn-pill ${activeTab === 'RECONCILIATION' ? 'active' : ''}`}
+                    onClick={() => setActiveTab('RECONCILIATION')}
+                >
+                    <div className="flex items-center gap-2">
+                        <CheckCircle size={18} />
+                        Cotejo Bancario
+                    </div>
+                </button>
             </div>
 
             {activeTab === 'INVOICES' ? (
                 <InvoiceList onPrint={handlePrintInvoice} patients={patients} />
+            ) : activeTab === 'RECONCILIATION' ? (
+                <div className="reconciliation-view">
+                    <div className="flex justify-between items-center mb-6 px-2">
+                        <div>
+                            <h3 className="text-lg font-bold text-primary">Cotejo de Transferencias</h3>
+                            <p className="text-sm text-secondary">Verifica que las transferencias del banco coinciden con el registro</p>
+                        </div>
+                        <div className="flex gap-2">
+                            <select
+                                className="date-input-clean"
+                                value={reconciledFilter}
+                                onChange={(e) => setReconciledFilter(e.target.value as any)}
+                            >
+                                <option value="ALL">Todos los estados</option>
+                                <option value="PENDING">Pendientes de cotejo</option>
+                                <option value="VERIFIED">Verificadas</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div className="billing-table-wrapper">
+                        <table className="billing-table">
+                            <thead>
+                                <tr>
+                                    <th>Fecha</th>
+                                    <th>Paciente</th>
+                                    <th>Importe</th>
+                                    <th>Estado Pago</th>
+                                    <th>Cotejo Bancario</th>
+                                    <th>Acciones</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {transactions
+                                    .filter(t => t.method === 'Transferencia')
+                                    .filter(t => {
+                                        if (reconciledFilter === 'PENDING') return !t.isReconciled;
+                                        if (reconciledFilter === 'VERIFIED') return t.isReconciled;
+                                        return true;
+                                    })
+                                    .map(t => (
+                                        <tr key={t.id} style={{ opacity: t.isReconciled ? 0.7 : 1 }}>
+                                            <td>{format(parseISO(t.date), 'dd/MM/yyyy')}</td>
+                                            <td style={{ fontWeight: 600 }}>{t.patientName}</td>
+                                            <td className="amount-text">{t.amount.toFixed(2)}€</td>
+                                            <td>
+                                                <span className={`badge ${t.status === 'Pagado' ? 'badge-success' : 'badge-warning'}`}>
+                                                    {t.status}
+                                                </span>
+                                            </td>
+                                            <td>
+                                                {t.isReconciled ? (
+                                                    <span className="flex items-center gap-1 text-success font-medium">
+                                                        <CheckCircle size={14} /> Verificada
+                                                    </span>
+                                                ) : (
+                                                    <span className="flex items-center gap-1 text-secondary">
+                                                        <Clock size={14} /> Pendiente
+                                                    </span>
+                                                )}
+                                            </td>
+                                            <td>
+                                                <button
+                                                    className={`btn-${t.isReconciled ? 'secondary' : 'primary'} micro flex items-center gap-1`}
+                                                    onClick={() => handleToggleReconciliation(t.id, t.isReconciled ?? false)}
+                                                >
+                                                    {t.isReconciled ? 'Desmarcar' : 'Verificar Pago'}
+                                                </button>
+                                            </td>
+                                        </tr>
+                                    ))}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
             ) : (
                 <>
                     <div className="billing-list-header flex justify-between items-center mb-4 px-2">
@@ -555,7 +735,7 @@ const BillingView: React.FC = () => {
                                     <div className="text-3xl font-bold">
                                         {txForDay
                                             .filter((t: Transaction) => t.status === 'Pagado')
-                                            .reduce((acc: number, t: Transaction) => acc + t.amount, 0).toFixed(2)}€
+                                            .reduce((acc: number, t: Transaction) => acc + Number(t.amount || 0), 0).toFixed(2)}€
                                     </div>
                                 </div>
                                 <div className="text-right">
@@ -580,7 +760,7 @@ const BillingView: React.FC = () => {
             {/* Breakdown Modal */}
             {isBreakdownOpen && (
                 <div className="modal-overlay">
-                    <div className="modal-content" style={{ maxWidth: '800px', maxHeight: '80vh', display: 'flex', flexDirection: 'column' }}>
+                    <div className="modal-content" style={{ maxWidth: '1000px', maxHeight: '80vh', display: 'flex', flexDirection: 'column' }}>
                         <div className="modal-header">
                             <h3>{breakdownTitle}</h3>
                             <button className="btn-icon-round" onClick={() => setIsBreakdownOpen(false)}><X size={20} /></button>
@@ -594,10 +774,11 @@ const BillingView: React.FC = () => {
                                         <th>Concepto</th>
                                         <th>Importe</th>
                                         <th>Estado</th>
+                                        {breakdownFilter === 'PENDING' && <th>Acciones</th>}
                                     </tr>
                                 </thead>
                                 <tbody>
-                                    {getBreakdownTransactions().map(t => (
+                                    {getBreakdownTransactions().map((t: any) => (
                                         <tr key={t.id}>
                                             <td>{format(parseISO(t.date), 'dd/MM/yyyy')}</td>
                                             <td style={{ fontWeight: 600 }}>{t.patientName}</td>
@@ -608,6 +789,33 @@ const BillingView: React.FC = () => {
                                                     {t.status}
                                                 </span>
                                             </td>
+                                            {breakdownFilter === 'PENDING' && (
+                                                <td>
+                                                    <div className="payment-actions flex gap-1">
+                                                        <button
+                                                            className="btn-payment-method"
+                                                            onClick={() => t._rawAppt ? handleChargeAppointment(t._rawAppt, 'Efectivo') : handlePayment(t.id, 'Efectivo')}
+                                                            title="Cobrar Efectivo"
+                                                        >
+                                                            <Wallet size={14} />
+                                                        </button>
+                                                        <button
+                                                            className="btn-payment-method"
+                                                            onClick={() => t._rawAppt ? handleChargeAppointment(t._rawAppt, 'Tarjeta') : handlePayment(t.id, 'Tarjeta')}
+                                                            title="Cobrar Tarjeta"
+                                                        >
+                                                            <CreditCard size={14} />
+                                                        </button>
+                                                        <button
+                                                            className="btn-payment-method"
+                                                            onClick={() => t._rawAppt ? handleChargeAppointment(t._rawAppt, 'Transferencia') : handlePayment(t.id, 'Transferencia')}
+                                                            title="Cobrar Transferencia"
+                                                        >
+                                                            <Send size={14} />
+                                                        </button>
+                                                    </div>
+                                                </td>
+                                            )}
                                         </tr>
                                     ))}
                                     {getBreakdownTransactions().length === 0 && (
@@ -638,59 +846,39 @@ const BillingView: React.FC = () => {
                         <div className="p-4">
                             <p className="text-sm text-secondary mb-4">Se generará la factura para el paciente <strong>{selectedInvoiceTx.patientName}</strong>.</p>
                             <div className="form-group">
-                                <label>Número de Factura (Sugerido)</label>
+                                <label>Número de Factura</label>
                                 <input
                                     type="text"
                                     value={invoiceNumber}
-                                    readOnly={true} // Auto-generated for safety now
-                                    className="bg-gray-100 cursor-not-allowed"
+                                    onChange={(e) => setInvoiceNumber(e.target.value)}
+                                    className="bg-white"
+                                    placeholder="AAAA/XXX"
                                 />
                             </div>
                             <div className="form-group">
                                 <label>Concepto</label>
                                 <input
                                     type="text"
-                                    defaultValue={selectedInvoiceTx.category}
+                                    value={selectedInvoiceTx.category || ''}
                                     readOnly
                                     className="bg-gray-100"
                                 />
                             </div>
                         </div>
                         <div className="modal-footer flex gap-2 justify-end">
-                            <button className="btn-secondary flex items-center gap-2" onClick={async () => {
-                                if (!selectedInvoiceTx) return;
-                                const newInvoice = await createInvoice({
-                                    date: new Date().toISOString(),
-                                    patientId: selectedInvoiceTx.patientId,
-                                    patientName: selectedInvoiceTx.patientName,
-                                    amount: selectedInvoiceTx.amount,
-                                    status: 'Issued',
-                                    items: [{ description: selectedInvoiceTx.category, amount: selectedInvoiceTx.amount }],
-                                    transactionId: selectedInvoiceTx.id
-                                });
-                                // Update transaction with invoiceId
-                                const updatedTx = { ...selectedInvoiceTx, invoiceId: newInvoice.id };
-                                console.log('Updating transaction with invoiceId:', updatedTx);
-                                const success = await updateTransaction(updatedTx);
-                                console.log('Update result:', success);
-
-                                // Optimistic UI update
-                                setTransactions(prev => {
-                                    const newTx = prev.map(t => t.id === updatedTx.id ? updatedTx : t);
-                                    console.log('Optimistic transactions:', newTx.find(t => t.id === updatedTx.id));
-                                    return newTx;
-                                });
-
-                                // Force immediate fetch to ensure sync
-                                await fetchData();
-
-                                setIsInvoiceModalOpen(false);
-                                setSelectedInvoiceTx(null); // Clear selection
-                            }}>
-                                <CheckCircle size={18} /> Crear y Guardar
+                            <button 
+                                className="btn-secondary flex items-center gap-2" 
+                                onClick={performCreateInvoice}
+                                disabled={isCreatingInvoice}
+                            >
+                                <CheckCircle size={18} /> {isCreatingInvoice ? 'Procesando...' : 'Crear y Guardar'}
                             </button>
-                            <button className="btn-primary flex items-center gap-2" onClick={handleCreateAndPrintInvoice}>
-                                <FileText size={18} /> Crear e Imprimir
+                            <button 
+                                className="btn-primary flex items-center gap-2" 
+                                onClick={handleCreateAndPrintInvoice}
+                                disabled={isCreatingInvoice}
+                            >
+                                <FileText size={18} /> {isCreatingInvoice ? 'Procesando...' : 'Crear e Imprimir'}
                             </button>
                         </div>
                     </div>

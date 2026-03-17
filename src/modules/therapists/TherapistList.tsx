@@ -1,8 +1,8 @@
 import React, { useEffect, useState } from 'react';
 import { getTherapists, createTherapist, updateTherapist } from './service';
-import { type Therapist, SPECIALTIES } from './types';
+import { type Therapist, type DaySchedule, SPECIALTIES, DAYS_OF_WEEK } from './types';
 import Card from '../../components/ui/Card';
-import { Mail, Phone, Calendar as CalendarIcon, Edit2, Plus, X } from 'lucide-react';
+import { Mail, Phone, Calendar as CalendarIcon, Edit2, Plus, X, Trash2, Clock } from 'lucide-react';
 import './TherapistList.css';
 
 import { useAuth } from '../../context/AuthContext';
@@ -51,7 +51,6 @@ const TherapistList: React.FC = () => {
     const handleSave = async (e: React.FormEvent) => {
         e.preventDefault();
         if (!selectedTherapist) return;
-
         if (selectedTherapist.id) {
             await updateTherapist(selectedTherapist as Therapist);
         } else {
@@ -59,6 +58,47 @@ const TherapistList: React.FC = () => {
         }
         setIsModalOpen(false);
         fetchData();
+    };
+
+    const getSchedule = (): DaySchedule[] => {
+        if (selectedTherapist?.schedule && selectedTherapist.schedule.length > 0) return selectedTherapist.schedule;
+        return DAYS_OF_WEEK.map(day => ({ day, enabled: false, blocks: [] }));
+    };
+
+    const handleToggleDay = (dayIndex: number) => {
+        const sched = getSchedule();
+        const updated = sched.map((d, i) =>
+            i === dayIndex ? { ...d, enabled: !d.enabled, blocks: !d.enabled && d.blocks.length === 0 ? [{ start: '09:00', end: '14:00' }] : d.blocks } : d
+        );
+        setSelectedTherapist({ ...selectedTherapist, schedule: updated });
+    };
+
+    const handleAddBlock = (dayIndex: number) => {
+        const sched = getSchedule();
+        const updated = sched.map((d, i) =>
+            i === dayIndex ? { ...d, blocks: [...d.blocks, { start: '16:00', end: '20:00' }] } : d
+        );
+        setSelectedTherapist({ ...selectedTherapist, schedule: updated });
+    };
+
+    const handleRemoveBlock = (dayIndex: number, blockIndex: number) => {
+        const sched = getSchedule();
+        const updated = sched.map((d, i) =>
+            i === dayIndex ? { ...d, blocks: d.blocks.filter((_, bi) => bi !== blockIndex) } : d
+        );
+        setSelectedTherapist({ ...selectedTherapist, schedule: updated });
+    };
+
+    const handleUpdateBlock = (dayIndex: number, blockIndex: number, field: 'start' | 'end', value: string) => {
+        const sched = getSchedule();
+        const updated = sched.map((d, i) =>
+            i === dayIndex ? {
+                ...d, blocks: d.blocks.map((b, bi) =>
+                    bi === blockIndex ? { ...b, [field]: value } : b
+                )
+            } : d
+        );
+        setSelectedTherapist({ ...selectedTherapist, schedule: updated });
     };
 
     if (loading && therapists.length === 0) {
@@ -198,6 +238,71 @@ const TherapistList: React.FC = () => {
                                 </select>
                                 <p className="text-[10px] text-secondary mt-1">Este desfase se aplicará automáticamente al crear citas en el calendario.</p>
                             </div>
+                            {/* ── Horario Semanal ── */}
+                            <div className="form-group">
+                                <label style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                                    <Clock size={14} /> Horario Semanal de Trabajo
+                                </label>
+                                <div className="schedule-editor">
+                                    {getSchedule().map((day, dayIndex) => (
+                                        <div key={day.day} className={`schedule-day ${day.enabled ? 'enabled' : ''}`}>
+                                            <div className="schedule-day-header">
+                                                <button
+                                                    type="button"
+                                                    className={`day-toggle-btn ${day.enabled ? 'active' : ''}`}
+                                                    onClick={() => handleToggleDay(dayIndex)}
+                                                >
+                                                    {day.day}
+                                                </button>
+                                                {day.enabled && (
+                                                    <button
+                                                        type="button"
+                                                        className="btn-link text-xs"
+                                                        onClick={() => handleAddBlock(dayIndex)}
+                                                        title="Añadir bloque horario"
+                                                    >
+                                                        <Plus size={12} /> Añadir
+                                                    </button>
+                                                )}
+                                            </div>
+                                            {day.enabled && (
+                                                <div className="schedule-blocks">
+                                                    {day.blocks.map((block, blockIndex) => (
+                                                        <div key={blockIndex} className="schedule-block">
+                                                            <span className="block-label">De</span>
+                                                            <input
+                                                                type="time"
+                                                                value={block.start}
+                                                                onChange={e => handleUpdateBlock(dayIndex, blockIndex, 'start', e.target.value)}
+                                                                className="time-input"
+                                                            />
+                                                            <span className="block-label">a</span>
+                                                            <input
+                                                                type="time"
+                                                                value={block.end}
+                                                                onChange={e => handleUpdateBlock(dayIndex, blockIndex, 'end', e.target.value)}
+                                                                className="time-input"
+                                                            />
+                                                            <button
+                                                                type="button"
+                                                                className="btn-icon-sm"
+                                                                onClick={() => handleRemoveBlock(dayIndex, blockIndex)}
+                                                                title="Eliminar bloque"
+                                                            >
+                                                                <Trash2 size={12} />
+                                                            </button>
+                                                        </div>
+                                                    ))}
+                                                    {day.blocks.length === 0 && (
+                                                        <span className="text-xs text-secondary" style={{ padding: '4px 0', display: 'block' }}>Sin bloques. Añade uno.</span>
+                                                    )}
+                                                </div>
+                                            )}
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+
                             <div className="modal-footer">
                                 <button type="button" className="btn-secondary" onClick={() => setIsModalOpen(false)}>Cancelar</button>
                                 <button type="submit" className="btn-primary">Guardar</button>

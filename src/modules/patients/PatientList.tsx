@@ -1,10 +1,11 @@
 import React, { useEffect, useState } from 'react';
 import { getPatients, createPatient, updatePatient, uploadPatientFile } from './service';
+import { supabase } from '../../lib/supabase';
 import { getAppointmentsByPatient } from '../calendar/service';
 import { type Patient, type PatientFile } from './types';
 import { type Appointment } from '../calendar/types';
 import Card from '../../components/ui/Card';
-import { User, Phone, Mail, Search, UserPlus, X, Calendar, ClipboardList, FileText, Upload, Activity, Download } from 'lucide-react';
+import { User, Phone, Mail, Search, UserPlus, X, Calendar, ClipboardList, FileText, Upload, Activity, Download, Send } from 'lucide-react';
 import './PatientList.css';
 
 const PatientList: React.FC = () => {
@@ -63,9 +64,22 @@ const PatientList: React.FC = () => {
         }
     };
 
-    const handleOpenModal = (patient?: Patient) => {
+    const handleOpenModal = async (patient?: Patient) => {
         setActiveTab('general');
-        if (patient) {
+        if (patient?.id) {
+            // Recuperar siempre de la BD para asegurar datos frescos
+            try {
+                const freshPatient = await getPatientById(patient.id);
+                if (freshPatient) {
+                    setSelectedPatient(freshPatient);
+                } else {
+                    setSelectedPatient(patient);
+                }
+            } catch (error) {
+                console.error("Error fetching fresh patient data:", error);
+                setSelectedPatient(patient);
+            }
+        } else if (patient) {
             setSelectedPatient(patient);
         } else {
             setSelectedPatient({
@@ -114,14 +128,32 @@ const PatientList: React.FC = () => {
         e.preventDefault();
         if (!selectedPatient) return;
 
-        if (selectedPatient.id) {
-            await updatePatient(selectedPatient as Patient);
-        } else {
-            await createPatient(selectedPatient as Omit<Patient, 'id' | 'createdAt'>);
-        }
+        try {
+            let updatedPatient: Patient;
+            if (selectedPatient.id) {
+                updatedPatient = await updatePatient(selectedPatient as Patient);
+            } else {
+                updatedPatient = await createPatient(selectedPatient as Omit<Patient, 'id' | 'createdAt'>);
+            }
 
-        setIsModalOpen(false);
-        fetchData();
+            // Actualizar estado local inmediatamente para evitar condiciones de carrera
+            setPatients(prev => {
+                const index = prev.findIndex(p => p.id === updatedPatient.id);
+                if (index !== -1) {
+                    const next = [...prev];
+                    next[index] = updatedPatient;
+                    return next;
+                }
+                return [updatedPatient, ...prev];
+            });
+
+            setIsModalOpen(false);
+            // Re-vincular para asegurar que todo esté en sync (opcional pero recomendado)
+            fetchData();
+        } catch (error) {
+            console.error("Error saving patient:", error);
+            alert("No se pudo guardar la ficha. Por favor, revisa la conexión.");
+        }
     };
 
     const handleSimulateUpload = async () => {
@@ -129,18 +161,21 @@ const PatientList: React.FC = () => {
         const fileName = prompt('Nombre del archivo:', 'Informe_Evolucion.pdf');
         if (!fileName) return;
 
-        await uploadPatientFile(selectedPatient.id, {
-            name: fileName,
-            type: 'application/pdf',
-            size: '1.2 MB'
-        });
+        try {
+            await uploadPatientFile(selectedPatient.id, {
+                name: fileName,
+                type: 'application/pdf',
+                size: '1.2 MB'
+            });
 
-        // Refresh local data
-        getPatients().then(data => {
+            // Refresh total y el seleccionado
+            const data = await getPatients();
             setPatients(data);
             const updated = data.find(p => p.id === selectedPatient.id);
             if (updated) setSelectedPatient(updated);
-        });
+        } catch (error) {
+            console.error("Error subiendo archivo:", error);
+        }
     };
 
     const startDrawing = (e: React.MouseEvent<HTMLCanvasElement>) => {
@@ -186,30 +221,98 @@ const PatientList: React.FC = () => {
         const canvas = document.getElementById('signature-pad') as HTMLCanvasElement;
         const signatureData = canvas?.toDataURL('image/png');
 
-        // Simular generación y subida
-        await uploadPatientFile(selectedPatient.id, {
-            name: 'Ficha_Inscripcion_Firmada.pdf',
-            type: 'application/pdf',
-            size: '1.4 MB'
-        });
-
-        // Guardar firma en el paciente (simulado)
+        // Guardar firma en el paciente (Persistir en BD)
         if (signatureData) {
-            setSelectedPatient({ ...selectedPatient, consentSignature: signatureData });
-        }
+            try {
+                await updatePatient({ ...selectedPatient as Patient, consentSignature: signatureData });
 
-        alert(`Ficha firmada correctamente. Se ha enviado una copia a: ${selectedPatient.email}`);
+                // Enviar Email vía Edge Function
+                const recipientEmail = (selectedPatient as Patient).tutor1?.email || (selectedPatient as Patient).email;
+                if (recipientEmail) {
+                    const { data, error: invokeError } = await supabase.functions.invoke('send-consent-email', {
+                        body: {
+                            email: recipientEmail,
+                            patient: selectedPatient,
+                            message: `Se adjunta la ficha de inscripción y consentimiento de ${(selectedPatient as Patient).firstName} ${(selectedPatient as Patient).lastName} plenamente firmada.`,
+                            signatureData: signatureData
+                        }
+                    });
+
+                    if (invokeError) {
+                        console.error("Error invoking Edge Function:", invokeError);
+                        alert(`El documento se guardó pero hubo un problema al invocar el servicio de email: ${invokeError.message || 'Error de conexión'}`);
+                    } else if (data && data.success === false) {
+                        console.error("SMTP Error:", data.error);
+                        alert(`Error del servidor de correo: ${data.error}`);
+                    } else if (data && data.success) {
+                        console.log("Email sent successfully:", data.messageId);
+                        alert(`Ficha firmada y email enviado correctamente a: ${recipientEmail}. ID: ${data.messageId}`);
+                    }
+                }
+
+                // Simular subida de archivo para el historial si no existe
+                const hasConsentFile = (selectedPatient as Patient).files?.some(f => f.name === 'Ficha_Inscripcion_Firmada.pdf');
+                if (!hasConsentFile) {
+                    await uploadPatientFile((selectedPatient as Patient).id, {
+                        name: 'Ficha_Inscripcion_Firmada.pdf',
+                        type: 'application/pdf',
+                        size: '1.4 MB'
+                    });
+                }
+                // El alert de éxito ya se muestra dentro del bloque del email si es exitoso
+            } catch (error) {
+                console.error("Error persistiendo firma o enviando email:", error);
+                alert("Error crítico al procesar la firma o el envío del email. Revisa la consola.");
+            }
+        } else {
+            alert("No se ha detectado ninguna firma en el panel.");
+        }
 
         setIsConsentModalOpen(false);
         setIsConsentViewMode(false);
         setIsSigned(false);
 
-        // Refresh local data
-        getPatients().then(data => {
+        // Refresh local data y el seleccionado
+        try {
+            const data = await getPatients();
             setPatients(data);
             const updated = data.find(p => p.id === selectedPatient.id);
             if (updated) setSelectedPatient(updated);
-        });
+        } catch (error) {
+            console.error("Error refreshing after consent:", error);
+        }
+    };
+
+    const handleResendConsentEmail = async (patient: Patient) => {
+        if (!patient.consentSignature) {
+            alert("No hay una firma de consentimiento guardada para este paciente.");
+            return;
+        }
+
+        const recipientEmail = patient.tutor1?.email || patient.email;
+        if (!recipientEmail) {
+            alert("El paciente no tiene un email configurado.");
+            return;
+        }
+
+        try {
+            const { data, error } = await supabase.functions.invoke('send-consent-email', {
+                body: {
+                    email: recipientEmail,
+                    patient: patient,
+                    message: `Re-envío: Se adjunta la ficha de inscripción y consentimiento de ${patient.firstName} plenamente firmada.`,
+                    signatureData: patient.consentSignature
+                }
+            });
+
+            if (error) throw error;
+            if (data && data.success === false) throw new Error(data.error);
+
+            alert(`Email re-enviado correctamente a: ${recipientEmail}`);
+        } catch (error: any) {
+            console.error("Error re-enviando email:", error);
+            alert(`Error al re-enviar el email: ${error.message || 'Error desconocido'}`);
+        }
     };
 
     const handleViewFile = (file: PatientFile) => {
@@ -525,10 +628,20 @@ const PatientList: React.FC = () => {
                                         <div className="flex gap-2">
                                             <button
                                                 className="btn-link flex items-center gap-2"
-                                                onClick={() => setIsConsentModalOpen(true)}
+                                                onClick={() => {
+                                                    if (selectedPatient.consentSignature) {
+                                                        setIsConsentViewMode(true);
+                                                        setIsSigned(true);
+                                                    } else {
+                                                        setIsConsentViewMode(false);
+                                                        setIsSigned(false);
+                                                    }
+                                                    setIsConsentModalOpen(true);
+                                                }}
                                                 style={{ color: 'var(--color-status-info)', textDecoration: 'none' }}
                                             >
-                                                <FileText size={16} /> Generar Ficha Consentimiento
+                                                <FileText size={16} />
+                                                {selectedPatient.consentSignature ? 'Ver Ficha Consentimiento' : 'Generar Ficha Consentimiento'}
                                             </button>
                                             <button className="btn-secondary flex items-center gap-2" onClick={handleSimulateUpload}>
                                                 <Upload size={16} /> Subir Archivo
@@ -558,7 +671,22 @@ const PatientList: React.FC = () => {
                                                             </div>
                                                         </div>
                                                     </div>
-                                                    <button className="btn-icon micro" title="Ver archivo"><Search size={14} /></button>
+                                                    <div className="flex items-center gap-2">
+                                                        {selectedPatient.consentSignature && (
+                                                            <button
+                                                                className="btn-icon micro"
+                                                                title="Re-enviar por email"
+                                                                style={{ backgroundColor: 'rgba(0, 132, 255, 0.1)', border: '1px solid rgba(0, 132, 255, 0.2)' }}
+                                                                onClick={(e) => {
+                                                                    e.stopPropagation();
+                                                                    handleResendConsentEmail(selectedPatient as Patient);
+                                                                }}
+                                                            >
+                                                                <Send size={14} style={{ color: '#0084ff' }} />
+                                                            </button>
+                                                        )}
+                                                        <button className="btn-icon micro" title="Ver archivo"><Search size={14} /></button>
+                                                    </div>
                                                 </div>
                                             ))}
                                         </div>
@@ -684,13 +812,25 @@ const PatientList: React.FC = () => {
                                 </button>
                             )}
                             {isConsentViewMode && (
-                                <button
-                                    type="button"
-                                    className="btn-primary flex items-center gap-2"
-                                    onClick={() => window.print()}
-                                >
-                                    <Download size={16} /> Descargar PDF
-                                </button>
+                                <>
+                                    {selectedPatient.consentSignature && (
+                                        <button
+                                            type="button"
+                                            className="btn-secondary flex items-center gap-2"
+                                            onClick={() => handleResendConsentEmail(selectedPatient as Patient)}
+                                            style={{ marginRight: 'auto' }}
+                                        >
+                                            <Send size={16} /> Re-enviar por Email
+                                        </button>
+                                    )}
+                                    <button
+                                        type="button"
+                                        className="btn-primary flex items-center gap-2"
+                                        onClick={() => window.print()}
+                                    >
+                                        <Download size={16} /> Descargar PDF
+                                    </button>
+                                </>
                             )}
                         </div>
                     </div>

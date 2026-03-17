@@ -13,6 +13,7 @@ const mapTransaction = (row: any): Transaction => ({
     method: row.method,
     category: row.category ?? '',
     invoiceId: row.invoice_id,
+    isReconciled: row.is_reconciled ?? false,
 });
 
 export const getTransactions = async (): Promise<Transaction[]> => {
@@ -47,6 +48,7 @@ export const updateTransaction = async (transaction: Transaction): Promise<boole
             method: transaction.method ?? null,
             category: transaction.category,
             invoice_id: transaction.invoiceId ?? null,
+            is_reconciled: transaction.isReconciled ?? false,
         })
         .eq('id', transaction.id);
     if (error) throw error;
@@ -69,9 +71,19 @@ export const createTransaction = async (
             method: transaction.method ?? null,
             category: transaction.category,
             invoice_id: transaction.invoiceId ?? null,
+            is_reconciled: transaction.isReconciled ?? false,
         })
         .select()
         .single();
     if (error) throw error;
     return mapTransaction(data);
+};
+
+export const toggleReconciliation = async (transactionId: string, isReconciled: boolean): Promise<boolean> => {
+    const { error } = await supabase
+        .from('transactions')
+        .update({ is_reconciled: isReconciled })
+        .eq('id', transactionId);
+    if (error) throw error;
+    return true;
 };

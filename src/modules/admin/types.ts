@@ -25,7 +25,9 @@ export interface UserAccount {
     email: string;
     role: 'Admin' | 'Therapist' | 'Staff';
     status: 'Active' | 'Inactive';
+    therapistId?: string;
     lastAccess?: string;
+    requiresPasswordChange?: boolean;
 }
 
 export interface ClinicalService {

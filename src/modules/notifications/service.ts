@@ -1,8 +1,29 @@
 import { getAppointments } from '../calendar/service';
 import { getMonthlyReport, getSignature } from '../workforce/service';
 import { getTherapists } from '../therapists/service';
-import { subMonths, endOfMonth, isPast } from 'date-fns';
+import { subMonths, endOfMonth, isPast, format } from 'date-fns';
 import type { Notification } from './types';
+
+const DISMISSED_KEY = 'proyecta_dismissed_ids';
+
+export const getDismissedIds = (): string[] => {
+    const data = localStorage.getItem(DISMISSED_KEY);
+    return data ? JSON.parse(data) : [];
+};
+
+export const dismissNotification = (id: string) => {
+    const ids = getDismissedIds();
+    if (!ids.includes(id)) {
+        ids.push(id);
+        localStorage.setItem(DISMISSED_KEY, JSON.stringify(ids));
+    }
+};
+
+export const clearOldDismissedIds = () => {
+    // This is no longer needed as we want persistent dismissals, 
+    // but we can keep it for future cleanup of very old entries if needed.
+    // For now, let's just make it a no-op to fulfill user request.
+};
 
 export const getNotifications = async (role: 'ADMIN' | 'THERAPIST', userId: string): Promise<Notification[]> => {
     const notifications: Notification[] = [];
@@ -12,11 +33,15 @@ export const getNotifications = async (role: 'ADMIN' | 'THERAPIST', userId: stri
 
     // 1. ALERTAS PARA ADMIN
     if (role === 'ADMIN') {
-        // A. Citas canceladas (últimas 2 semanas)
-        const allAppointments = await getAppointments(subMonths(now, 1), endOfMonth(now));
+        // A. Citas canceladas (SOLO HOY)
+        const startOfDay = new Date();
+        startOfDay.setHours(0, 0, 0, 0);
+        const endOfDay = new Date();
+        endOfDay.setHours(23, 59, 59, 999);
+
+        const allAppointments = await getAppointments(startOfDay, endOfDay);
         const recentCancellations = allAppointments.filter(a =>
-            a.status === 'Cancelada' &&
-            new Date(a.start) > subMonths(now, 0.5)
+            a.status === 'Cancelada'
         );
 
         recentCancellations.forEach(c => {
@@ -76,12 +101,13 @@ export const getNotifications = async (role: 'ADMIN' | 'THERAPIST', userId: stri
             });
         }
 
-        // B. Diarios de sesión faltantes
-        const myAppts = await getAppointments(subMonths(now, 1), now);
+        // B. Diarios de sesión faltantes (SOLO HOY)
+        const startOfDay = new Date();
+        startOfDay.setHours(0, 0, 0, 0);
+        const myAppts = await getAppointments(startOfDay, now);
         const missingDiary = myAppts.filter(a =>
             a.therapistId === userId &&
             (a.status === 'Finalizada' || a.status === 'Cobrada') &&
-            isPast(new Date(a.start)) &&
             !a.sessionDiary
         );
 

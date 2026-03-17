@@ -1,3 +1,20 @@
+.app-header-container {
+    width: 100%;
+}
+
+.clock-in-reminder-banner {
+    background-color: #FEF3C7;
+    border-bottom: 1px solid #FDE68A;
+    color: #92400E;
+    padding: 0.75rem 2rem;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 0.875rem;
+    font-weight: 500;
+    animation: slideDown 0.3s ease-out;
+}
+
 .app-header {
     height: 70px;
     background-color: white;

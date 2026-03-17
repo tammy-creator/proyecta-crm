@@ -38,14 +38,15 @@ interface CalendarViewProps {
     therapistId?: string;
 }
 
-const HOURS = Array.from({ length: 14 }, (_, i) => i + 8); // 8:00 to 21:00
+// Default fixed hours fallback (8:00 to 21:00)
+const DEFAULT_HOURS = Array.from({ length: 14 }, (_, i) => i + 8);
 
 const CalendarView: React.FC<CalendarViewProps> = ({ mode: initialMode, therapistId: filterTherapistId }) => {
     const { user, isRole } = useAuth();
 
     // Si no se pasa modo, el admin ve todos hoy, el terapeuta su semana
     const effectiveMode = initialMode || (isRole('ADMIN') ? 'TODAY_MULTI' : 'WEEKLY_SINGLE');
-    const effectiveTherapistId = filterTherapistId || (isRole('THERAPIST') ? user?.id : undefined);
+    const effectiveTherapistId = filterTherapistId || (isRole('THERAPIST') ? user?.therapistId : undefined);
 
     const location = useLocation(); // Hoisted to top level
 
@@ -54,6 +55,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({ mode: initialMode, therapis
     const [patients, setPatients] = useState<Patient[]>([]);
     const [therapists, setTherapists] = useState<Therapist[]>([]);
     const [services, setServices] = useState<ClinicalService[]>([]);
+    const [dynamicHours, setDynamicHours] = useState<number[]>(DEFAULT_HOURS);
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [selectedAppt, setSelectedAppt] = useState<Partial<Appointment> | null>(null);
     const [isRadarOpen, setIsRadarOpen] = useState(false);
@@ -61,7 +63,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({ mode: initialMode, therapis
     const [gaps, setGaps] = useState<{ start: Date; end: Date; count: number }[]>([]);
 
     const weekStart = startOfWeek(currentDate, { weekStartsOn: 1 });
-    const weekEnd = addDays(weekStart, 6);
+    const weekEnd = addDays(weekStart, 5); // Hasta Sábado (5 días después del lunes)
 
     // Columnas: O bien los días de la semana, o bien los terapeutas
     const days = eachDayOfInterval({ start: weekStart, end: weekEnd });
@@ -100,7 +102,11 @@ const CalendarView: React.FC<CalendarViewProps> = ({ mode: initialMode, therapis
     useEffect(() => {
         fetchData();
         getPatients().then(setPatients);
-        getTherapists().then(setTherapists);
+        getTherapists().then(data => {
+            setTherapists(data);
+            // Compute dynamic hour range from therapists' schedules
+            computeDynamicHours(data);
+        });
         getServices().then(setServices);
     }, [currentDate]);
 
@@ -127,6 +133,14 @@ const CalendarView: React.FC<CalendarViewProps> = ({ mode: initialMode, therapis
         else setCurrentDate(subWeeks(currentDate, 1));
     };
 
+    // Saltar domingos si estamos en modo día
+    useEffect(() => {
+        if (effectiveMode === 'TODAY_MULTI' && getDay(currentDate) === 0) {
+            // Si es domingo, saltar al lunes
+            setCurrentDate(addDays(currentDate, 1));
+        }
+    }, [currentDate, effectiveMode]);
+
     // Auto-update statuses based on time (Interval)
     useEffect(() => {
         const interval = setInterval(() => {
@@ -135,12 +149,64 @@ const CalendarView: React.FC<CalendarViewProps> = ({ mode: initialMode, therapis
         return () => clearInterval(interval);
     }, []);
 
+    // React to workforce check-in/out events
+    useEffect(() => {
+        const handler = () => fetchData();
+        window.addEventListener('workforce-update', handler);
+        return () => window.removeEventListener('workforce-update', handler);
+    }, []);
+
+    const computeDynamicHours = (therapistList: Therapist[]) => {
+        let minHour = 8;
+        let maxHour = 21;
+        let found = false;
+
+        therapistList.forEach(t => {
+            if (!t.schedule || t.schedule.length === 0) return;
+            t.schedule.forEach(day => {
+                if (!day.enabled || day.blocks.length === 0) return;
+                day.blocks.forEach(block => {
+                    const startH = parseInt(block.start.split(':')[0], 10);
+                    const endH = parseInt(block.end.split(':')[0], 10) + (parseInt(block.end.split(':')[1], 10) > 0 ? 1 : 0);
+                    if (!found) { minHour = startH; maxHour = endH; found = true; }
+                    else {
+                        if (startH < minHour) minHour = startH;
+                        if (endH > maxHour) maxHour = endH;
+                    }
+                });
+            });
+        });
+
+        // Add 1 hour buffer before start to help readability, clamp between 6-23
+        const finalMin = Math.max(6, found ? minHour - 1 : 8);
+        const finalMax = Math.min(23, found ? maxHour + 1 : 21);
+        setDynamicHours(Array.from({ length: finalMax - finalMin }, (_, i) => i + finalMin));
+    };
+
     const goToToday = () => setCurrentDate(new Date());
+
+    const isSlotEnabled = (date: Date, hour: number, tId?: string) => {
+        if (!tId) return true;
+        const therapist = therapists.find(t => t.id === tId);
+        if (!therapist || !therapist.schedule || therapist.schedule.length === 0) return true; // Si no hay horario, por defecto abierto
+
+        const dayNames = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'];
+        const dayName = dayNames[getDay(date)];
+
+        const daySchedule = therapist.schedule.find(d => d.day === dayName);
+        if (!daySchedule || !daySchedule.enabled) return false;
+
+        return daySchedule.blocks.some(block => {
+            const startH = parseInt(block.start.split(':')[0], 10);
+            const endH = parseInt(block.end.split(':')[0], 10) + (parseInt(block.end.split(':')[1], 10) > 0 ? 1 : 0);
+            return hour >= startH && hour < endH;
+        });
+    };
 
     const handleOpenModal = async (appt?: Appointment, tId?: string, date?: Date) => {
         // Validación de Control Horario
-        if (isRole('THERAPIST') && user?.id) {
-            const status = await getCurrentStatus(user.id);
+        if (isRole('THERAPIST') && user?.therapistId) {
+            const status = await getCurrentStatus(user.therapistId);
             if (status !== 'working') {
                 alert("⛔ ACCESO DENEGADO\n\nDebes fichar la ENTRADA en el panel lateral antes de gestionar la agenda clínica.\n\nNormativa laboral vigente.");
                 return;
@@ -270,7 +336,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({ mode: initialMode, therapis
         const viewDays = effectiveMode === 'TODAY_MULTI' ? [currentDate] : days;
 
         viewDays.forEach(day => {
-            HOURS.forEach(hour => {
+            dynamicHours.forEach((hour: number) => {
                 [0, 30].forEach(min => {
                     const start = setMinutes(setHours(day, hour), min);
                     const end = addMinutes(start, 30);
@@ -302,12 +368,16 @@ const CalendarView: React.FC<CalendarViewProps> = ({ mode: initialMode, therapis
         const startHour = startDate.getHours();
         const startMin = startDate.getMinutes();
         const duration = differenceInMinutes(endDate, startDate);
-        const top = (startHour - 8) * 80 + (startMin / 60) * 80;
+        const baseHour = dynamicHours.length > 0 ? dynamicHours[0] : 8;
+        const top = (startHour - baseHour) * 80 + (startMin / 60) * 80;
         const height = (duration / 60) * 80;
         return { top: `${top}px`, height: `${height}px` };
     };
 
     const filteredAppointments = appointments.filter(appt => {
+        if (isRole('THERAPIST')) {
+            return appt.therapistId === (effectiveTherapistId || 'NONE');
+        }
         return effectiveTherapistId ? appt.therapistId === effectiveTherapistId : true;
     });
 
@@ -394,6 +464,10 @@ const CalendarView: React.FC<CalendarViewProps> = ({ mode: initialMode, therapis
     };
 
     const columns = effectiveMode === 'TODAY_MULTI' ? therapists : days;
+    const gridStyle = {
+        display: 'grid',
+        gridTemplateColumns: `80px repeat(${columns.length}, 1fr)`
+    };
 
     return (
         <div className={`calendar-container ${initialMode ? 'embedded-mode' : ''}`}>
@@ -432,7 +506,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({ mode: initialMode, therapis
             </div>
 
             <div className="calendar-grid-wrapper">
-                <div className="calendar-header">
+                <div className="calendar-header" style={gridStyle}>
                     <div className="header-cell"></div>
                     {columns.map((col, i) => (
                         <div key={i} className="header-cell">
@@ -451,26 +525,32 @@ const CalendarView: React.FC<CalendarViewProps> = ({ mode: initialMode, therapis
                     ))}
                 </div>
 
-                <div className="calendar-body">
+                <div className="calendar-body" style={gridStyle}>
                     <div className="time-column">
-                        {HOURS.map(h => <div key={h} className="time-cell">{h}:00</div>)}
+                        {dynamicHours.map((h: number) => <div key={h} className="time-cell">{h}:00</div>)}
                     </div>
 
                     {columns.map((col, i) => (
                         <div key={i} className="day-column">
                             {/* Slots clicables de fondo */}
-                            {HOURS.map(h => (
-                                <div
-                                    key={h}
-                                    className="grid-slot"
-                                    onClick={() => {
-                                        const date = effectiveMode === 'TODAY_MULTI' ? currentDate : (col as Date);
-                                        const startWithHour = setHours(date, h);
-                                        const startWithTime = setMinutes(startWithHour, 0);
-                                        handleOpenModal(undefined, effectiveMode === 'TODAY_MULTI' ? (col as Therapist).id : effectiveTherapistId, startWithTime);
-                                    }}
-                                />
-                            ))}
+                            {dynamicHours.map((h: number) => {
+                                const date = effectiveMode === 'TODAY_MULTI' ? currentDate : (col as Date);
+                                const tId = effectiveMode === 'TODAY_MULTI' ? (col as Therapist).id : effectiveTherapistId;
+                                const enabled = isSlotEnabled(date, h, tId);
+
+                                return (
+                                    <div
+                                        key={h}
+                                        className={`grid-slot ${!enabled ? 'slot-disabled' : ''}`}
+                                        onClick={() => {
+                                            if (!enabled) return;
+                                            const startWithHour = setHours(date, h);
+                                            const startWithTime = setMinutes(startWithHour, 0);
+                                            handleOpenModal(undefined, tId, startWithTime);
+                                        }}
+                                    />
+                                );
+                            })}
 
                             {filteredAppointments
                                 .filter(appt => {
@@ -510,6 +590,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({ mode: initialMode, therapis
                                                 e.stopPropagation();
                                                 handleOpenModal(appt);
                                             }}
+                                            title={`Estado: ${appt.status} | Tipo: ${appt.type} | Paciente: ${appt.patientName}`}
                                         >
                                             <div className="flex justify-between items-start w-full">
                                                 <span className="appt-patient" style={{ fontWeight: 600, fontSize: '0.75rem' }}>{appt.patientName}</span>
@@ -548,9 +629,27 @@ const CalendarView: React.FC<CalendarViewProps> = ({ mode: initialMode, therapis
                             </div>
                             <div className="form-group">
                                 <label><User size={14} style={{ marginRight: 6 }} /> Terapeuta</label>
-                                <select required value={selectedAppt.therapistId} onChange={e => setSelectedAppt({ ...selectedAppt, therapistId: e.target.value })} style={{ padding: '0.75rem', borderRadius: '8px', border: '1px solid #ddd' }}>
-                                    {therapists.map(t => <option key={t.id} value={t.id}>{t.fullName}</option>)}
-                                </select>
+                                {isRole('ADMIN') ? (
+                                    <select
+                                        required
+                                        value={selectedAppt.therapistId}
+                                        onChange={e => {
+                                            const t = therapists.find(th => th.id === e.target.value);
+                                            setSelectedAppt({ ...selectedAppt, therapistId: e.target.value, therapistName: t?.fullName || '' });
+                                        }}
+                                        style={{ padding: '0.75rem', borderRadius: '8px', border: '1px solid #ddd' }}
+                                    >
+                                        <option value="">Seleccionar terapeuta...</option>
+                                        {therapists.map(t => <option key={t.id} value={t.id}>{t.fullName}</option>)}
+                                    </select>
+                                ) : (
+                                    <input
+                                        type="text"
+                                        readOnly
+                                        value={selectedAppt.therapistName || ''}
+                                        style={{ background: '#f9fafb', color: '#6b7280', padding: '0.75rem', borderRadius: '8px', border: '1px solid #ddd' }}
+                                    />
+                                )}
                             </div>
                             <div className="flex gap-4">
                                 <div className="form-group" style={{ flex: 2 }}><label>Fecha</label><input type="date" required value={getModalDate()} onChange={e => handleModalDateChange(e.target.value)} /></div>
@@ -644,7 +743,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({ mode: initialMode, therapis
                                     </label>
 
                                     <div className="day-selector flex gap-1 mb-4">
-                                        {['L', 'M', 'X', 'J', 'V', 'S', 'D'].map((day, i) => {
+                                        {['L', 'M', 'X', 'J', 'V', 'S'].map((day, i) => {
                                             const dayNum = i + 1;
                                             const isSelected = selectedAppt.recurrence?.days?.includes(dayNum);
                                             return (

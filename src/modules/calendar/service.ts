@@ -44,6 +44,16 @@ export const getAppointmentsByPatient = async (patientId: string): Promise<Appoi
     return (data ?? []).map(mapAppointment);
 };
 
+export const getUnpaidAppointments = async (): Promise<Appointment[]> => {
+    const { data, error } = await supabase
+        .from('appointments')
+        .select('*, clinical_services(price)')
+        .eq('is_paid', false)
+        .order('start_time', { ascending: false });
+    if (error) throw error;
+    return (data ?? []).map(mapAppointment);
+};
+
 export const createAppointment = async (appointment: Omit<Appointment, 'id'>): Promise<Appointment> => {
     const { data, error } = await supabase
         .from('appointments')

@@ -12,6 +12,8 @@ import {
     getReferralSourceStats
 } from './service';
 import { type CenterSettings, type AuditLog, type UserAccount, type ClinicalService } from './types';
+import { getTherapists } from '../therapists/service';
+import { type Therapist } from '../therapists/types';
 import Card from '../../components/ui/Card';
 import {
     Settings,
@@ -27,6 +29,7 @@ import {
     Mail,
     User as UserIcon,
     ShieldCheck,
+    ShieldAlert,
     Stethoscope,
     Plus,
     Trash2,
@@ -39,6 +42,7 @@ import {
 import './AdminView.css';
 import WorkforceReport from '../../modules/workforce/WorkforceReport';
 import AnalyticsDashboard from '../../modules/analytics/AnalyticsDashboard';
+import AdminChangePasswordModal from '../../components/layout/AdminChangePasswordModal';
 
 const AdminView: React.FC = () => {
     const [activeTab, setActiveTab] = useState<'center' | 'users' | 'services' | 'security' | 'reports' | 'workforce' | 'analytics'>('center');
@@ -52,7 +56,13 @@ const AdminView: React.FC = () => {
 
     // User Modal state
     const [isUserModalOpen, setIsUserModalOpen] = useState(false);
-    const [selectedUser, setSelectedUser] = useState<Partial<UserAccount> | null>(null);
+    const [selectedUser, setSelectedUser] = useState<Partial<UserAccount> & { password?: string } | null>(null);
+    const [userError, setUserError] = useState<string | null>(null);
+    const [therapists, setTherapists] = useState<Therapist[]>([]);
+
+    // Password change state
+    const [isPasswordModalOpen, setIsPasswordModalOpen] = useState(false);
+    const [passwordTherapistId, setPasswordTherapistId] = useState<string | null>(null);
 
     // Service Modal state
     const [isServiceModalOpen, setIsServiceModalOpen] = useState(false);
@@ -64,18 +74,20 @@ const AdminView: React.FC = () => {
 
     const fetchData = async () => {
         setLoading(true);
-        const [settingsData, usersData, logsData, servicesData, statsData] = await Promise.all([
+        const [settingsData, usersData, logsData, servicesData, statsData, therapistsData] = await Promise.all([
             getCenterSettings(),
             getUsers(),
             getAuditLogs(),
             getServices(),
-            getReferralSourceStats()
+            getReferralSourceStats(),
+            getTherapists()
         ]);
         setSettings(settingsData);
         setUsers(usersData);
         setLogs(logsData);
         setServices(servicesData);
         setReferralStats(statsData);
+        setTherapists(therapistsData);
         setLoading(false);
     };
 
@@ -87,24 +99,32 @@ const AdminView: React.FC = () => {
                 fullName: '',
                 email: '',
                 role: 'Therapist',
-                status: 'Active'
+                status: 'Active',
+                password: ''
             });
         }
+        setUserError(null);
         setIsUserModalOpen(true);
     };
 
     const handleSaveUser = async (e: React.FormEvent) => {
         e.preventDefault();
         if (!selectedUser) return;
+        setUserError(null);
 
-        if (selectedUser.id) {
-            await updateUser(selectedUser as UserAccount);
-        } else {
-            await createUser(selectedUser as Omit<UserAccount, 'id' | 'lastAccess'>);
+        try {
+            if (selectedUser.id) {
+                await updateUser(selectedUser as UserAccount);
+            } else {
+                await createUser(selectedUser as Omit<UserAccount, 'id' | 'lastAccess'>);
+            }
+
+            setIsUserModalOpen(false);
+            fetchData();
+        } catch (err: any) {
+            console.error('Error saving user:', err);
+            setUserError(err.message || 'Error al guardar el usuario');
         }
-
-        setIsUserModalOpen(false);
-        fetchData();
     };
 
     const handleOpenServiceModal = (service?: ClinicalService) => {
@@ -420,15 +440,65 @@ const AdminView: React.FC = () => {
                             </button>
                         </div>
                         <form className="modal-form" onSubmit={handleSaveUser}>
+                            {userError && (
+                                <div style={{
+                                    padding: '0.75rem',
+                                    background: '#fee2e2',
+                                    color: '#dc2626',
+                                    borderRadius: '8px',
+                                    fontSize: '0.85rem',
+                                    marginBottom: '1rem',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    gap: '8px'
+                                }}>
+                                    <ShieldAlert size={16} />
+                                    {userError}
+                                </div>
+                            )}
                             <div className="form-group">
-                                <label><UserIcon size={14} style={{ marginRight: 6 }} /> Nombre Completo</label>
-                                <input
-                                    type="text"
-                                    required
-                                    value={selectedUser.fullName || ''}
-                                    onChange={e => setSelectedUser({ ...selectedUser, fullName: e.target.value })}
-                                    placeholder="Ej. Juan Pérez"
-                                />
+                                <label><UserIcon size={14} style={{ marginRight: 6 }} /> Terapeuta Asignado</label>
+                                {selectedUser.id ? (
+                                    <input
+                                        type="text"
+                                        disabled
+                                        value={selectedUser.fullName || ''}
+                                        style={{ background: '#f9fafb', color: '#6b7280' }}
+                                    />
+                                ) : (
+                                    <select
+                                        required
+                                        value={selectedUser.fullName || ''}
+                                        onChange={e => {
+                                            const t = therapists.find(t => t.fullName === e.target.value);
+                                            setSelectedUser({
+                                                ...selectedUser,
+                                                fullName: t?.fullName || '',
+                                                email: t?.email || selectedUser.email || '',
+                                                therapistId: t?.id
+                                            });
+                                        }}
+                                        style={{ padding: '0.75rem', borderRadius: '8px', border: '1px solid #ddd', width: '100%' }}
+                                    >
+                                        <option value="">Selecciona un terapeuta...</option>
+                                        {(() => {
+                                            const normalize = (s: string) => (s || '').toLowerCase().trim().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+                                            return therapists
+                                                .filter(t => {
+                                                    const alreadyHasAccount = users.some(u => {
+                                                        const idMatch = u.therapistId && u.therapistId === t.id;
+                                                        const emailMatch = u.email && t.email && normalize(u.email) === normalize(t.email);
+                                                        const nameMatch = u.fullName && t.fullName && normalize(u.fullName) === normalize(t.fullName);
+                                                        return idMatch || emailMatch || nameMatch;
+                                                    });
+                                                    return !alreadyHasAccount;
+                                                })
+                                                .map(t => (
+                                                    <option key={t.id} value={t.fullName}>{t.fullName} — {t.specialty}</option>
+                                                ));
+                                        })()}
+                                    </select>
+                                )}
                             </div>
                             <div className="form-group">
                                 <label><Mail size={14} style={{ marginRight: 6 }} /> Email Corporativo</label>
@@ -462,7 +532,37 @@ const AdminView: React.FC = () => {
                                     </select>
                                 </div>
                             </div>
+
+                            {!selectedUser.id && (
+                                <div className="form-group">
+                                    <label><Lock size={14} style={{ marginRight: 6 }} /> Contraseña Inicial</label>
+                                    <input
+                                        type="text"
+                                        required
+                                        value={(selectedUser as any).password || ''}
+                                        onChange={e => setSelectedUser({ ...selectedUser, password: e.target.value } as any)}
+                                        placeholder="Mínimo 6 caracteres"
+                                    />
+                                    <p style={{ fontSize: '0.75rem', color: '#6b7280', marginTop: '0.25rem' }}>
+                                        El usuario deberá cambiarla obligatoriamente en su primer acceso.
+                                    </p>
+                                </div>
+                            )}
                             <div className="modal-footer" style={{ marginTop: '2rem' }}>
+                                {selectedUser.id && (
+                                    <button
+                                        type="button"
+                                        className="btn-secondary flex items-center gap-2"
+                                        style={{ marginRight: 'auto' }}
+                                        onClick={() => {
+                                            const t = therapists.find(th => th.fullName === selectedUser.fullName);
+                                            if (t) { setPasswordTherapistId(t.id); setIsPasswordModalOpen(true); }
+                                            else alert('No se encontró el terapeuta asociado para cambiar contraseña.');
+                                        }}
+                                    >
+                                        <Lock size={14} /> Cambiar Contraseña
+                                    </button>
+                                )}
                                 <button type="button" className="btn-secondary" onClick={() => setIsUserModalOpen(false)}>
                                     Cancelar
                                 </button>
@@ -519,6 +619,17 @@ const AdminView: React.FC = () => {
                         </form>
                     </div>
                 </div>
+            )}
+
+            {isPasswordModalOpen && passwordTherapistId && (
+                <AdminChangePasswordModal
+                    therapistId={passwordTherapistId}
+                    therapistName={selectedUser?.fullName || 'Terapeuta'}
+                    onClose={() => {
+                        setIsPasswordModalOpen(false);
+                        setPasswordTherapistId(null);
+                    }}
+                />
             )}
         </div>
     );

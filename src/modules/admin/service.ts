@@ -23,7 +23,9 @@ const mapUser = (row: any): UserAccount => ({
     email: row.email,
     role: row.role,
     status: row.status,
+    therapistId: row.therapist_id,
     lastAccess: row.last_access,
+    requiresPasswordChange: row.requires_password_change,
 });
 
 const mapLog = (row: any): AuditLog => ({
@@ -113,20 +115,27 @@ export const getUsers = async (): Promise<UserAccount[]> => {
     return (data ?? []).map(mapUser);
 };
 
-export const createUser = async (user: Omit<UserAccount, 'id' | 'lastAccess'>): Promise<UserAccount> => {
-    // Nota: en producción, el usuario debe crearse primero en Auth y luego aquí
-    const { data, error } = await supabase
-        .from('user_accounts')
-        .insert({
-            full_name: user.fullName,
-            email: user.email,
-            role: user.role,
-            status: user.status,
-        })
-        .select()
-        .single();
-    if (error) throw error;
-    return mapUser(data);
+export const createUser = async (userData: Partial<UserAccount> & { password?: string }): Promise<UserAccount> => {
+    const { data: { session } } = await supabase.auth.getSession();
+    
+    const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/admin-create-user`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${session?.access_token}`,
+            'apikey': import.meta.env.VITE_SUPABASE_ANON_KEY
+        },
+        body: JSON.stringify(userData)
+    });
+
+    if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        console.error('Edge Function Error:', errorData);
+        throw new Error(errorData.error || `Error ${response.status}: ${response.statusText}`);
+    }
+
+    const { user } = await response.json();
+    return user;
 };
 
 export const updateUser = async (user: UserAccount): Promise<UserAccount> => {
@@ -137,6 +146,7 @@ export const updateUser = async (user: UserAccount): Promise<UserAccount> => {
             email: user.email,
             role: user.role,
             status: user.status,
+            therapist_id: user.therapistId,
         })
         .eq('id', user.id)
         .select()

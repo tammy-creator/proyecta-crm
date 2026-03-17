@@ -5,79 +5,94 @@ import type { WorkStatus } from './types';
 import { Play, Pause, Square, Clock, PenTool } from 'lucide-react';
 import './WorkforceWidget.css';
 import SigningModal from './SigningModal';
+import { supabase } from '../../lib/supabase';
 
 const WorkforceWidget: React.FC = () => {
     const { user } = useAuth();
     const [status, setStatus] = useState<WorkStatus>('offline');
     const [loading, setLoading] = useState(true);
-    const [elapsed, setElapsed] = useState(0);
-    const [initialSeconds, setInitialSeconds] = useState(0);
+    const [elapsed, setElapsed] = useState(0); // Total today
+    const [baseTotal, setBaseTotal] = useState(0); // Total at moment of fetch
+    const [fetchTime, setFetchTime] = useState<number>(Date.now());
     const [isSigningOpen, setIsSigningOpen] = useState(false);
-    const [lastStartTime] = useState<string | undefined>(undefined);
+    const [schedule, setSchedule] = useState<any[]>([]);
+    const [shiftEnd, setShiftEnd] = useState<string | null>(null);
+    const [isShiftEnded, setIsShiftEnded] = useState(false);
 
     useEffect(() => {
         if (user) {
             loadStatus();
+            loadSchedule();
         }
     }, [user]);
 
-    // Timer effect - runs locally but syncs every minute with server time if needed (or just relying on local calc from start time)
+    const loadSchedule = async () => {
+        if (!user || user.role !== 'THERAPIST' || !user.therapistId) return;
+        const { data } = await supabase.from('therapists').select('schedule').eq('id', user.therapistId).single();
+        if (data?.schedule) setSchedule(data.schedule);
+    };
+
+    // Timer effect
     useEffect(() => {
         let interval: any;
-        if (status === 'working' && lastStartTime) {
-            // Update immediately
+        if (status === 'working') {
             updateElapsed();
             interval = setInterval(updateElapsed, 1000);
         } else {
-            if (status !== 'working') setElapsed(0);
+            setElapsed(baseTotal);
         }
         return () => clearInterval(interval);
-    }, [status, lastStartTime]); // Depend on lastStartTime
+    }, [status, baseTotal, fetchTime]);
 
     const updateElapsed = () => {
-        if (!lastStartTime) return;
-        const now = new Date();
-        const start = new Date(lastStartTime);
-        const diff = Math.floor((now.getTime() - start.getTime()) / 1000) + initialSeconds;
-        setElapsed(diff);
+        const now = Date.now();
+        const diff = Math.floor((now - fetchTime) / 1000);
+        setElapsed(baseTotal + diff);
+
+        // Shift end check
+        if (shiftEnd && status === 'working') {
+            const [h, m] = shiftEnd.split(':').map(Number);
+            const target = new Date();
+            target.setHours(h, m, 0, 0);
+            if (Date.now() > target.getTime()) {
+                setIsShiftEnded(true);
+            } else {
+                setIsShiftEnded(false);
+            }
+        }
     };
 
+    useEffect(() => {
+        if (schedule.length > 0) {
+            const dayName = new Intl.DateTimeFormat('en-US', { weekday: 'long' }).format(new Date());
+            const todaySchedule = schedule.find((s: any) => s.day === dayName);
+            if (todaySchedule && todaySchedule.enabled) {
+                setShiftEnd(todaySchedule.end);
+            }
+        }
+    }, [schedule]);
+
     const loadStatus = async () => {
-        if (!user) return;
-        const stats = await getLiveWorkStats(user.id);
+        if (!user || !user.therapistId) return;
+        const stats = await getLiveWorkStats(user.therapistId);
         setStatus(stats.status);
-        setInitialSeconds(stats.totalSeconds); // Total worked before current session (or total today)
-        // Actually getLiveWorkStats returns totalSeconds including current session?
-        // Let's adjust logic. The service calculateDailySeconds INCLUDES current session if working.
-        // So totalSeconds IS the correct value to display? 
-        // Yes, if we want "Total Worked Today". 
-        // If we want "Time in this session", we need lastEventTime.
-        // The widget currently shows just one timer. Usually "Total Worked Today" is better.
-        // But the previous impl was "Elapsed in this session" (reset on status change).
-        // Let's show TOTAL WORKED TODAY as it is more useful.
-        // So `initialSeconds` is the total seconds at the moment of fetch.
-        // The service calculateDailySeconds INCLUDES current session if working.
-        // So `stats.totalSeconds` IS the live value at that moment.
-        // So I just need to increment it locally?
-        // Better: store `referenceTime` and `referenceTotal`.
-
-        // Simpler approach for this widget:
-        // We want to show "Current Session Duration" OR "Total Today"?
-        // Let's show "Total Today" as it's more informative for "Control Horario".
-
-        // If status is working:
-        // elapsed = stats.totalSeconds + (diff since fetch)
-
-        setInitialSeconds(stats.totalSeconds);
+        setBaseTotal(stats.totalSeconds);
+        setFetchTime(Date.now());
         setLoading(false);
     };
 
     const handleAction = async (type: 'check-in' | 'break-start' | 'break-end' | 'check-out') => {
-        if (!user) return;
+        if (!user || !user.therapistId) return;
         setLoading(true);
-        await addEvent(user.id, type);
-        await loadStatus(); // This will refresh baseTotal and fetchTime
-        setLoading(false);
+        try {
+            await addEvent(user.therapistId, type);
+            await loadStatus();
+            window.dispatchEvent(new CustomEvent('workforce-update', { detail: { type, userId: user.therapistId } }));
+        } catch (error) {
+            console.error("Error updating workforce status:", error);
+        } finally {
+            setLoading(false);
+        }
     };
 
     const formatTime = (seconds: number) => {
@@ -100,9 +115,16 @@ const WorkforceWidget: React.FC = () => {
                         {status === 'break' && 'En Pausa'}
                     </span>
                     {status === 'working' && (
-                        <div className="flex items-center gap-1 text-xs text-secondary mt-1">
-                            <Clock size={10} />
-                            <span>{formatTime(elapsed)}</span>
+                        <div className="flex flex-col">
+                            <div className="flex items-center gap-1 text-xs text-secondary mt-1">
+                                <Clock size={10} />
+                                <span>{formatTime(elapsed)}</span>
+                            </div>
+                            {isShiftEnded && (
+                                <span className="text-[10px] text-red-500 font-bold animate-pulse">
+                                    ⚠️ Horario finalizado
+                                </span>
+                            )}
                         </div>
                     )}
                 </div>

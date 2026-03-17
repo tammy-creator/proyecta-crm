@@ -66,3 +66,17 @@ export const updateTherapist = async (therapist: Therapist): Promise<Therapist> 
     if (error) throw error;
     return mapTherapist(data);
 };
+
+export const changePassword = async (_userId: string, _currentPassword: string, newPassword: string): Promise<void> => {
+    const { error } = await supabase.auth.updateUser({ password: newPassword });
+    if (error) throw error;
+};
+
+export const adminResetPassword = async (therapistId: string, newPassword: string): Promise<void> => {
+    // Update password for the auth user whose ID matches the therapist's id
+    const { error } = await supabase.functions.invoke('admin-reset-password', {
+        body: { userId: therapistId, newPassword }
+    });
+    if (error) throw new Error(error.message || 'Error al cambiar la contraseña');
+};
+

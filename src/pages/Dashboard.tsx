@@ -2,10 +2,12 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import Card from '../components/ui/Card';
-import { Users, Calendar, DollarSign, Activity, Clock, AlertTriangle } from 'lucide-react';
+import AppointmentDetailModal from '../components/ui/AppointmentDetailModal';
+import { Users, Calendar, DollarSign, Activity, AlertTriangle, FileText, Clock } from 'lucide-react';
 import { startOfDay, endOfDay, format } from 'date-fns';
 import { getAppointments } from '../modules/calendar/service';
 import { getTransactions } from '../modules/billing/service';
+import { getWaitingList } from '../modules/patients/service';
 import { supabase } from '../lib/supabase';
 import { type Appointment } from '../modules/calendar/types';
 import { type Transaction } from '../modules/billing/types';
@@ -16,29 +18,71 @@ interface DashboardStats {
     activePatients: number;
     todayRevenue: number;
     pendingRevenue: number;
-    attendanceRate: number;
+    waitingListCount: number;
 }
 
 const Dashboard: React.FC = () => {
     const navigate = useNavigate();
-    const { isRole } = useAuth();
+    const { user, isRole } = useAuth();
     const [todayAppointments, setTodayAppointments] = useState<Appointment[]>([]);
+    const [selectedAppt, setSelectedAppt] = useState<Appointment | null>(null);
+    const [isModalOpen, setIsModalOpen] = useState(false);
     const [stats, setStats] = useState<DashboardStats>({
         todayCount: 0,
         activePatients: 0,
         todayRevenue: 0,
         pendingRevenue: 0,
-        attendanceRate: 0,
+        waitingListCount: 0,
     });
     const [loading, setLoading] = useState(true);
 
+    const getStatusClass = (status: string) => {
+        const s = (status || '').trim().toLowerCase();
+        if (s.includes('programada')) return 'programada';
+        if (s.includes('sesi')) return 'en-sesion';
+        if (s.includes('finalizada')) return 'finalizada';
+        if (s.includes('cobrada')) return 'cobrada';
+        if (s.includes('cancela')) return 'cancelada';
+        if (s.includes('ausente')) return 'ausente';
+        return 'default';
+    };
+
+    const calculateStatuses = (list: Appointment[]) => {
+        const now = new Date();
+        return list.map(appt => {
+            if (appt.isPaid) return { ...appt, status: 'Cobrada' as const };
+
+            const start = new Date(appt.start);
+            const end = new Date(appt.end);
+
+            if (['Cancelada', 'Cobrada', 'Ausente'].includes(appt.status)) {
+                return appt;
+            }
+
+            let newStatus = appt.status;
+            if (now >= start && now < end) {
+                if (appt.status === 'Programada') newStatus = 'En Sesión';
+            } else if (now >= end) {
+                if (appt.status === 'Programada' || appt.status === 'En Sesión') newStatus = 'Finalizada';
+            }
+
+            return newStatus !== appt.status ? { ...appt, status: newStatus as any } : appt;
+        });
+    };
+
     useEffect(() => {
-        if (isRole('THERAPIST') && !isRole('ADMIN')) {
-            navigate('/calendar');
-            return;
+        if (user && isRole('THERAPIST') && !isRole('ADMIN')) {
+            navigate('/calendar', { replace: true });
         }
-        loadDashboardData();
-    }, []);
+    }, [user, isRole, navigate]);
+
+    useEffect(() => {
+        if (user && (!isRole('THERAPIST') || isRole('ADMIN'))) {
+            loadDashboardData();
+        } else if (user) {
+            setLoading(false);
+        }
+    }, [user]);
 
     const loadDashboardData = async () => {
         try {
@@ -64,39 +108,39 @@ const Dashboard: React.FC = () => {
                 })
                 .sort((a, b) => new Date(a.start).getTime() - new Date(b.start).getTime());
 
-            setTodayAppointments(todayAppts.slice(0, 5));
+            setTodayAppointments(calculateStatuses(todayAppts.slice(0, 5)));
 
             // Ingresos de hoy
-            const todayTrans = transactions.filter(t => {
-                const d = new Date(t.date);
-                return d >= start && d <= end;
-            });
+            const todayStr = format(today, 'yyyy-MM-dd');
+            const todayTrans = transactions.filter(t => t.date && t.date.startsWith(todayStr));
+
             const todayRevenue = todayTrans
                 .filter((t: Transaction) => t.status === 'Pagado')
-                .reduce((sum: number, t: Transaction) => sum + t.amount, 0);
-            const pendingRevenue = transactions
-                .filter((t: Transaction) => t.status === 'Pendiente')
-                .reduce((sum: number, t: Transaction) => sum + t.amount, 0);
+                .reduce((sum: number, t: Transaction) => sum + Number(t.amount || 0), 0);
 
-            // Tasa de asistencia (últimas 30 sesiones)
-            const recentAppts = await getAppointments(
-                new Date(today.getTime() - 30 * 24 * 60 * 60 * 1000),
-                today
-            );
-            const completed = recentAppts.filter(a =>
-                a.status === 'Finalizada' || a.status === 'Cobrada'
-            ).length;
-            const totalNonCancelled = recentAppts.filter(a => a.status !== 'Cancelada').length;
-            const attendanceRate = totalNonCancelled > 0
-                ? Math.round((completed / totalNonCancelled) * 100)
-                : 100;
+            // Pendiente del día: Transacciones Pendientes de hoy + Citas sin transacción de hoy
+            const allTxApptIds = new Set(transactions.map(t => t.appointmentId).filter(Boolean));
+
+            const pendingTransactionsAmount = todayTrans
+                .filter(t => t.status === 'Pendiente')
+                .reduce((sum, t) => sum + Number(t.amount || 0), 0);
+
+            const now = new Date();
+            const unchargedAppointmentsAmount = todayAppts
+                .filter(a => !allTxApptIds.has(a.id) && !a.isPaid && new Date(a.start) <= now)
+                .reduce((sum, a) => sum + Number(a.price || 0), 0);
+
+            const pendingRevenue = pendingTransactionsAmount + unchargedAppointmentsAmount;
+
+            // Lista de espera
+            const waitingList = await getWaitingList();
 
             setStats({
                 todayCount: todayAppts.length,
                 activePatients: patientsResult.count ?? 0,
                 todayRevenue,
                 pendingRevenue,
-                attendanceRate,
+                waitingListCount: waitingList.length,
             });
         } catch (err) {
             console.error('Error cargando dashboard:', err);
@@ -111,29 +155,41 @@ const Dashboard: React.FC = () => {
             value: loading ? '...' : String(stats.todayCount),
             icon: <Calendar size={24} className="text-blue" />,
             trend: loading ? '' : `${stats.todayCount === 0 ? 'Sin citas programadas' : 'sesiones programadas'}`,
+            path: '/calendar'
         },
         {
             title: 'Pacientes Activos',
             value: loading ? '...' : String(stats.activePatients),
             icon: <Users size={24} className="text-green" />,
             trend: 'en tratamiento',
+            path: '/patients'
         },
         {
             title: 'Ingresos Hoy',
             value: loading ? '...' : `${stats.todayRevenue.toFixed(0)}€`,
             icon: <DollarSign size={24} className="text-orange" />,
             trend: loading ? '' : `Pendiente ${stats.pendingRevenue.toFixed(0)}€`,
+            path: '/billing'
         },
         {
-            title: 'Asistencia',
-            value: loading ? '...' : `${stats.attendanceRate}%`,
-            icon: <Activity size={24} className="text-purple" />,
-            trend: stats.attendanceRate >= 90 ? 'Excelente' : stats.attendanceRate >= 75 ? 'Estable' : 'Baja',
+            title: 'Lista de Espera',
+            value: loading ? '...' : String(stats.waitingListCount),
+            icon: <Clock size={24} className="text-purple" />,
+            trend: stats.waitingListCount === 0 ? 'Sin pendientes' : 'Pacientes por asignar',
+            path: '/waiting-list'
         },
     ];
 
     return (
         <div className="dashboard-container">
+            <AppointmentDetailModal
+                appointment={selectedAppt}
+                isOpen={isModalOpen}
+                onClose={() => {
+                    setIsModalOpen(false);
+                    setSelectedAppt(null);
+                }}
+            />
             <div className="flex justify-between items-center mb-6">
                 <div>
                     <h2 className="page-title">Panel de Control</h2>
@@ -143,7 +199,11 @@ const Dashboard: React.FC = () => {
 
             <div className="stats-grid">
                 {statCards.map((stat, index) => (
-                    <Card key={index} className="stat-card">
+                    <Card
+                        key={index}
+                        className={`stat-card ${stat.path ? 'cursor-pointer hover:shadow-lg transition-all duration-200 transform hover:-translate-y-1' : ''}`}
+                        onClick={() => stat.path ? navigate(stat.path) : undefined}
+                    >
                         <div className="stat-icon-wrapper">{stat.icon}</div>
                         <div className="stat-info">
                             <span className="stat-value">{stat.value}</span>
@@ -165,19 +225,45 @@ const Dashboard: React.FC = () => {
                             todayAppointments.map((appt) => (
                                 <div
                                     key={appt.id}
-                                    className="appointment-item cursor-pointer hover:bg-gray-50 transition-colors"
-                                    onClick={() => navigate('/calendar', { state: { openAppointmentId: appt.id } })}
-                                    title="Ver en calendario"
+                                    className={`appointment-item status-${getStatusClass(appt.status)} cursor-pointer transition-colors`}
+                                    onClick={() => {
+                                        setSelectedAppt(appt);
+                                        setIsModalOpen(true);
+                                    }}
+                                    title={`Ver detalles: ${appt.status}`}
                                 >
                                     <div className="time-badge">{format(new Date(appt.start), 'HH:mm')}</div>
                                     <div className="appt-details">
-                                        <div className="flex justify-between">
-                                            <span className="patient-name">{appt.patientName}</span>
-                                            <span className="text-xs text-secondary font-medium">{appt.therapistName}</span>
+                                        <div className="flex justify-between items-start">
+                                            <div className="flex flex-col">
+                                                <div className="flex items-center gap-2">
+                                                    <span className="patient-name">{appt.patientName}</span>
+                                                    <div className="flex items-center gap-1">
+                                                        {(appt.isPaid || appt.status === 'Cobrada') ? (
+                                                            <span title="Cobrada"><DollarSign size={14} className="text-emerald-500" /></span>
+                                                        ) : (
+                                                            appt.status !== 'Cancelada' && (
+                                                                <span title="Pendiente de cobro"><DollarSign size={14} className="text-red-500" /></span>
+                                                            )
+                                                        )}
+                                                        {(appt.status === 'Finalizada' || appt.status === 'Cobrada') && !appt.sessionDiary && (
+                                                            <span title="Falta diario de sesión"><AlertTriangle size={14} className="text-orange-500" /></span>
+                                                        )}
+                                                        {(appt.status === 'Finalizada' || appt.status === 'Cobrada') && appt.sessionDiary && (
+                                                            <span title="Diario completado"><FileText size={14} className="text-blue-500" /></span>
+                                                        )}
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            <span className={`appt-status-badge ${appt.status === 'Cobrada' ? 'is-paid' : ''}`}>
+                                                {appt.status}
+                                            </span>
                                         </div>
-                                        <span className="therapy-type">{appt.type}</span>
+                                        <div className="flex justify-between text-xs text-secondary mt-1">
+                                            <span className="therapy-type">{appt.type}</span>
+                                            <span className="therapist-name">{appt.therapistName}</span>
+                                        </div>
                                     </div>
-                                    <div className={`status-indicator status-${appt.status.replace(' ', '-').toLowerCase()}`}></div>
                                 </div>
                             ))
                         )}

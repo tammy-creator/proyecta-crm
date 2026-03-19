@@ -28,7 +28,8 @@ const Sidebar: React.FC = () => {
             title: 'Administración',
             items: [
                 { path: '/therapists', icon: <UserRound size={20} />, label: 'Terapeutas', roles: ['ADMIN'] },
-                { path: '/billing', icon: <FileText size={20} />, label: 'Facturación', roles: ['ADMIN'] },
+                { path: '/billing', icon: <FileText size={20} />, label: 'Facturación', roles: ['ADMIN', 'THERAPIST'] },
+                { path: '/workforce', icon: <Clock size={20} />, label: 'Control Horario', roles: ['ADMIN'] },
                 { path: '/admin', icon: <ShieldCheck size={20} />, label: 'Configuración', roles: ['ADMIN'] },
             ]
         }

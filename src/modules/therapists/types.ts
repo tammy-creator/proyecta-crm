@@ -13,7 +13,7 @@ export interface Therapist {
     id: string;
     fullName: string;
     specialty: string;
-    licenseNumber: string; // Nº Colegiado
+    licenseNumber?: string; // Nº Colegiado
     dni: string;
     email: string;
     phone: string;

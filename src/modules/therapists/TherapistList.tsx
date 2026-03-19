@@ -132,7 +132,7 @@ const TherapistList: React.FC = () => {
                             <div className="therapist-info">
                                 <h3 className="therapist-name">{therapist.fullName}</h3>
                                 <span className="therapist-specialty">{therapist.specialty}</span>
-                                <span className="therapist-license">Col. {therapist.licenseNumber}</span>
+                                {therapist.licenseNumber && <span className="therapist-license">Col. {therapist.licenseNumber}</span>}
                             </div>
                             {isRole('ADMIN') && (
                                 <button className="btn-icon" title="Editar" onClick={() => handleOpenModal(therapist)}>
@@ -206,7 +206,6 @@ const TherapistList: React.FC = () => {
                                     <label>Nº Colegiado</label>
                                     <input
                                         type="text"
-                                        required
                                         value={selectedTherapist.licenseNumber}
                                         onChange={e => setSelectedTherapist({ ...selectedTherapist, licenseNumber: e.target.value })}
                                     />

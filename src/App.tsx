@@ -7,6 +7,7 @@ import CalendarView from './modules/calendar/CalendarView';
 import BillingView from './modules/billing/BillingView';
 import AdminView from './modules/admin/AdminView';
 import WaitingList from './modules/patients/WaitingList';
+import WorkforceReport from './modules/workforce/WorkforceReport';
 import LoginPage from './pages/LoginPage';
 import RequireAuth from './components/layout/RequireAuth';
 import { AuthProvider, useAuth } from './context/AuthContext';
@@ -58,6 +59,7 @@ const AppRoutes = () => {
         <Route index element={<Navigate to="/calendar" replace />} />
         <Route path="dashboard" element={<Dashboard />} />
         <Route path="calendar" element={<CalendarView />} />
+        <Route path="workforce" element={<WorkforceReport />} />
         <Route path="therapists" element={<TherapistList />} />
         <Route path="patients" element={<PatientList />} />
         <Route path="waiting-list" element={<WaitingList />} />

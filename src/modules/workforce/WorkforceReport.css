@@ -1,0 +1,904 @@
+/* ==============================================
+   WorkforceReport — Professional Attendance Table
+   ============================================== */
+
+/* ── Header Controls ── */
+.workforce-header {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: space-between;
+    align-items: center;
+    gap: 1rem;
+    margin-bottom: 1.5rem;
+}
+
+.workforce-header-controls {
+    display: flex;
+    gap: 0.75rem;
+    align-items: center;
+}
+
+.workforce-header-controls input[type="month"],
+.workforce-header-controls select {
+    padding: 0.65rem 1rem;
+    border: 1px solid #e5e7eb;
+    border-radius: 14px;
+    background: white;
+    font-family: inherit;
+    font-size: 0.9rem;
+    font-weight: 500;
+    color: var(--color-text-primary);
+    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.04);
+    outline: none;
+    transition: border-color 0.25s, box-shadow 0.25s;
+}
+
+.workforce-header-controls input[type="month"]:focus,
+.workforce-header-controls select:focus {
+    border-color: var(--color-accent-blue);
+    box-shadow: 0 0 0 3px rgba(188, 228, 234, 0.35);
+}
+
+.workforce-header-actions {
+    display: flex;
+    gap: 0.5rem;
+}
+
+.btn-absence {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    padding: 0.6rem 1rem;
+    background-color: #f5f0ff;
+    color: #7c3aed;
+    border: none;
+    border-radius: 12px;
+    font-size: 0.85rem;
+    font-weight: 600;
+    transition: all 0.3s;
+    cursor: pointer;
+}
+
+.btn-absence:hover {
+    background-color: #ede9fe;
+    transform: translateY(-1px);
+}
+
+.btn-export {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    padding: 0.6rem 1rem;
+    background-color: var(--color-accent-blue);
+    color: #1A5F7A;
+    border: none;
+    border-radius: 12px;
+    font-size: 0.85rem;
+    font-weight: 700;
+    transition: all 0.3s;
+    cursor: pointer;
+}
+
+.btn-export:hover {
+    background-color: var(--color-accent-hover);
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(26, 95, 122, 0.15);
+}
+
+/* ── Summary Cards ── */
+.workforce-summary {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 1rem;
+    margin-bottom: 2rem;
+}
+
+.summary-card {
+    padding: 1.25rem;
+    border-radius: 16px;
+    border: 1px solid transparent;
+}
+
+.summary-card-label {
+    font-size: 0.7rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    margin-bottom: 0.25rem;
+}
+
+.summary-card-label-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.summary-card-value {
+    font-size: 1.75rem;
+    font-weight: 800;
+    line-height: 1.1;
+}
+
+.summary-blue { background-color: #eef4ff; border-color: #dbeafe; }
+.summary-blue .summary-card-label { color: #3b82f6; }
+.summary-blue .summary-card-value { color: #1e3a5f; }
+
+.summary-green { background-color: #ecfdf5; border-color: #d1fae5; }
+.summary-green .summary-card-label { color: #10b981; }
+.summary-green .summary-card-value { color: #064e3b; }
+
+.summary-orange { background-color: #fff7ed; border-color: #fed7aa; }
+.summary-orange .summary-card-label { color: #f59e0b; }
+.summary-orange .summary-card-value { color: #78350f; }
+
+.summary-red { background-color: #fef2f2; border-color: #fecaca; }
+.summary-red .summary-card-label { color: #ef4444; }
+.summary-red .summary-card-value { color: #7f1d1d; }
+
+/* ── Professional Table ── */
+.wf-table-wrapper {
+    background: white;
+    border-radius: 20px;
+    box-shadow: 0 4px 20px -2px rgba(0, 0, 0, 0.06);
+    overflow: hidden;
+    border: 1px solid #f1f5f9;
+}
+
+.wf-table {
+    width: 100%;
+    border-collapse: collapse;
+    text-align: left;
+}
+
+.wf-table thead {
+    background: #f8fafc;
+}
+
+.wf-table th {
+    padding: 1rem 1.5rem;
+    font-size: 0.7rem;
+    font-weight: 700;
+    color: #94a3b8;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    border-bottom: 1px solid #f1f5f9;
+}
+
+.wf-table td {
+    padding: 1.1rem 1.5rem;
+    font-size: 0.9rem;
+    color: var(--color-text-primary);
+    border-bottom: 1px solid #f8fafc;
+    transition: background-color 0.3s;
+}
+
+/* Striped rows */
+.wf-table tbody tr:nth-child(even) {
+    background-color: #fafbfd;
+}
+
+.wf-table tbody tr {
+    transition: all 0.3s ease;
+}
+
+.wf-table tbody tr:hover {
+    background-color: #eef6ff !important;
+}
+
+/* Row states */
+.wf-row-missing {
+    background-color: #fff5f5 !important;
+}
+
+.wf-row-missing:hover {
+    background-color: #ffe8e8 !important;
+}
+
+.wf-row-today {
+    background-color: #f0f7ff !important;
+    border-left: 3px solid var(--color-accent-blue);
+}
+
+/* Date cell */
+.wf-date-name {
+    font-weight: 600;
+    color: var(--color-text-primary);
+    text-transform: capitalize;
+    display: block;
+}
+
+.wf-date-today {
+    font-size: 0.6rem;
+    font-weight: 800;
+    color: #3b82f6;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+}
+
+/* Status badges */
+.wf-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.3rem;
+    padding: 0.2rem 0.6rem;
+    border-radius: 20px;
+    font-size: 0.7rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+}
+
+.wf-badge-ok {
+    background-color: #dcfce7;
+    color: #16a34a;
+}
+
+.wf-badge-vacation {
+    background-color: #dbeafe;
+    color: #2563eb;
+}
+
+.wf-badge-sick {
+    background-color: #ffedd5;
+    color: #ea580c;
+}
+
+.wf-badge-missing {
+    background-color: #fee2e2;
+    color: #dc2626;
+    animation: pulse-badge 2s infinite;
+}
+
+@keyframes pulse-badge {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.6; }
+}
+
+.wf-no-activity {
+    font-size: 0.8rem;
+    color: #cbd5e1;
+    font-style: italic;
+}
+
+/* Time entries with arrow icons */
+.wf-time-entry {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    font-weight: 500;
+    color: var(--color-text-primary);
+}
+
+.wf-icon-in {
+    color: #22c55e;
+}
+
+.wf-icon-out {
+    color: #ef4444;
+}
+
+.wf-time-dash {
+    color: #d1d5db;
+}
+
+/* Appointments pill */
+.wf-appts-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.3rem;
+    padding: 0.2rem 0.6rem;
+    background: #f0f9ff;
+    border: 1px solid #e0f2fe;
+    border-radius: 8px;
+    font-weight: 700;
+    font-size: 0.8rem;
+    color: #0369a1;
+}
+
+/* ── Action buttons (hidden by default, visible on hover) ── */
+.wf-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 0.25rem;
+    opacity: 0;
+    transform: translateX(8px);
+    transition: all 0.3s ease;
+}
+
+.wf-table tbody tr:hover .wf-actions {
+    opacity: 1;
+    transform: translateX(0);
+}
+
+.wf-action-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 32px;
+    height: 32px;
+    border: none;
+    border-radius: 10px;
+    background: transparent;
+    cursor: pointer;
+    transition: all 0.2s;
+    color: #94a3b8;
+}
+
+.wf-action-btn:hover {
+    background: white;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+}
+
+.wf-action-edit:hover {
+    color: #3b82f6;
+}
+
+.wf-action-delete:hover {
+    color: #ef4444;
+    background-color: #fef2f2;
+}
+
+.wf-action-add {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.3rem;
+    padding: 0.35rem 0.75rem;
+    background: #eef4ff;
+    color: #3b82f6;
+    border: none;
+    border-radius: 10px;
+    font-size: 0.75rem;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all 0.3s;
+}
+
+.wf-action-add:hover {
+    background: #3b82f6;
+    color: white;
+    box-shadow: 0 4px 12px rgba(59, 130, 246, 0.25);
+}
+
+/* ── Loading State ── */
+.wf-loading {
+    text-align: center;
+    padding: 3rem 1rem;
+}
+
+.wf-spinner {
+    width: 32px;
+    height: 32px;
+    border: 3px solid #e2e8f0;
+    border-top-color: #3b82f6;
+    border-radius: 50%;
+    animation: spin 0.6s linear infinite;
+    margin: 0 auto 0.75rem;
+}
+
+@keyframes spin {
+    to { transform: rotate(360deg); }
+}
+
+.wf-loading-text {
+    font-size: 0.85rem;
+    color: var(--color-text-secondary);
+    font-weight: 500;
+}
+
+/* ── Holiday Calendar ── */
+.holiday-calendar {
+    margin-top: 0;
+    background: white;
+    border-radius: 24px;
+    border: 1px solid #f1f5f9;
+    box-shadow: 0 4px 20px -2px rgba(0, 0, 0, 0.06);
+    padding: 2rem;
+}
+
+.holiday-header {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    margin-bottom: 2rem;
+}
+
+.holiday-icon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 40px;
+    height: 40px;
+    background: #eef4ff;
+    color: #3b82f6;
+    border-radius: 12px;
+}
+
+.holiday-title {
+    font-size: 1.1rem;
+    font-weight: 700;
+    color: var(--color-text-primary);
+    margin: 0;
+}
+
+.holiday-subtitle {
+    font-size: 0.75rem;
+    color: var(--color-text-secondary);
+    margin: 0;
+}
+
+.holidays-grid {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    gap: 6px;
+}
+
+.holidays-grid-day-label {
+    text-align: center;
+    font-size: 0.65rem;
+    font-weight: 700;
+    color: #94a3b8;
+    text-transform: uppercase;
+    padding-bottom: 0.5rem;
+}
+
+.holiday-day {
+    aspect-ratio: 1;
+    border-radius: 12px;
+    border: 1px solid #f1f5f9;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.3s ease;
+    position: relative;
+    cursor: default;
+}
+
+.holiday-day:hover {
+    transform: scale(1.08);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+}
+
+.holiday-day-number {
+    font-size: 0.8rem;
+    font-weight: 700;
+    color: #64748b;
+}
+
+.holiday-day-today {
+    box-shadow: 0 0 0 2px var(--color-accent-blue), 0 0 0 4px white;
+}
+
+.holiday-day-dot {
+    position: absolute;
+    top: 4px;
+    right: 4px;
+    width: 4px;
+    height: 4px;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.6);
+}
+
+/* Day types */
+.holiday-day-vacation {
+    background: #3b82f6;
+    border-color: transparent;
+}
+
+.holiday-day-vacation .holiday-day-number {
+    color: white;
+}
+
+.holiday-day-sick {
+    background: #f97316;
+    border-color: transparent;
+}
+
+.holiday-day-sick .holiday-day-number {
+    color: white;
+}
+
+.holiday-day-weekend {
+    background: #f8fafc;
+}
+
+/* Legend */
+.holiday-legend {
+    display: flex;
+    gap: 1.5rem;
+    margin-top: 1.5rem;
+    padding-top: 1.25rem;
+    border-top: 1px solid #f1f5f9;
+}
+
+.legend-item {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+}
+
+.legend-dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+}
+
+.legend-dot-vacation { background: #3b82f6; }
+.legend-dot-sick { background: #f97316; }
+
+.legend-label {
+    font-size: 0.7rem;
+    font-weight: 700;
+    color: #64748b;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+
+/* ── Tabs Navigation ── */
+.admin-tabs {
+    display: flex;
+    gap: 0.5rem;
+    padding: 0.25rem;
+    background: #f1f5f9;
+    border-radius: 14px;
+}
+
+.tab-btn {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.6rem 1.25rem;
+    border: none;
+    border-radius: 10px;
+    background: transparent;
+    font-size: 0.9rem;
+    font-weight: 600;
+    color: #64748b;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.tab-btn:hover {
+    color: #1e293b;
+    background: rgba(255, 255, 255, 0.5);
+}
+
+.tab-btn.active {
+    background: white;
+    color: #3b82f6;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+}
+
+/* ── Content Tabs Wrapper ── */
+.workforce-content-tabs {
+    min-height: 400px;
+    margin-top: 2rem;
+}
+
+/* ── Animations ── */
+.animate-in {
+    animation: fadeIn 0.4s ease-out;
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(10px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+/* ── Modern Modal Inputs ── */
+.wf-form {
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
+    padding-top: 0.5rem;
+}
+
+.wf-form-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1rem;
+}
+
+.wf-form-label {
+    display: block;
+    font-size: 0.65rem;
+    font-weight: 700;
+    color: #94a3b8;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    margin-bottom: 0.5rem;
+    padding-left: 0.25rem;
+}
+
+.wf-form-input {
+    width: 100%;
+    padding: 0.9rem 1rem;
+    background: #f8fafc;
+    border: 1px solid transparent;
+    border-radius: 14px;
+    font-family: inherit;
+    font-size: 0.9rem;
+    font-weight: 500;
+    color: var(--color-text-primary);
+    outline: none;
+    transition: all 0.3s;
+}
+
+.wf-form-input:focus {
+    background: white;
+    border-color: var(--color-accent-blue);
+    box-shadow: 0 0 0 3px rgba(188, 228, 234, 0.3);
+}
+
+.wf-form-textarea {
+    width: 100%;
+    padding: 0.9rem 1rem;
+    background: #f8fafc;
+    border: 1px solid transparent;
+    border-radius: 14px;
+    font-family: inherit;
+    font-size: 0.9rem;
+    font-weight: 500;
+    color: var(--color-text-primary);
+    outline: none;
+    resize: none;
+    height: 100px;
+    transition: all 0.3s;
+}
+
+.wf-form-textarea:focus {
+    background: white;
+    border-color: var(--color-accent-blue);
+    box-shadow: 0 0 0 3px rgba(188, 228, 234, 0.3);
+}
+
+/* Absence type selector buttons */
+.wf-type-selector {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0.75rem;
+}
+
+.wf-type-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    padding: 1rem;
+    border: 2px solid #f1f5f9;
+    border-radius: 14px;
+    background: white;
+    font-size: 0.9rem;
+    font-weight: 600;
+    color: #94a3b8;
+    cursor: pointer;
+    transition: all 0.3s;
+}
+
+.wf-type-btn:hover {
+    border-color: #e2e8f0;
+}
+
+.wf-type-btn.active-vacation {
+    border-color: #3b82f6;
+    background: #eef4ff;
+    color: #3b82f6;
+}
+
+.wf-type-btn.active-sick {
+    border-color: #f97316;
+    background: #fff7ed;
+    color: #f97316;
+}
+
+/* Form footer */
+.wf-form-footer {
+    display: flex;
+    justify-content: flex-end;
+    gap: 0.75rem;
+    padding-top: 0.5rem;
+}
+
+.wf-btn-cancel {
+    padding: 0.7rem 1.5rem;
+    border: none;
+    border-radius: 14px;
+    background: transparent;
+    font-family: inherit;
+    font-size: 0.9rem;
+    font-weight: 600;
+    color: var(--color-text-secondary);
+    cursor: pointer;
+    transition: all 0.3s;
+}
+
+.wf-btn-cancel:hover {
+    background: #f1f5f9;
+}
+
+.wf-btn-save {
+    padding: 0.7rem 2rem;
+    border: none;
+    border-radius: 14px;
+    background: var(--color-accent-blue);
+    font-family: inherit;
+    font-size: 0.9rem;
+    font-weight: 700;
+    color: #1A5F7A;
+    cursor: pointer;
+    transition: all 0.3s;
+    box-shadow: 0 4px 14px rgba(188, 228, 234, 0.4);
+}
+
+.wf-btn-save:hover {
+    background: var(--color-accent-hover);
+    transform: translateY(-1px);
+    box-shadow: 0 6px 20px rgba(188, 228, 234, 0.5);
+}
+
+.wf-btn-save:active {
+    transform: translateY(0);
+}
+
+@media print {
+    html, body {
+        height: auto !important;
+        overflow: visible !important;
+    }
+
+    body * {
+        visibility: hidden;
+    }
+    
+    .print-only, .print-only * {
+        visibility: visible !important;
+    }
+    
+    .print-only {
+        position: absolute !important;
+        left: 0 !important;
+        top: 0 !important;
+        width: 100% !important;
+        margin: 0 !important;
+        padding: 0 !important;
+        background: white !important;
+        height: auto !important;
+        overflow: hidden !important; 
+    }
+
+    /* Eliminar desplazamientos y márgenes de contenedores padre */
+    #root, .app-container, .main-content, .admin-view {
+        margin: 0 !important;
+        padding: 0 !important;
+        background: white !important;
+        height: 0 !important; 
+        min-height: 0 !important;
+    }
+
+    /* Ocultar elementos específicos que puedan estorbar */
+    .btn-icon, .btn-primary, .btn-secondary, 
+    .btn-export, .wf-btn-save, .wf-btn-cancel,
+    nav, aside, header, 
+    .workforce-header, .wf-actions, .wf-table-container, .wf-calendar-wrapper, .holiday-legend {
+        display: none !important;
+    }
+
+    @page {
+        margin: 10mm;
+        size: A4 portrait;
+    }
+}
+
+/* ── Signing Modal Enhancements ── */
+.signing-stats-grid {
+    display: flex;
+    gap: 0.75rem;
+    margin-bottom: 1.25rem;
+}
+
+.signing-stat-card {
+    flex: 1;
+    background-color: #f8fafc;
+    padding: 1rem;
+    border-radius: 16px;
+    border: 1px solid #f1f5f9;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    transition: all 0.3s ease;
+}
+
+.signing-stat-card:hover {
+    background-color: white;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+    border-color: #e2e8f0;
+}
+
+.signing-stat-card .stat-label {
+    font-size: 0.65rem;
+    font-weight: 700;
+    color: #94a3b8;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    margin-bottom: 0.25rem;
+}
+
+.signing-stat-card .stat-value {
+    font-size: 1.25rem;
+    font-weight: 800;
+    color: #1e293b;
+}
+
+.signing-status-banner {
+    padding: 1rem 1.25rem;
+    border-radius: 16px;
+    border: 1px solid transparent;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 1.25rem;
+}
+
+.signing-status-banner.signed {
+    background-color: #f0fdf4;
+    border-color: #dcfce7;
+    color: #166534;
+}
+
+.signing-status-banner.pending {
+    background-color: #fffbeb;
+    border-color: #fef3c7;
+    color: #92400e;
+}
+
+.signing-status-banner .status-title {
+    font-size: 0.85rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+}
+
+.signing-status-banner .status-date {
+    font-size: 0.75rem;
+    font-weight: 600;
+    opacity: 0.8;
+}
+
+.signing-legal-box {
+    padding: 1.25rem;
+    border-radius: 16px;
+    background-color: #f8fafc;
+    border: 1px solid #e2e8f0;
+    position: relative;
+    overflow: hidden;
+    margin-bottom: 1.25rem;
+}
+
+.signing-legal-box::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 4px;
+    height: 100%;
+    background-color: var(--color-accent-blue);
+    opacity: 0.5;
+}
+
+.signing-legal-box .legal-title {
+    font-size: 0.65rem;
+    font-weight: 800;
+    color: var(--color-accent-blue);
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    margin-bottom: 0.5rem;
+}
+
+.signing-legal-box .legal-text {
+    font-size: 0.8rem;
+    line-height: 1.5;
+    color: #475569;
+    font-style: italic;
+    margin: 0;
+}

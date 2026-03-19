@@ -3,8 +3,12 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import Card from '../components/ui/Card';
 import AppointmentDetailModal from '../components/ui/AppointmentDetailModal';
-import { Users, Calendar, DollarSign, Activity, AlertTriangle, FileText, Clock } from 'lucide-react';
-import { startOfDay, endOfDay, format } from 'date-fns';
+import { Users, Calendar, DollarSign, AlertTriangle, FileText, Clock, BarChart3 } from 'lucide-react';
+import { startOfDay, endOfDay, format, subDays, eachDayOfInterval, isSameDay } from 'date-fns';
+import { es } from 'date-fns/locale';
+import { 
+    BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer 
+} from 'recharts';
 import { getAppointments } from '../modules/calendar/service';
 import { getTransactions } from '../modules/billing/service';
 import { getWaitingList } from '../modules/patients/service';
@@ -19,6 +23,7 @@ interface DashboardStats {
     todayRevenue: number;
     pendingRevenue: number;
     waitingListCount: number;
+    weeklyOccupancy: { day: string; fullDate: string; count: number }[];
 }
 
 const Dashboard: React.FC = () => {
@@ -33,6 +38,7 @@ const Dashboard: React.FC = () => {
         todayRevenue: 0,
         pendingRevenue: 0,
         waitingListCount: 0,
+        weeklyOccupancy: [],
     });
     const [loading, setLoading] = useState(true);
 
@@ -135,12 +141,27 @@ const Dashboard: React.FC = () => {
             // Lista de espera
             const waitingList = await getWaitingList();
 
+            // 4. Ocupación Semanal (Últimos 7 días)
+            const weekStart = subDays(today, 6);
+            const weekAppts = await getAppointments(startOfDay(weekStart), endOfDay(today));
+            
+            const days = eachDayOfInterval({ start: weekStart, end: today });
+            const weeklyOccupancy = days.map(day => {
+                const count = weekAppts.filter(a => isSameDay(new Date(a.start), day)).length;
+                return {
+                    day: format(day, 'EEE', { locale: es }),
+                    fullDate: format(day, 'dd/MM'),
+                    count
+                };
+            });
+
             setStats({
                 todayCount: todayAppts.length,
                 activePatients: patientsResult.count ?? 0,
                 todayRevenue,
                 pendingRevenue,
                 waitingListCount: waitingList.length,
+                weeklyOccupancy,
             });
         } catch (err) {
             console.error('Error cargando dashboard:', err);
@@ -151,32 +172,36 @@ const Dashboard: React.FC = () => {
 
     const statCards = [
         {
-            title: 'Citas Hoy',
-            value: loading ? '...' : String(stats.todayCount),
-            icon: <Calendar size={24} className="text-blue" />,
-            trend: loading ? '' : `${stats.todayCount === 0 ? 'Sin citas programadas' : 'sesiones programadas'}`,
-            path: '/calendar'
+            title: 'Pacientes',
+            value: loading ? '...' : String(stats.activePatients),
+            icon: <Users strokeWidth={1.5} />,
+            trend: 'Base de datos activa',
+            path: '/patients',
+            type: 'patients'
         },
         {
-            title: 'Pacientes Activos',
-            value: loading ? '...' : String(stats.activePatients),
-            icon: <Users size={24} className="text-green" />,
-            trend: 'en tratamiento',
-            path: '/patients'
+            title: 'Citas Hoy',
+            value: loading ? '...' : String(stats.todayCount),
+            icon: <Calendar strokeWidth={1.5} />,
+            trend: stats.todayCount === 0 ? 'Sin actividad' : `${stats.todayCount} sesiones hoy`,
+            path: '/calendar',
+            type: 'appointments'
         },
         {
             title: 'Ingresos Hoy',
             value: loading ? '...' : `${stats.todayRevenue.toFixed(0)}€`,
-            icon: <DollarSign size={24} className="text-orange" />,
-            trend: loading ? '' : `Pendiente ${stats.pendingRevenue.toFixed(0)}€`,
-            path: '/billing'
+            icon: <DollarSign strokeWidth={1.5} />,
+            trend: stats.pendingRevenue > 0 ? `${stats.pendingRevenue.toFixed(0)}€ pendiente` : 'Todo al día',
+            path: '/billing',
+            type: 'revenue'
         },
         {
-            title: 'Lista de Espera',
+            title: 'Espera',
             value: loading ? '...' : String(stats.waitingListCount),
-            icon: <Clock size={24} className="text-purple" />,
-            trend: stats.waitingListCount === 0 ? 'Sin pendientes' : 'Pacientes por asignar',
-            path: '/waiting-list'
+            icon: <Clock strokeWidth={1.5} />,
+            trend: stats.waitingListCount === 0 ? 'Sin demora' : 'Pacientes en cola',
+            path: '/waiting-list',
+            type: 'waiting'
         },
     ];
 
@@ -201,7 +226,7 @@ const Dashboard: React.FC = () => {
                 {statCards.map((stat, index) => (
                     <Card
                         key={index}
-                        className={`stat-card ${stat.path ? 'cursor-pointer hover:shadow-lg transition-all duration-200 transform hover:-translate-y-1' : ''}`}
+                        className={`stat-card ${stat.type} ${stat.path ? 'cursor-pointer hover:shadow-lg transition-all duration-200 transform hover:-translate-y-1' : ''}`}
                         onClick={() => stat.path ? navigate(stat.path) : undefined}
                     >
                         <div className="stat-icon-wrapper">{stat.icon}</div>
@@ -212,6 +237,54 @@ const Dashboard: React.FC = () => {
                         </div>
                     </Card>
                 ))}
+            </div>
+
+            <div className="dashboard-content-grid chart-section">
+                <Card 
+                    title="Ocupación Semanal (Citas por día)" 
+                    subtitle="Actividad de los últimos 7 días"
+                    icon={<BarChart3 size={20} className="text-primary" />}
+                    className="occupancy-chart"
+                >
+                    <div className="chart-wrapper">
+                        <ResponsiveContainer width="100%" height="100%">
+                            <BarChart data={stats.weeklyOccupancy} margin={{ top: 20, right: 10, left: -20, bottom: 0 }}>
+                                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+                                <XAxis 
+                                    dataKey="day" 
+                                    axisLine={false} 
+                                    tickLine={false} 
+                                    tick={{ fontSize: 12, fill: '#64748b', fontWeight: 600 }}
+                                    dy={10}
+                                />
+                                <YAxis 
+                                    axisLine={false} 
+                                    tickLine={false} 
+                                    tick={{ fontSize: 12, fill: '#64748b' }}
+                                    allowDecimals={false}
+                                />
+                                <Tooltip 
+                                    cursor={{ fill: 'rgba(52, 152, 219, 0.05)', radius: 12 }}
+                                    contentStyle={{ 
+                                        borderRadius: '16px', 
+                                        border: 'none', 
+                                        boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05)',
+                                        padding: '12px'
+                                    }}
+                                    itemStyle={{ fontWeight: 'bold', color: '#1d4ed8' }}
+                                    labelStyle={{ marginBottom: '4px', color: '#64748b' }}
+                                />
+                                <Bar 
+                                    dataKey="count" 
+                                    name="Citas"
+                                    radius={[8, 8, 0, 0]}
+                                    fill="#3b82f6" 
+                                    barSize={40}
+                                />
+                            </BarChart>
+                        </ResponsiveContainer>
+                    </div>
+                </Card>
             </div>
 
             <div className="dashboard-content-grid">

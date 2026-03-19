@@ -5,7 +5,7 @@ import './Header.css';
 import { useLocation, useNavigate } from 'react-router-dom';
 import WorkforceWidget from '../../modules/workforce/WorkforceWidget';
 import NotificationPanel from '../notifications/NotificationPanel';
-import { getNotifications, getDismissedIds, dismissNotification, clearOldDismissedIds } from '../../modules/notifications/service';
+import { getNotifications, getDismissedIds, dismissNotification } from '../../modules/notifications/service';
 import type { Notification } from '../../modules/notifications/types';
 
 const Header: React.FC = () => {

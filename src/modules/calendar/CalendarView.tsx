@@ -17,7 +17,8 @@ import {
     getDay,
     isBefore,
     isAfter,
-    endOfDay
+    endOfDay,
+    addHours
 } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { ChevronLeft, ChevronRight, Plus, X, User, Rocket, Puzzle, AlertTriangle, Clock as ClockIcon, DollarSign, Mic, Square } from 'lucide-react';
@@ -31,6 +32,7 @@ import { type Appointment } from './types';
 import { type Patient } from '../patients/types';
 import { type Therapist } from '../therapists/types';
 import { type ClinicalService } from '../admin/types';
+import { supabase } from '../../lib/supabase';
 import './CalendarView.css';
 
 interface CalendarViewProps {
@@ -40,6 +42,18 @@ interface CalendarViewProps {
 
 // Default fixed hours fallback (8:00 to 21:00)
 const DEFAULT_HOURS = Array.from({ length: 14 }, (_, i) => i + 8);
+
+// Helper for contrast logic requested by user
+const getContrastColor = (hexColor: string) => {
+    // If color is too light, return black, otherwise return white
+    // Using YIQ formula
+    const hex = hexColor.replace('#', '');
+    const r = parseInt(hex.substr(0, 2), 16);
+    const g = parseInt(hex.substr(2, 2), 16);
+    const b = parseInt(hex.substr(4, 2), 16);
+    const yiq = ((r * 299) + (g * 587) + (b * 114)) / 1000;
+    return (yiq >= 160) ? '#0f172a' : '#ffffff';
+};
 
 const CalendarView: React.FC<CalendarViewProps> = ({ mode: initialMode, therapistId: filterTherapistId }) => {
     const { user, isRole } = useAuth();
@@ -51,6 +65,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({ mode: initialMode, therapis
     const location = useLocation(); // Hoisted to top level
 
     const [currentDate, setCurrentDate] = useState(new Date());
+    const [currentTime, setCurrentTime] = useState(new Date());
     const [appointments, setAppointments] = useState<Appointment[]>([]);
     const [patients, setPatients] = useState<Patient[]>([]);
     const [therapists, setTherapists] = useState<Therapist[]>([]);
@@ -61,6 +76,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({ mode: initialMode, therapis
     const [isRadarOpen, setIsRadarOpen] = useState(false);
     const [isRecording, setIsRecording] = useState(false);
     const [gaps, setGaps] = useState<{ start: Date; end: Date; count: number }[]>([]);
+    const [absences, setAbsences] = useState<any[]>([]);
 
     const weekStart = startOfWeek(currentDate, { weekStartsOn: 1 });
     const weekEnd = addDays(weekStart, 5); // Hasta Sábado (5 días después del lunes)
@@ -91,12 +107,22 @@ const CalendarView: React.FC<CalendarViewProps> = ({ mode: initialMode, therapis
         });
     };
 
+    const fetchAbsences = async () => {
+        const { data } = await supabase
+            .from('attendance')
+            .select('*')
+            .neq('type', 'work')
+            .or(`start_time.gte.${weekStart.toISOString()},end_time.lte.${weekEnd.toISOString()}`);
+        setAbsences(data || []);
+    };
+
     const fetchData = () => {
         getAppointments(weekStart, weekEnd).then(data => {
             // Apply status check immediately upon fetch
             const updatedData = calculateStatuses(data);
             setAppointments(updatedData);
         });
+        fetchAbsences();
     };
 
     useEffect(() => {
@@ -144,6 +170,8 @@ const CalendarView: React.FC<CalendarViewProps> = ({ mode: initialMode, therapis
     // Auto-update statuses based on time (Interval)
     useEffect(() => {
         const interval = setInterval(() => {
+            const now = new Date();
+            setCurrentTime(now);
             setAppointments(current => calculateStatuses(current));
         }, 60000); // Run every minute
         return () => clearInterval(interval);
@@ -187,6 +215,17 @@ const CalendarView: React.FC<CalendarViewProps> = ({ mode: initialMode, therapis
 
     const isSlotEnabled = (date: Date, hour: number, tId?: string) => {
         if (!tId) return true;
+
+        // Check for absence blocking
+        const isAbsence = absences.some((a: any) => {
+            if (a.therapist_id !== tId) return false;
+            const start = parseISO(a.start_time);
+            const end = a.end_time ? parseISO(a.end_time) : start;
+            const slotTime = setMinutes(setHours(date, hour), 0);
+            return (slotTime >= start && slotTime <= end) || isSameDay(date, start);
+        });
+        if (isAbsence) return false;
+
         const therapist = therapists.find(t => t.id === tId);
         if (!therapist || !therapist.schedule || therapist.schedule.length === 0) return true; // Si no hay horario, por defecto abierto
 
@@ -511,9 +550,18 @@ const CalendarView: React.FC<CalendarViewProps> = ({ mode: initialMode, therapis
                     {columns.map((col, i) => (
                         <div key={i} className="header-cell">
                             {effectiveMode === 'TODAY_MULTI' ? (
-                                <div className="therapist-col-header">
-                                    <span className="day-name">{(col as Therapist).fullName}</span>
-                                    <span className="day-number" style={{ color: (col as Therapist).color }}>●</span>
+                                <div className="therapist-col-header flex items-center gap-3">
+                                    <div className="therapist-avatar-wrapper">
+                                        {(col as Therapist).avatarUrl ? (
+                                            <img src={(col as Therapist).avatarUrl} alt={(col as Therapist).fullName} className="therapist-header-avatar" />
+                                        ) : (
+                                            <div className="therapist-header-avatar-placeholder" style={{ backgroundColor: (col as Therapist).color + '20', color: (col as Therapist).color }}>
+                                                {(col as Therapist).fullName.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2)}
+                                            </div>
+                                        )}
+                                        <div className="therapist-status-indicator" style={{ backgroundColor: (col as Therapist).color }}></div>
+                                    </div>
+                                    <span className="therapist-name-label">{(col as Therapist).fullName}</span>
                                 </div>
                             ) : (
                                 <div className={`day-col-header ${isSameDay(col as Date, new Date()) ? 'today' : ''}`}>
@@ -532,6 +580,18 @@ const CalendarView: React.FC<CalendarViewProps> = ({ mode: initialMode, therapis
 
                     {columns.map((col, i) => (
                         <div key={i} className="day-column">
+                            {/* Current Time Line Indicator */}
+                            {((effectiveMode === 'TODAY_MULTI' && isSameDay(currentDate, new Date())) || 
+                              (effectiveMode === 'WEEKLY_SINGLE' && isSameDay(col as Date, new Date()))) && (
+                                <div 
+                                    className="current-time-line" 
+                                    style={{ 
+                                        top: `${(currentTime.getHours() - (dynamicHours[0] || 8)) * 80 + (currentTime.getMinutes() / 60) * 80}px` 
+                                    }}
+                                >
+                                    {(i === 0 || effectiveMode === 'WEEKLY_SINGLE') && <div className="line-ball" />}
+                                </div>
+                            )}
                             {/* Slots clicables de fondo */}
                             {dynamicHours.map((h: number) => {
                                 const date = effectiveMode === 'TODAY_MULTI' ? currentDate : (col as Date);
@@ -551,6 +611,41 @@ const CalendarView: React.FC<CalendarViewProps> = ({ mode: initialMode, therapis
                                     />
                                 );
                             })}
+
+                            {absences
+                                .filter((a: any) => a.therapist_id === (effectiveMode === 'TODAY_MULTI' ? (col as Therapist).id : effectiveTherapistId))
+                                .filter((a: any) => isSameDay(parseISO(a.start_time), effectiveMode === 'TODAY_MULTI' ? currentDate : (col as Date)))
+                                .map((a: any) => {
+                                    const start = parseISO(a.start_time);
+                                    const end = a.end_time ? parseISO(a.end_time) : addHours(start, 24);
+                                    const pos = getAppointmentPosition(a.start_time, end.toISOString());
+                                    return (
+                                        <div 
+                                            key={a.id} 
+                                            className="absence-block"
+                                            style={{
+                                                ...pos,
+                                                position: 'absolute',
+                                                left: 0,
+                                                right: 0,
+                                                zIndex: 1,
+                                                background: 'repeating-linear-gradient(45deg, #f3f4f6, #f3f4f6 10px, #e5e7eb 10px, #e5e7eb 20px)',
+                                                border: '1px solid #d1d5db',
+                                                borderRadius: '4px',
+                                                display: 'flex',
+                                                alignItems: 'center',
+                                                justifyContent: 'center',
+                                                padding: '4px',
+                                                overflow: 'hidden'
+                                            }}
+                                        >
+                                            <span className="text-[10px] font-bold text-gray-500 uppercase tracking-wider">
+                                                {a.type === 'vacation' ? 'Vacaciones' : 'Baja Médica'}
+                                            </span>
+                                        </div>
+                                    );
+                                })
+                            }
 
                             {filteredAppointments
                                 .filter(appt => {
@@ -584,7 +679,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({ mode: initialMode, therapis
                                                 ...pos,
                                                 borderLeftColor: therapists.find(t => t.id === appt.therapistId)?.color,
                                                 backgroundColor: bgColor,
-                                                color: '#1a1a1a'
+                                                color: getContrastColor(bgColor)
                                             }}
                                             onClick={(e) => {
                                                 e.stopPropagation();
@@ -596,7 +691,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({ mode: initialMode, therapis
                                                 <span className="appt-patient" style={{ fontWeight: 600, fontSize: '0.75rem' }}>{appt.patientName}</span>
                                                 <div className="flex gap-1">
                                                     {needsDiary && !hasDiary && <span title="Falta diario de sesión"><AlertTriangle size={12} className="text-danger" /></span>}
-                                                    {!isPaid && appt.status !== 'Cancelada' && <span title="Pendiente de cobro"><DollarSign size={12} style={{ color: '#d32f2f' }} /></span>}
+                                                    {!isPaid && (appt.status === 'Finalizada' || appt.status === 'Ausente') && <span title="Pendiente de cobro"><DollarSign size={12} style={{ color: '#d32f2f' }} /></span>}
                                                     {appt.recurrence && (appt.status !== 'Cancelada') && (appt.recurrence.weeks || appt.recurrence.days || appt.recurrence.until) && (
                                                         <span title="Cita recurrente"><ClockIcon size={12} className="text-secondary" /></span>
                                                     )}

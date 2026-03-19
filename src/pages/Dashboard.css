@@ -7,69 +7,128 @@
 
 .stats-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+    grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
     gap: 1.5rem;
-    margin-bottom: 2rem;
+    margin-bottom: 2.5rem !important; /* Reduced to match bottom feeling */
+}
+
+.chart-section {
+    margin-bottom: 5.5rem !important; /* Increased significantly to match top visual gap */
 }
 
 .stat-card {
     display: flex;
     align-items: center;
-    gap: 1rem;
+    gap: 1.25rem;
+    padding: 1.5rem !important;
+    border: 1px solid rgba(0,0,0,0.05);
+    background: #ffffff;
+    border-radius: 20px;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.03);
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.stat-card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 12px 25px rgba(0, 0, 0, 0.08);
+    border-color: rgba(0,0,0,0.1);
 }
 
 .stat-icon-wrapper {
-    width: 50px;
-    height: 50px;
-    border-radius: 12px;
-    background-color: var(--color-bg-primary);
+    width: 60px;
+    height: 60px;
+    border-radius: 18px;
     display: flex;
     align-items: center;
     justify-content: center;
+    transition: all 0.3s ease;
+    flex-shrink: 0;
 }
 
-.stat-icon-wrapper .text-blue {
-    color: var(--color-status-info);
+.stat-icon-wrapper svg {
+    width: 28px;
+    height: 28px;
+    stroke-width: 1.5;
 }
 
-.stat-icon-wrapper .text-green {
-    color: #2E7D32;
+/* Semantic colors requested by user */
+.stat-card.patients .stat-icon-wrapper { 
+    background: linear-gradient(135deg, rgba(52, 152, 219, 0.15), rgba(52, 152, 219, 0.05)); 
+    color: #3498db; 
+}
+.stat-card.appointments .stat-icon-wrapper { 
+    background: linear-gradient(135deg, rgba(243, 156, 18, 0.15), rgba(243, 156, 18, 0.05)); 
+    color: #f39c12; 
+}
+.stat-card.revenue .stat-icon-wrapper { 
+    background: linear-gradient(135deg, rgba(39, 174, 96, 0.15), rgba(39, 174, 96, 0.05)); 
+    color: #27ae60; 
+}
+.stat-card.waiting .stat-icon-wrapper { 
+    background: linear-gradient(135deg, rgba(155, 89, 182, 0.15), rgba(155, 89, 182, 0.05)); 
+    color: #9b59b6; 
 }
 
-.stat-icon-wrapper .text-orange {
-    color: #F57C00;
-}
-
-.stat-icon-wrapper .text-purple {
-    color: #7B1FA2;
+.stat-card:hover .stat-icon-wrapper {
+    transform: rotate(-5deg) scale(1.1);
 }
 
 .stat-info {
     display: flex;
     flex-direction: column;
+    overflow: hidden;
 }
 
 .stat-value {
-    font-size: 1.5rem;
-    font-weight: 700;
-    line-height: 1.2;
+    font-size: 1.85rem;
+    font-weight: 800;
+    line-height: 1;
+    color: var(--color-text-primary);
+    margin-bottom: 2px;
 }
 
 .stat-title {
     font-size: 0.9rem;
     color: var(--color-text-secondary);
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-bottom: 4px;
 }
 
 .stat-trend {
     font-size: 0.8rem;
-    color: var(--color-accent-green);
-    font-weight: 600;
+    color: var(--color-text-secondary);
+    font-weight: 400;
+    opacity: 0.8;
 }
 
 .dashboard-content-grid {
     display: grid;
-    grid-template-columns: 2fr 1fr;
+    grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
     gap: 1.5rem;
+}
+
+.occupancy-chart {
+    min-height: 340px;
+    grid-column: span 2;
+    border-radius: 24px !important;
+}
+
+.chart-wrapper {
+    height: 240px;
+    width: 100%;
+    margin-top: 1rem;
+    padding: 0 1.5rem 0.5rem 0.5rem; /* Padding to prevent bars touching edges */
+}
+
+@media (max-width: 1024px) {
+    .dashboard-content-grid {
+        grid-template-columns: 1fr;
+    }
+    .occupancy-chart {
+        grid-column: span 1;
+    }
 }
 
 .appointment-item {
@@ -178,6 +237,7 @@
 .status-cobrada .appt-status-badge {
     background-color: #059669;
     color: white;
+    box-shadow: 0 2px 8px rgba(5, 150, 105, 0.3);
 }
 
 .status-cancelada {
@@ -236,9 +296,4 @@
     font-weight: 600;
     font-size: 0.9rem;
 }
-
-@media (max-width: 1024px) {
-    .dashboard-content-grid {
-        grid-template-columns: 1fr;
-    }
-}
+

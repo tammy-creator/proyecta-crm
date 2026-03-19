@@ -87,10 +87,13 @@
 }
 
 .nav-item.active {
-    background-color: var(--color-status-info-bg);
+    background-color: rgba(26, 95, 122, 0.1);
     color: #1A5F7A;
-    font-weight: 600;
-    box-shadow: var(--shadow-soft);
+    font-weight: 700;
+    border-left: 4px solid #1A5F7A;
+    border-radius: 4px 12px 12px 4px;
+    padding-left: calc(1rem - 4px);
+    box-shadow: none;
 }
 
 .nav-item.active .nav-icon {

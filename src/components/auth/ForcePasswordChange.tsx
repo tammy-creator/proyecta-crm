@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Lock, Save, Eye, EyeOff, ShieldAlert } from 'lucide-react';
+import { Save, Eye, EyeOff, ShieldAlert } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../context/AuthContext';
 

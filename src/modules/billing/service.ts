@@ -16,11 +16,16 @@ const mapTransaction = (row: any): Transaction => ({
     isReconciled: row.is_reconciled ?? false,
 });
 
-export const getTransactions = async (): Promise<Transaction[]> => {
-    const { data, error } = await supabase
+export const getTransactions = async (therapistName?: string): Promise<Transaction[]> => {
+    let query = supabase
         .from('transactions')
-        .select('*')
-        .order('date', { ascending: false });
+        .select('*');
+    
+    if (therapistName) {
+        query = query.eq('therapist_name', therapistName);
+    }
+
+    const { data, error } = await query.order('date', { ascending: false });
     if (error) throw error;
     return (data ?? []).map(mapTransaction);
 };

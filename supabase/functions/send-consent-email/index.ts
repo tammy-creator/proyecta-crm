@@ -25,16 +25,21 @@ serve(async (req) => {
     // @ts-ignore
     const nodemailer = await import('npm:nodemailer');
 
+    const SMTP_HOST = Deno.env.get('SMTP_HOST') ?? "mail.centroproyecta.es";
+    const SMTP_PORT = parseInt(Deno.env.get('SMTP_PORT') ?? "465");
+    const SMTP_USER = Deno.env.get('SMTP_USER') ?? "info@centroproyecta.es";
+    const SMTP_PASS = Deno.env.get('SMTP_PASS') ?? "";
+
     const transporter = nodemailer.createTransport({
-      host: "mail.centroproyecta.es",
-      port: 465,
-      secure: true, // true for 465, false for other ports
+      host: SMTP_HOST,
+      port: SMTP_PORT,
+      secure: SMTP_PORT === 465,
       auth: {
-        user: "info@centroproyecta.es",
-        pass: ",FH-Yd;;rGZSYA~+",
+        user: SMTP_USER,
+        pass: SMTP_PASS,
       },
       tls: {
-        rejectUnauthorized: false // Permite certificados auto-firmados o con problemas de cadena
+        rejectUnauthorized: false
       }
     });
 
@@ -139,7 +144,7 @@ serve(async (req) => {
     htmlBody += '<p style="margin: 0;">Este es un mensaje automático enviado desde el sistema de gestión de Centro Proyecta.</p></div></div>';
 
     const info = await transporter.sendMail({
-      from: '"Centro Proyecta" <info@centroproyecta.es>',
+      from: `"Centro Proyecta" <${SMTP_USER}>`,
       to: email,
       subject: `Ficha de Consentimiento Firmada - ${patient.firstName} ${patient.lastName}`,
       text: message,

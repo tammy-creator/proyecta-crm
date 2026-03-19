@@ -85,6 +85,22 @@ Deno.serve(async (req) => {
             });
         }
 
+        // --- NEW: AUTO-REPAIR ADMIN ACCOUNT ---
+        // Ensure the admin themselves has an entry in user_accounts to avoid RLS/FK issues
+        console.log('Self-repair: ensuring admin account exists in user_accounts...');
+        const supabaseService = createClient(supabaseUrl, serviceRoleKey);
+        await supabaseService
+            .from('user_accounts')
+            .upsert({
+                id: adminUser.id,
+                full_name: adminUser.user_metadata?.full_name || 'Admin Proyecta',
+                email: adminUser.email,
+                role: 'Admin',
+                status: 'Active',
+                therapist_id: adminUser.user_metadata?.therapist_id // null if global admin
+            });
+        // --------------------------------------
+
         // 4. Parse Request Payload
         const payload = await req.json();
         const { email, password, fullName, role, status, therapistId } = payload;
@@ -95,8 +111,6 @@ Deno.serve(async (req) => {
                 status: 400,
             });
         }
-
-        const supabaseService = createClient(supabaseUrl, serviceRoleKey);
 
         // 5. Create or Get user in Auth (Idempotent)
         console.log('Synchronizing auth user:', email);

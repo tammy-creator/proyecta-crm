@@ -1,7 +1,7 @@
 import { getAppointments } from '../calendar/service';
 import { getMonthlyReport, getSignature } from '../workforce/service';
 import { getTherapists } from '../therapists/service';
-import { subMonths, endOfMonth, isPast, format } from 'date-fns';
+import { subMonths } from 'date-fns';
 import type { Notification } from './types';
 
 const DISMISSED_KEY = 'proyecta_dismissed_ids';

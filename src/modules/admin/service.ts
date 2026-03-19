@@ -116,26 +116,20 @@ export const getUsers = async (): Promise<UserAccount[]> => {
 };
 
 export const createUser = async (userData: Partial<UserAccount> & { password?: string }): Promise<UserAccount> => {
-    const { data: { session } } = await supabase.auth.getSession();
-    
-    const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/admin-create-user`, {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${session?.access_token}`,
-            'apikey': import.meta.env.VITE_SUPABASE_ANON_KEY
-        },
-        body: JSON.stringify(userData)
+    const { data, error } = await supabase.functions.invoke('admin-create-user', {
+        body: userData
     });
 
-    if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        console.error('Edge Function Error:', errorData);
-        throw new Error(errorData.error || `Error ${response.status}: ${response.statusText}`);
+    if (error) {
+        console.error('Edge Function Error:', error);
+        throw new Error(error.message || 'Error invocando la función de creación de usuario');
     }
 
-    const { user } = await response.json();
-    return user;
+    if (data.error) {
+        throw new Error(data.error);
+    }
+
+    return data.user;
 };
 
 export const updateUser = async (user: UserAccount): Promise<UserAccount> => {
@@ -155,6 +149,23 @@ export const updateUser = async (user: UserAccount): Promise<UserAccount> => {
     return mapUser(data);
 };
 
+export const deleteUser = async (userId: string): Promise<boolean> => {
+    const { data, error } = await supabase.functions.invoke('admin-delete-user', {
+        body: { userId }
+    });
+
+    if (error) {
+        console.error('Edge Function Error:', error);
+        throw new Error(error.message || 'Error eliminando el usuario');
+    }
+
+    if (data.error) {
+        throw new Error(data.error);
+    }
+
+    return true;
+};
+
 // ─── Logs de auditoría ────────────────────────────────────────────────────────
 export const getAuditLogs = async (): Promise<AuditLog[]> => {
     const { data, error } = await supabase
@@ -167,7 +178,7 @@ export const getAuditLogs = async (): Promise<AuditLog[]> => {
 };
 
 export const addAuditLog = async (log: Omit<AuditLog, 'id'>): Promise<void> => {
-    await supabase.from('audit_logs').insert({
+    const { error } = await supabase.from('audit_logs').insert({
         user_id: log.userId || null,
         user_name: log.userName,
         action: log.action,
@@ -175,6 +186,24 @@ export const addAuditLog = async (log: Omit<AuditLog, 'id'>): Promise<void> => {
         timestamp: log.timestamp,
         category: log.category,
     });
+
+    if (error) {
+        console.warn('Failed to insert audit log with user_id, trying fallback:', error);
+        // Fallback for Admins without an entry in the user_accounts table
+        // This solves the 409 Conflict foreign key violation.
+        const { error: fallbackError } = await supabase.from('audit_logs').insert({
+            user_id: null,
+            user_name: log.userName,
+            action: log.action,
+            details: log.details,
+            timestamp: log.timestamp,
+            category: log.category,
+        });
+
+        if (fallbackError) {
+            console.error('Critical failure inserting audit log:', fallbackError);
+        }
+    }
 };
 
 // ─── Estadísticas de referidos (calculadas desde BD) ─────────────────────────

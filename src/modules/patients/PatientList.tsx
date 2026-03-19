@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { getPatients, createPatient, updatePatient, uploadPatientFile } from './service';
+import { getPatients, getPatientById, createPatient, updatePatient, uploadPatientFile } from './service';
 import { supabase } from '../../lib/supabase';
 import { getAppointmentsByPatient } from '../calendar/service';
 import { type Patient, type PatientFile } from './types';

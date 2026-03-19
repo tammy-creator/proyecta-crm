@@ -26,7 +26,7 @@ const LoginPage: React.FC = () => {
             const user = await login(email, password);
             // Si es terapeuta y el destino es la raíz, forzar agenda.
             // En cualquier otro caso (si pidió una URL específica), respetar 'from'.
-            const destination = (user.role === 'THERAPIST' && from === '/') ? '/calendar' : from;
+            const destination = user.role === 'THERAPIST' ? '/calendar' : from;
             navigate(destination, { replace: true });
         } catch (err: any) {
             // Translate common Supabase errors to Spanish

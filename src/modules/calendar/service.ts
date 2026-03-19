@@ -22,13 +22,18 @@ const mapAppointment = (row: any): Appointment => ({
 });
 
 
-export const getAppointments = async (start: Date, end: Date): Promise<Appointment[]> => {
-    const { data, error } = await supabase
+export const getAppointments = async (start: Date, end: Date, therapistId?: string): Promise<Appointment[]> => {
+    let query = supabase
         .from('appointments')
         .select('*, clinical_services(price)')
         .gte('start_time', start.toISOString())
-        .lte('start_time', end.toISOString())
-        .order('start_time');
+        .lte('start_time', end.toISOString());
+    
+    if (therapistId) {
+        query = query.eq('therapist_id', therapistId);
+    }
+
+    const { data, error } = await query.order('start_time');
     if (error) throw error;
     return (data ?? []).map(mapAppointment);
 };
@@ -44,12 +49,17 @@ export const getAppointmentsByPatient = async (patientId: string): Promise<Appoi
     return (data ?? []).map(mapAppointment);
 };
 
-export const getUnpaidAppointments = async (): Promise<Appointment[]> => {
-    const { data, error } = await supabase
+export const getUnpaidAppointments = async (therapistId?: string): Promise<Appointment[]> => {
+    let query = supabase
         .from('appointments')
         .select('*, clinical_services(price)')
-        .eq('is_paid', false)
-        .order('start_time', { ascending: false });
+        .eq('is_paid', false);
+    
+    if (therapistId) {
+        query = query.eq('therapist_id', therapistId);
+    }
+
+    const { data, error } = await query.order('start_time', { ascending: false });
     if (error) throw error;
     return (data ?? []).map(mapAppointment);
 };

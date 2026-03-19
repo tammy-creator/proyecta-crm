@@ -81,7 +81,8 @@
 .search-input-modern-wrapper {
     position: relative !important;
     display: block !important;
-    width: 100% !important;
+    flex: 1;
+    min-width: 200px;
 }
 
 .search-icon {
@@ -259,3 +260,26 @@
     font-weight: 700;
     color: var(--color-text-primary);
 }
+
+/* 
+ * Pending Debts Highlighting - Requested by administration
+ * This helps identifying unpaid services at a glance with a faint peach/reddish background.
+ */
+.row-pending {
+    background-color: #fff9f6 !important;
+    transition: background-color 0.2s ease;
+}
+
+.row-pending:hover {
+    background-color: #fff5f0 !important;
+}
+
+.row-pending .amount-text {
+    font-weight: 800;
+    color: #c0392b; /* Contrast for debt amount */
+}
+
+.row-pending .badge-warning {
+    background-color: #fee2e2;
+    color: #991b1b;
+}

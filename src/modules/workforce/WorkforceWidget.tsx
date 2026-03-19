@@ -1,36 +1,30 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../../context/AuthContext';
-import { addEvent, getLiveWorkStats } from './service';
+import { clockIn, clockOut, getLiveWorkStats, getUpcomingAppointment } from './service';
 import type { WorkStatus } from './types';
-import { Play, Pause, Square, Clock, PenTool } from 'lucide-react';
+import { Play, Square, Clock, PenTool, AlertCircle } from 'lucide-react';
 import './WorkforceWidget.css';
 import SigningModal from './SigningModal';
-import { supabase } from '../../lib/supabase';
 
 const WorkforceWidget: React.FC = () => {
     const { user } = useAuth();
     const [status, setStatus] = useState<WorkStatus>('offline');
     const [loading, setLoading] = useState(true);
-    const [elapsed, setElapsed] = useState(0); // Total today
-    const [baseTotal, setBaseTotal] = useState(0); // Total at moment of fetch
+    const [elapsed, setElapsed] = useState(0); 
+    const [baseTotal, setBaseTotal] = useState(0); 
     const [fetchTime, setFetchTime] = useState<number>(Date.now());
+    const [currentAttendanceId, setCurrentAttendanceId] = useState<string | null>(null);
     const [isSigningOpen, setIsSigningOpen] = useState(false);
-    const [schedule, setSchedule] = useState<any[]>([]);
-    const [shiftEnd, setShiftEnd] = useState<string | null>(null);
-    const [isShiftEnded, setIsShiftEnded] = useState(false);
+    const [upcomingAppt, setUpcomingAppt] = useState<any>(null);
 
     useEffect(() => {
         if (user) {
             loadStatus();
-            loadSchedule();
+            if (user.role === 'THERAPIST' && user.therapistId) {
+                checkUpcoming();
+            }
         }
     }, [user]);
-
-    const loadSchedule = async () => {
-        if (!user || user.role !== 'THERAPIST' || !user.therapistId) return;
-        const { data } = await supabase.from('therapists').select('schedule').eq('id', user.therapistId).single();
-        if (data?.schedule) setSchedule(data.schedule);
-    };
 
     // Timer effect
     useEffect(() => {
@@ -48,48 +42,57 @@ const WorkforceWidget: React.FC = () => {
         const now = Date.now();
         const diff = Math.floor((now - fetchTime) / 1000);
         setElapsed(baseTotal + diff);
-
-        // Shift end check
-        if (shiftEnd && status === 'working') {
-            const [h, m] = shiftEnd.split(':').map(Number);
-            const target = new Date();
-            target.setHours(h, m, 0, 0);
-            if (Date.now() > target.getTime()) {
-                setIsShiftEnded(true);
-            } else {
-                setIsShiftEnded(false);
-            }
-        }
     };
-
-    useEffect(() => {
-        if (schedule.length > 0) {
-            const dayName = new Intl.DateTimeFormat('en-US', { weekday: 'long' }).format(new Date());
-            const todaySchedule = schedule.find((s: any) => s.day === dayName);
-            if (todaySchedule && todaySchedule.enabled) {
-                setShiftEnd(todaySchedule.end);
-            }
-        }
-    }, [schedule]);
 
     const loadStatus = async () => {
-        if (!user || !user.therapistId) return;
-        const stats = await getLiveWorkStats(user.therapistId);
-        setStatus(stats.status);
-        setBaseTotal(stats.totalSeconds);
-        setFetchTime(Date.now());
-        setLoading(false);
+        if (!user || (user.role === 'THERAPIST' && !user.therapistId)) {
+            setLoading(false);
+            return;
+        }
+        
+        try {
+            const stats = await getLiveWorkStats(user.therapistId || '');
+            setStatus(stats.status);
+            setBaseTotal(stats.totalSeconds);
+            setFetchTime(Date.now());
+            setCurrentAttendanceId(stats.currentAttendanceId || null);
+        } catch (error) {
+            console.error("Error loading workforce status:", error);
+        } finally {
+            setLoading(false);
+        }
     };
 
-    const handleAction = async (type: 'check-in' | 'break-start' | 'break-end' | 'check-out') => {
-        if (!user || !user.therapistId) return;
+    const checkUpcoming = async () => {
+        if (user?.therapistId) {
+            const appt = await getUpcomingAppointment(user.therapistId);
+            setUpcomingAppt(appt);
+        }
+    };
+
+    const handleClockIn = async () => {
+        if (!user) return;
         setLoading(true);
         try {
-            await addEvent(user.therapistId, type);
+            await clockIn(user.id, user.therapistId);
             await loadStatus();
-            window.dispatchEvent(new CustomEvent('workforce-update', { detail: { type, userId: user.therapistId } }));
+            window.dispatchEvent(new CustomEvent('workforce-update'));
         } catch (error) {
-            console.error("Error updating workforce status:", error);
+            console.error("Error clocking in:", error);
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const handleClockOut = async () => {
+        if (!currentAttendanceId) return;
+        setLoading(true);
+        try {
+            await clockOut(currentAttendanceId);
+            await loadStatus();
+            window.dispatchEvent(new CustomEvent('workforce-update'));
+        } catch (error) {
+            console.error("Error clocking out:", error);
         } finally {
             setLoading(false);
         }
@@ -105,68 +108,64 @@ const WorkforceWidget: React.FC = () => {
     if (!user) return null;
 
     return (
-        <div className="workforce-widget">
-            <div className="workforce-header">
-                <div className={`status-dot ${status}`}></div>
-                <div className="flex flex-col">
-                    <span className="status-text">
-                        {status === 'offline' && 'Fuera de Servicio'}
-                        {status === 'working' && 'Trabajando'}
-                        {status === 'break' && 'En Pausa'}
+        <div className="workforce-widget animate-in">
+            {/* ── Status Banner ── */}
+            <div className={`workforce-status-banner ${status}`}>
+                <div className="status-indicator">
+                    <div className={`status-dot ${status} animate-pulse`}></div>
+                    <span className="status-label">
+                        {status === 'offline' ? 'Fuera de Servicio' : 'En Jornada'}
                     </span>
-                    {status === 'working' && (
-                        <div className="flex flex-col">
-                            <div className="flex items-center gap-1 text-xs text-secondary mt-1">
-                                <Clock size={10} />
-                                <span>{formatTime(elapsed)}</span>
-                            </div>
-                            {isShiftEnded && (
-                                <span className="text-[10px] text-red-500 font-bold animate-pulse">
-                                    ⚠️ Horario finalizado
-                                </span>
-                            )}
+                </div>
+                {status === 'working' && (
+                    <div className="status-timer">
+                        <Clock size={14} />
+                        <span>{formatTime(elapsed)}</span>
+                    </div>
+                )}
+            </div>
+
+            <div className="workforce-content">
+                {status === 'offline' && upcomingAppt && (
+                    <div className="upcoming-appt-alert">
+                        <div className="alert-icon">
+                            <AlertCircle size={16} />
                         </div>
+                        <div className="alert-text">
+                            <p><strong>Cita próxima:</strong> {upcomingAppt.patient_name}</p>
+                            <p className="text-xs opacity-80">No olvides fichar la entrada.</p>
+                        </div>
+                    </div>
+                )}
+
+                <div className="workforce-actions">
+                    {status === 'offline' ? (
+                        <button className="wf-main-btn start" onClick={handleClockIn} disabled={loading}>
+                            <Play size={18} fill="currentColor" />
+                            <span>Iniciar Jornada</span>
+                        </button>
+                    ) : (
+                        <button className="wf-main-btn stop" onClick={handleClockOut} disabled={loading}>
+                            <Square size={18} fill="currentColor" />
+                            <span>Finalizar Jornada</span>
+                        </button>
                     )}
                 </div>
-            </div>
 
-            <div className="workforce-controls">
-                {status === 'offline' && (
-                    <button className="wf-btn start" onClick={() => handleAction('check-in')} disabled={loading}>
-                        <Play size={16} fill="currentColor" /> Entrada
+                <div className="workforce-secondary-actions">
+                    <button
+                        className="wf-secondary-btn"
+                        onClick={() => setIsSigningOpen(true)}
+                    >
+                        <div className="btn-icon">
+                            <PenTool size={16} />
+                        </div>
+                        <div className="btn-text">
+                            <span className="title">Informes y Firmas</span>
+                            <span className="subtitle">Gestión de documentos</span>
+                        </div>
                     </button>
-                )}
-
-                {status === 'working' && (
-                    <>
-                        <button className="wf-btn pause" onClick={() => handleAction('break-start')} disabled={loading} title="Pausa">
-                            <Pause size={16} fill="currentColor" />
-                        </button>
-                        <button className="wf-btn stop" onClick={() => handleAction('check-out')} disabled={loading} title="Salida">
-                            <Square size={16} fill="currentColor" /> Salida
-                        </button>
-                    </>
-                )}
-
-                {status === 'break' && (
-                    <>
-                        <button className="wf-btn resume" onClick={() => handleAction('break-end')} disabled={loading}>
-                            <Play size={16} fill="currentColor" /> Reanudar
-                        </button>
-                        <button className="wf-btn stop" onClick={() => handleAction('check-out')} disabled={loading} title="Salida">
-                            <Square size={16} fill="currentColor" />
-                        </button>
-                    </>
-                )}
-            </div>
-
-            <div className="mt-4 pt-4 border-t border-gray-100">
-                <button
-                    className="w-full text-xs text-secondary hover:text-primary flex items-center justify-center gap-2 py-2 rounded hover:bg-gray-50 transition-colors"
-                    onClick={() => setIsSigningOpen(true)}
-                >
-                    <PenTool size={14} /> Mis Informes y Firmas
-                </button>
+                </div>
             </div>
 
             {isSigningOpen && <SigningModal onClose={() => setIsSigningOpen(false)} />}

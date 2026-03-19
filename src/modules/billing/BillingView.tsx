@@ -16,8 +16,14 @@ import type { Invoice } from '../invoices/types';
 import InvoiceList from '../invoices/InvoiceList';
 import InvoiceDocument from '../invoices/InvoiceDocument';
 
+import { useAuth } from '../../context/AuthContext';
+
 
 const BillingView: React.FC = () => {
+    const { user } = useAuth();
+    const isTherapist = user?.role === 'THERAPIST';
+    
+    // Si es terapeuta, siempre empezamos en TRANSACTIONS
     const [activeTab, setActiveTab] = useState<'TRANSACTIONS' | 'INVOICES' | 'RECONCILIATION'>('TRANSACTIONS');
     const [transactions, setTransactions] = useState<Transaction[]>([]);
     const [todayAppointments, setTodayAppointments] = useState<Appointment[]>([]);
@@ -68,11 +74,16 @@ const BillingView: React.FC = () => {
     const fetchData = async () => {
         setLoading(true);
         const dateObj = parseISO(selectedDate);
+        
+        // Parámetros de filtrado según rol
+        const tName = isTherapist ? user?.name : undefined;
+        const tId = isTherapist ? user?.therapistId : undefined;
+
         const [txData, pData, apptData, unpaidAppts] = await Promise.all([
-            getTransactions(),
+            getTransactions(tName),
             getPatients(),
-            getAppointments(startOfDay(dateObj), endOfDay(dateObj)),
-            getUnpaidAppointments()
+            getAppointments(startOfDay(dateObj), endOfDay(dateObj), tId),
+            getUnpaidAppointments(tId)
         ]);
         setTransactions(txData);
         setPatients(pData);
@@ -334,8 +345,12 @@ const BillingView: React.FC = () => {
         <div className="billing-container">
             <div className="page-header">
                 <div>
-                    <h2 className="page-title">Finanzas y Facturación</h2>
-                    <p className="page-subtitle">Control de ingresos, caja diaria y facturas legales</p>
+                    <h2 className="page-title">{isTherapist ? 'Mi Facturación' : 'Finanzas y Facturación'}</h2>
+                    <p className="page-subtitle">
+                        {isTherapist 
+                            ? 'Control de tus sesiones cobradas y pendientes' 
+                            : 'Control de ingresos, caja diaria y facturas legales'}
+                    </p>
                 </div>
                 <div className="flex items-center gap-4">
                     {activeTab === 'TRANSACTIONS' && (
@@ -380,75 +395,81 @@ const BillingView: React.FC = () => {
                                     <option value="Transferencia">Transferencia</option>
                                 </select>
                             </div>
-                            <button className="btn-secondary flex items-center gap-2" onClick={() => setIsClosingModalOpen(true)}>
-                                <Wallet size={18} />
-                                Cierre de Caja
-                            </button>
+                            {!isTherapist && (
+                                <button className="btn-secondary flex items-center gap-2" onClick={() => setIsClosingModalOpen(true)}>
+                                    <Wallet size={18} />
+                                    Cierre de Caja
+                                </button>
+                            )}
                         </>
                     )}
                 </div>
             </div>
 
-            <div className="finance-overview" style={{ marginTop: '2rem' }}>
-                <Card className="overview-card cursor-pointer hover:shadow-md transition-all" onClick={() => handleCardClick('INVOICED')}>
-                    <div className="overview-icon status-neutral">
-                        <DollarSign size={24} />
-                    </div>
-                    <div className="overview-info">
-                        <span className="overview-label">Total Facturado</span>
-                        <span className="overview-value">{totalInvoiced.toFixed(2)}€</span>
-                    </div>
-                </Card>
-                <Card className="overview-card cursor-pointer hover:shadow-md transition-all" onClick={() => handleCardClick('COLLECTED')}>
-                    <div className="overview-icon status-positive">
-                        <CheckCircle size={24} />
-                    </div>
-                    <div className="overview-info">
-                        <span className="overview-label">Total Cobrado</span>
-                        <span className="overview-value">{totalCollected.toFixed(2)}€</span>
-                    </div>
-                </Card>
-                <Card className="overview-card cursor-pointer hover:shadow-md transition-all" onClick={() => handleCardClick('PENDING')}>
-                    <div className="overview-icon status-attention">
-                        <Clock size={24} />
-                    </div>
-                    <div className="overview-info">
-                        <span className="overview-label">Pendiente</span>
-                        <span className="overview-value" style={{ color: '#D97706' }}>{pendingAmount.toFixed(2)}€</span>
-                    </div>
-                </Card>
-            </div>
+            {!isTherapist && (
+                <div className="finance-overview" style={{ marginTop: '2rem' }}>
+                    <Card className="overview-card cursor-pointer hover:shadow-md transition-all" onClick={() => handleCardClick('INVOICED')}>
+                        <div className="overview-icon status-neutral">
+                            <DollarSign size={24} />
+                        </div>
+                        <div className="overview-info">
+                            <span className="overview-label">Total Facturado</span>
+                            <span className="overview-value">{totalInvoiced.toFixed(2)}€</span>
+                        </div>
+                    </Card>
+                    <Card className="overview-card cursor-pointer hover:shadow-md transition-all" onClick={() => handleCardClick('COLLECTED')}>
+                        <div className="overview-icon status-positive">
+                            <CheckCircle size={24} />
+                        </div>
+                        <div className="overview-info">
+                            <span className="overview-label">Total Cobrado</span>
+                            <span className="overview-value">{totalCollected.toFixed(2)}€</span>
+                        </div>
+                    </Card>
+                    <Card className="overview-card cursor-pointer hover:shadow-md transition-all" onClick={() => handleCardClick('PENDING')}>
+                        <div className="overview-icon status-attention">
+                            <Clock size={24} />
+                        </div>
+                        <div className="overview-info">
+                            <span className="overview-label">Pendiente</span>
+                            <span className="overview-value" style={{ color: '#D97706' }}>{pendingAmount.toFixed(2)}€</span>
+                        </div>
+                    </Card>
+                </div>
+            )}
 
-            {/* Tabs */}
-            <div className="billing-tabs-pill">
-                <button
-                    className={`tab-btn-pill ${activeTab === 'TRANSACTIONS' ? 'active' : ''}`}
-                    onClick={() => setActiveTab('TRANSACTIONS')}
-                >
-                    <div className="flex items-center gap-2">
-                        <Wallet size={18} />
-                        Caja y Transacciones
-                    </div>
-                </button>
-                <button
-                    className={`tab-btn-pill ${activeTab === 'INVOICES' ? 'active' : ''}`}
-                    onClick={() => setActiveTab('INVOICES')}
-                >
-                    <div className="flex items-center gap-2">
-                        <Receipt size={18} />
-                        Registro de Facturas
-                    </div>
-                </button>
-                <button
-                    className={`tab-btn-pill ${activeTab === 'RECONCILIATION' ? 'active' : ''}`}
-                    onClick={() => setActiveTab('RECONCILIATION')}
-                >
-                    <div className="flex items-center gap-2">
-                        <CheckCircle size={18} />
-                        Cotejo Bancario
-                    </div>
-                </button>
-            </div>
+            {/* Tabs - Only show for ADMIN */}
+            {!isTherapist && (
+                <div className="billing-tabs-pill">
+                    <button
+                        className={`tab-btn-pill ${activeTab === 'TRANSACTIONS' ? 'active' : ''}`}
+                        onClick={() => setActiveTab('TRANSACTIONS')}
+                    >
+                        <div className="flex items-center gap-2">
+                            <Wallet size={18} />
+                            Caja y Transacciones
+                        </div>
+                    </button>
+                    <button
+                        className={`tab-btn-pill ${activeTab === 'INVOICES' ? 'active' : ''}`}
+                        onClick={() => setActiveTab('INVOICES')}
+                    >
+                        <div className="flex items-center gap-2">
+                            <Receipt size={18} />
+                            Registro de Facturas
+                        </div>
+                    </button>
+                    <button
+                        className={`tab-btn-pill ${activeTab === 'RECONCILIATION' ? 'active' : ''}`}
+                        onClick={() => setActiveTab('RECONCILIATION')}
+                    >
+                        <div className="flex items-center gap-2">
+                            <CheckCircle size={18} />
+                            Cotejo Bancario
+                        </div>
+                    </button>
+                </div>
+            )}
 
             {activeTab === 'INVOICES' ? (
                 <InvoiceList onPrint={handlePrintInvoice} patients={patients} />
@@ -551,7 +572,7 @@ const BillingView: React.FC = () => {
                                 </thead>
                                 <tbody>
                                     {apptRowsWithoutTx.map((appt) => (
-                                        <tr key={`appt-${appt.id}`} style={{ opacity: 0.85 }}>
+                                        <tr key={`appt-${appt.id}`} className="row-pending">
                                             <td className="text-secondary text-sm">{format(new Date(appt.start), 'HH:mm')}</td>
                                             <td style={{ fontWeight: 600 }}>{appt.patientName}</td>
                                             <td>{appt.type}</td>
@@ -570,7 +591,7 @@ const BillingView: React.FC = () => {
                                         </tr>
                                     ))}
                                     {filteredTx.map((t: Transaction) => (
-                                        <tr key={t.id}>
+                                        <tr key={t.id} className={t.status === 'Pendiente' ? 'row-pending' : ''}>
                                             <td className="text-secondary text-sm">
                                                 {t.date && t.date.length > 10
                                                     ? format(new Date(t.date), 'HH:mm')
@@ -779,7 +800,7 @@ const BillingView: React.FC = () => {
                                 </thead>
                                 <tbody>
                                     {getBreakdownTransactions().map((t: any) => (
-                                        <tr key={t.id}>
+                                        <tr key={t.id} className={t.status === 'Pendiente' ? 'row-pending' : ''}>
                                             <td>{format(parseISO(t.date), 'dd/MM/yyyy')}</td>
                                             <td style={{ fontWeight: 600 }}>{t.patientName}</td>
                                             <td>{t.category}</td>

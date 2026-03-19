@@ -5,11 +5,13 @@ import {
     getUsers,
     createUser,
     updateUser,
+    deleteUser,
     getServices,
     createService,
     updateService,
     deleteService,
-    getReferralSourceStats
+    getReferralSourceStats,
+    addAuditLog
 } from './service';
 import { type CenterSettings, type AuditLog, type UserAccount, type ClinicalService } from './types';
 import { getTherapists } from '../therapists/service';
@@ -36,16 +38,16 @@ import {
     Edit2,
     PieChart,
     BarChart3,
-    TrendingUp,
-    Clock
+    TrendingUp
 } from 'lucide-react';
 import './AdminView.css';
-import WorkforceReport from '../../modules/workforce/WorkforceReport';
 import AnalyticsDashboard from '../../modules/analytics/AnalyticsDashboard';
 import AdminChangePasswordModal from '../../components/layout/AdminChangePasswordModal';
+import { useAuth } from '../../context/AuthContext';
 
 const AdminView: React.FC = () => {
-    const [activeTab, setActiveTab] = useState<'center' | 'users' | 'services' | 'security' | 'reports' | 'workforce' | 'analytics'>('center');
+    const { user } = useAuth();
+    const [activeTab, setActiveTab] = useState<'center' | 'users' | 'services' | 'security' | 'reports' | 'analytics'>('center');
     // ...
     const [settings, setSettings] = useState<CenterSettings | null>(null);
     const [users, setUsers] = useState<UserAccount[]>([]);
@@ -58,6 +60,8 @@ const AdminView: React.FC = () => {
     const [isUserModalOpen, setIsUserModalOpen] = useState(false);
     const [selectedUser, setSelectedUser] = useState<Partial<UserAccount> & { password?: string } | null>(null);
     const [userError, setUserError] = useState<string | null>(null);
+    const [isDeletingUser, setIsDeletingUser] = useState(false);
+    const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
     const [therapists, setTherapists] = useState<Therapist[]>([]);
 
     // Password change state
@@ -92,6 +96,7 @@ const AdminView: React.FC = () => {
     };
 
     const handleOpenUserModal = (user?: UserAccount) => {
+        setShowDeleteConfirm(false);
         if (user) {
             setSelectedUser({ ...user });
         } else {
@@ -105,6 +110,43 @@ const AdminView: React.FC = () => {
         }
         setUserError(null);
         setIsUserModalOpen(true);
+    };
+
+    const handleDeleteUser = async () => {
+        if (!selectedUser?.id) return;
+        
+        if (!showDeleteConfirm) {
+            setShowDeleteConfirm(true);
+            return;
+        }
+
+        setIsDeletingUser(true);
+        setUserError(null);
+        console.log('Initiating deleteUser for ID:', selectedUser.id);
+
+        try {
+            await deleteUser(selectedUser.id);
+            console.log('Delete successful in Auth/DB');
+            
+            await addAuditLog({
+                userId: user?.id || '',
+                userName: user?.name || 'Admin',
+                action: 'Eliminación de usuario',
+                details: `Eliminó la cuenta de acceso de ${selectedUser.fullName} (${selectedUser.email})`,
+                timestamp: new Date().toISOString(),
+                category: 'auth'
+            });
+            
+            setUsers(prev => prev.filter(u => u.id !== selectedUser.id));
+            setIsUserModalOpen(false);
+            setSelectedUser(null);
+            setShowDeleteConfirm(false);
+        } catch (err: any) {
+            console.error('Delete User Catch Error:', err);
+            setUserError(err.message || 'Error al eliminar el usuario (ver consola)');
+        } finally {
+            setIsDeletingUser(false);
+        }
     };
 
     const handleSaveUser = async (e: React.FormEvent) => {
@@ -187,13 +229,6 @@ const AdminView: React.FC = () => {
                     Analítica
                 </button>
                 <button
-                    className={`tab-btn ${activeTab === 'workforce' ? 'active' : ''}`}
-                    onClick={() => setActiveTab('workforce')}
-                >
-                    <Clock size={18} style={{ marginRight: 8, verticalAlign: 'middle' }} />
-                    Control Horario
-                </button>
-                <button
                     className={`tab-btn ${activeTab === 'services' ? 'active' : ''}`}
                     onClick={() => setActiveTab('services')}
                 >
@@ -226,14 +261,6 @@ const AdminView: React.FC = () => {
             <div className="admin-content">
                 {activeTab === 'analytics' && <AnalyticsDashboard />}
 
-                {activeTab === 'workforce' && (
-                    <div className="admin-section">
-                        <div className="flex justify-between items-center mb-4">
-                            <h3 style={{ fontSize: '1.25rem', fontWeight: 600 }}>Registro de Jornada Laboral</h3>
-                        </div>
-                        <WorkforceReport />
-                    </div>
-                )}
 
                 {activeTab === 'reports' && (
                     <div className="admin-section">
@@ -435,7 +462,7 @@ const AdminView: React.FC = () => {
                                 <ShieldCheck size={20} className="text-secondary" />
                                 <h3>{selectedUser.id ? 'Gestionar Cuenta' : 'Nueva Cuenta de Acceso'}</h3>
                             </div>
-                            <button className="btn-icon-round" onClick={() => setIsUserModalOpen(false)}>
+                            <button className="btn-icon-round" onClick={() => { setIsUserModalOpen(false); setShowDeleteConfirm(false); }}>
                                 <X size={20} />
                             </button>
                         </div>
@@ -456,60 +483,7 @@ const AdminView: React.FC = () => {
                                     {userError}
                                 </div>
                             )}
-                            <div className="form-group">
-                                <label><UserIcon size={14} style={{ marginRight: 6 }} /> Terapeuta Asignado</label>
-                                {selectedUser.id ? (
-                                    <input
-                                        type="text"
-                                        disabled
-                                        value={selectedUser.fullName || ''}
-                                        style={{ background: '#f9fafb', color: '#6b7280' }}
-                                    />
-                                ) : (
-                                    <select
-                                        required
-                                        value={selectedUser.fullName || ''}
-                                        onChange={e => {
-                                            const t = therapists.find(t => t.fullName === e.target.value);
-                                            setSelectedUser({
-                                                ...selectedUser,
-                                                fullName: t?.fullName || '',
-                                                email: t?.email || selectedUser.email || '',
-                                                therapistId: t?.id
-                                            });
-                                        }}
-                                        style={{ padding: '0.75rem', borderRadius: '8px', border: '1px solid #ddd', width: '100%' }}
-                                    >
-                                        <option value="">Selecciona un terapeuta...</option>
-                                        {(() => {
-                                            const normalize = (s: string) => (s || '').toLowerCase().trim().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
-                                            return therapists
-                                                .filter(t => {
-                                                    const alreadyHasAccount = users.some(u => {
-                                                        const idMatch = u.therapistId && u.therapistId === t.id;
-                                                        const emailMatch = u.email && t.email && normalize(u.email) === normalize(t.email);
-                                                        const nameMatch = u.fullName && t.fullName && normalize(u.fullName) === normalize(t.fullName);
-                                                        return idMatch || emailMatch || nameMatch;
-                                                    });
-                                                    return !alreadyHasAccount;
-                                                })
-                                                .map(t => (
-                                                    <option key={t.id} value={t.fullName}>{t.fullName} — {t.specialty}</option>
-                                                ));
-                                        })()}
-                                    </select>
-                                )}
-                            </div>
-                            <div className="form-group">
-                                <label><Mail size={14} style={{ marginRight: 6 }} /> Email Corporativo</label>
-                                <input
-                                    type="email"
-                                    required
-                                    value={selectedUser.email || ''}
-                                    onChange={e => setSelectedUser({ ...selectedUser, email: e.target.value })}
-                                    placeholder="ejemplo@proyecta.com"
-                                />
-                            </div>
+                            
                             <div className="flex gap-4">
                                 <div className="form-group" style={{ flex: 1 }}>
                                     <label>Rol asignado</label>
@@ -533,6 +507,77 @@ const AdminView: React.FC = () => {
                                 </div>
                             </div>
 
+                            <div className="form-group">
+                                <label><UserIcon size={14} style={{ marginRight: 6 }} /> 
+                                    {selectedUser.role === 'Admin' ? 'Opcional: Vincular a Terapeuta' : 'Obligatorio: Terapeuta Asignado'}
+                                </label>
+                                {selectedUser.id ? (
+                                    <input
+                                        type="text"
+                                        disabled
+                                        value={selectedUser.fullName || ''}
+                                        style={{ background: '#f9fafb', color: '#6b7280' }}
+                                    />
+                                ) : (
+                                    <select
+                                        required={selectedUser.role !== 'Admin'}
+                                        value={selectedUser.fullName || ''}
+                                        onChange={e => {
+                                            const t = therapists.find(t => t.fullName === e.target.value);
+                                            setSelectedUser({
+                                                ...selectedUser,
+                                                fullName: t?.fullName || e.target.value || '',
+                                                email: t?.email || selectedUser.email || '',
+                                                therapistId: t?.id
+                                            });
+                                        }}
+                                        style={{ padding: '0.75rem', borderRadius: '8px', border: '1px solid #ddd', width: '100%' }}
+                                    >
+                                        <option value="">{selectedUser.role === 'Admin' ? '(Sin vinculación a terapeuta)' : 'Selecciona un terapeuta...'}</option>
+                                        {(() => {
+                                            const normalize = (s: string) => (s || '').toLowerCase().trim().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+                                            return therapists
+                                                .filter(t => {
+                                                    const alreadyHasAccount = users.some(u => {
+                                                        const idMatch = u.therapistId && u.therapistId === t.id;
+                                                        const emailMatch = u.email && t.email && normalize(u.email) === normalize(t.email);
+                                                        const nameMatch = u.fullName && t.fullName && normalize(u.fullName) === normalize(t.fullName);
+                                                        return idMatch || emailMatch || nameMatch;
+                                                    });
+                                                    return !alreadyHasAccount;
+                                                })
+                                                .map(t => (
+                                                    <option key={t.id} value={t.fullName}>{t.fullName} — {t.specialty}</option>
+                                                ));
+                                        })()}
+                                    </select>
+                                )}
+                            </div>
+
+                            {selectedUser.role === 'Admin' && (!selectedUser.id || !selectedUser.therapistId) && (
+                                <div className="form-group">
+                                    <label>Nombre del Administrador</label>
+                                    <input
+                                        type="text"
+                                        required
+                                        value={selectedUser.fullName || ''}
+                                        onChange={e => setSelectedUser({ ...selectedUser, fullName: e.target.value })}
+                                        placeholder="Ej. Ana Directora"
+                                    />
+                                </div>
+                            )}
+
+                            <div className="form-group">
+                                <label><Mail size={14} style={{ marginRight: 6 }} /> Email Corporativo</label>
+                                <input
+                                    type="email"
+                                    required
+                                    value={selectedUser.email || ''}
+                                    onChange={e => setSelectedUser({ ...selectedUser, email: e.target.value })}
+                                    placeholder="ejemplo@proyecta.com"
+                                />
+                            </div>
+
                             {!selectedUser.id && (
                                 <div className="form-group">
                                     <label><Lock size={14} style={{ marginRight: 6 }} /> Contraseña Inicial</label>
@@ -548,6 +593,7 @@ const AdminView: React.FC = () => {
                                     </p>
                                 </div>
                             )}
+
                             <div className="modal-footer" style={{ marginTop: '2rem' }}>
                                 {selectedUser.id && (
                                     <button
@@ -563,12 +609,49 @@ const AdminView: React.FC = () => {
                                         <Lock size={14} /> Cambiar Contraseña
                                     </button>
                                 )}
-                                <button type="button" className="btn-secondary" onClick={() => setIsUserModalOpen(false)}>
-                                    Cancelar
-                                </button>
-                                <button type="submit" className="btn-primary">
-                                    {selectedUser.id ? 'Guardar Cambios' : 'Crear Usuario'}
-                                </button>
+                                {selectedUser.id ? (
+                                    <div className="flex gap-2" style={{ marginRight: 'auto' }}>
+                                        {showDeleteConfirm ? (
+                                            <>
+                                                <button 
+                                                    type="button" 
+                                                    className="btn-primary" 
+                                                    style={{ background: '#dc2626' }}
+                                                    onClick={handleDeleteUser}
+                                                    disabled={isDeletingUser}
+                                                >
+                                                    {isDeletingUser ? 'Borrando...' : '¡Confirmar Borrado!'}
+                                                </button>
+                                                <button 
+                                                    type="button" 
+                                                    className="btn-secondary" 
+                                                    onClick={() => setShowDeleteConfirm(false)}
+                                                    disabled={isDeletingUser}
+                                                >
+                                                    Atrás
+                                                </button>
+                                            </>
+                                        ) : (
+                                            <button 
+                                                type="button" 
+                                                className="btn-secondary" 
+                                                style={{ color: '#dc2626', borderColor: '#fee2e2' }}
+                                                onClick={() => setShowDeleteConfirm(true)}
+                                            >
+                                                Eliminar Cuenta
+                                            </button>
+                                        )}
+                                    </div>
+                                ) : (
+                                    <button type="button" className="btn-secondary" onClick={() => setIsUserModalOpen(false)}>
+                                        Cancelar
+                                    </button>
+                                )}
+                                {!showDeleteConfirm && (
+                                    <button type="submit" className="btn-primary">
+                                        {selectedUser.id ? 'Guardar Cambios' : 'Crear Usuario'}
+                                    </button>
+                                )}
                             </div>
                         </form>
                     </div>

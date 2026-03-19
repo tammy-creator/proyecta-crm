@@ -24,6 +24,9 @@ const mapPatient = (row: any): Patient => {
         lastVisit: row.last_visit,
         notes: row.notes,
         consentSignature: row.consent_signature,
+        consentLopd: row.consent_lopd,
+        consentMarketing: row.consent_marketing,
+        consentDate: row.consent_date,
         createdAt: row.created_at?.split('T')[0] ?? '',
         tutor1: t1Row
             ? {
@@ -101,6 +104,9 @@ export const createPatient = async (patient: Omit<Patient, 'id' | 'createdAt'>):
             status: patient.status,
             notes: patient.notes,
             consent_signature: patient.consentSignature,
+            consent_lopd: patient.consentLopd || false,
+            consent_marketing: patient.consentMarketing || false,
+            consent_date: patient.consentDate || null,
         })
         .select()
         .single();
@@ -160,6 +166,9 @@ export const updatePatient = async (patient: Patient): Promise<Patient> => {
             last_visit: patient.lastVisit,
             notes: patient.notes,
             consent_signature: patient.consentSignature,
+            consent_lopd: patient.consentLopd,
+            consent_marketing: patient.consentMarketing,
+            consent_date: patient.consentDate,
         })
         .eq('id', patient.id);
 

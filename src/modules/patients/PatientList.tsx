@@ -5,7 +5,7 @@ import { getAppointmentsByPatient } from '../calendar/service';
 import { type Patient, type PatientFile } from './types';
 import { type Appointment } from '../calendar/types';
 import Card from '../../components/ui/Card';
-import { User, Phone, Mail, Search, UserPlus, X, Calendar, ClipboardList, FileText, Upload, Activity, Download, Send } from 'lucide-react';
+import { User, Phone, Mail, Search, UserPlus, X, Calendar, ClipboardList, FileText, Upload, Activity, Download, Send, ShieldCheck, ShieldAlert } from 'lucide-react';
 import './PatientList.css';
 
 const PatientList: React.FC = () => {
@@ -224,7 +224,13 @@ const PatientList: React.FC = () => {
         // Guardar firma en el paciente (Persistir en BD)
         if (signatureData) {
             try {
-                await updatePatient({ ...selectedPatient as Patient, consentSignature: signatureData });
+                const now = new Date().toISOString();
+                await updatePatient({ 
+                    ...selectedPatient as Patient, 
+                    consentSignature: signatureData,
+                    consentLopd: true,
+                    consentDate: now
+                });
 
                 // Enviar Email vía Edge Function
                 const recipientEmail = (selectedPatient as Patient).tutor1?.email || (selectedPatient as Patient).email;
@@ -399,6 +405,19 @@ const PatientList: React.FC = () => {
                                 <span className="detail-label">Email:</span>
                                 <span>{patient.email}</span>
                             </div>
+                            <div className="detail-item" style={{ marginTop: '0.5rem' }}>
+                                {patient.consentLopd ? (
+                                    <div className="flex items-center gap-1" style={{ color: '#059669', fontSize: '0.8rem', fontWeight: 600 }}>
+                                        <ShieldCheck size={14} />
+                                        <span>Consentimiento LOPD Firmado</span>
+                                    </div>
+                                ) : (
+                                    <div className="flex items-center gap-1" style={{ color: '#dc2626', fontSize: '0.8rem', fontWeight: 600 }}>
+                                        <ShieldAlert size={14} />
+                                        <span>LOPD Pendiente de Firma</span>
+                                    </div>
+                                )}
+                            </div>
                             <div className="detail-item" style={{ marginTop: '0.25rem', color: 'var(--color-primary)', fontSize: '0.8rem' }}>
                                 <Activity size={12} />
                                 <span className="detail-label">Origen:</span>
@@ -559,6 +578,50 @@ const PatientList: React.FC = () => {
                                         <div className="form-group">
                                             <label><ClipboardList size={14} style={{ marginRight: 6 }} /> Notas Médicas / Observaciones</label>
                                             <textarea rows={3} value={selectedPatient.notes} onChange={e => setSelectedPatient({ ...selectedPatient, notes: e.target.value })} style={{ width: '100%', padding: '0.75rem', borderRadius: '8px', border: '1px solid #ddd', fontFamily: 'inherit' }} />
+                                        </div>
+
+                                        <div className="consent-verification-check" style={{ 
+                                            padding: '1rem', 
+                                            borderRadius: '8px', 
+                                            backgroundColor: selectedPatient.consentLopd ? 'rgba(5, 150, 105, 0.05)' : 'rgba(220, 38, 38, 0.05)',
+                                            border: `1px solid ${selectedPatient.consentLopd ? '#05966933' : '#dc262633'}`,
+                                            marginTop: '1.5rem'
+                                        }}>
+                                            <div className="flex items-center justify-between">
+                                                <div className="flex items-center gap-2">
+                                                    {selectedPatient.consentLopd ? (
+                                                        <ShieldCheck size={20} style={{ color: '#059669' }} />
+                                                    ) : (
+                                                        <ShieldAlert size={20} style={{ color: '#dc2626' }} />
+                                                    )}
+                                                    <div>
+                                                        <p style={{ fontWeight: 600, fontSize: '0.9rem', margin: 0 }}>Firma LOPD y Tratamiento de Datos</p>
+                                                        <p style={{ fontSize: '0.75rem', color: 'var(--color-text-secondary)', margin: 0 }}>
+                                                            {selectedPatient.consentLopd 
+                                                                ? `Verificado el ${new Date(selectedPatient.consentDate!).toLocaleDateString('es-ES')}` 
+                                                                : 'Pendiente de firma por parte de los tutores'
+                                                            }
+                                                        </p>
+                                                    </div>
+                                                </div>
+                                                <div className="flex items-center gap-2">
+                                                    <input 
+                                                        type="checkbox" 
+                                                        id="consentLopd"
+                                                        checked={selectedPatient.consentLopd || false}
+                                                        onChange={e => {
+                                                            const isChecked = e.target.checked;
+                                                            setSelectedPatient({ 
+                                                                ...selectedPatient, 
+                                                                consentLopd: isChecked,
+                                                                consentDate: isChecked ? (selectedPatient.consentDate || new Date().toISOString()) : selectedPatient.consentDate
+                                                            });
+                                                        }}
+                                                        style={{ width: '18px', height: '18px', cursor: 'pointer' }}
+                                                    />
+                                                    <label htmlFor="consentLopd" style={{ fontSize: '0.85rem', fontWeight: 500, cursor: 'pointer' }}>Marcar como Verificado</label>
+                                                </div>
+                                            </div>
                                         </div>
                                     </section>
 

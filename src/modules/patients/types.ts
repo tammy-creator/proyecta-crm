@@ -42,6 +42,9 @@ export interface Patient {
     notes?: string;
     files?: PatientFile[];
     consentSignature?: string; // Firma capturada en Base64
+    consentLopd?: boolean;
+    consentMarketing?: boolean;
+    consentDate?: string;
     createdAt: string;
 }
 

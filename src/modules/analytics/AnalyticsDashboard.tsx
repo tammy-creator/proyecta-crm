@@ -26,6 +26,7 @@ import {
 import Card from '../../components/ui/Card';
 import Modal from '../../components/ui/Modal';
 import { getAnalyticsData, type KPIStats } from './service';
+import { useToast } from '../../hooks/useToast';
 
 const METRIC_DETAILS: Record<string, { title: string, definition: string, analysis: (stats: KPIStats) => string, icon: any }> = {
     occupancy: {
@@ -63,6 +64,7 @@ const METRIC_DETAILS: Record<string, { title: string, definition: string, analys
 };
 
 const AnalyticsDashboard: React.FC = () => {
+    const { showToast } = useToast();
     const [stats, setStats] = useState<KPIStats | null>(null);
     const [loading, setLoading] = useState(true);
     const [month] = useState(new Date());
@@ -80,7 +82,7 @@ const AnalyticsDashboard: React.FC = () => {
     };
 
     const handleExport = () => {
-        alert("Generando informe PDF para gerencia...\n(Simulación)");
+        showToast("Generando informe PDF para gerencia...", "info");
     };
 
     if (loading) return <div className="p-8 text-center text-secondary">Calculando métricas de negocio...</div>;

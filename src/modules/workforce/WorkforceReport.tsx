@@ -45,9 +45,11 @@ import type { CenterSettings } from '../admin/types';
 import { getCenterSettings } from '../admin/service';
 import Modal from '../../components/ui/Modal';
 import { generateDetailedReportPDF } from '../../utils/pdfGenerator';
+import { useToast } from '../../hooks/useToast';
 import './WorkforceReport.css';
 
 const WorkforceReport: React.FC = () => {
+    const { showToast } = useToast();
     const [month, setMonth] = useState(format(new Date(), 'yyyy-MM'));
     const [selectedTherapistId, setSelectedTherapistId] = useState<string>('');
     const [therapists, setTherapists] = useState<Therapist[]>([]);
@@ -146,7 +148,7 @@ const WorkforceReport: React.FC = () => {
             fetchData();
         } catch (error: any) {
             console.error("Error deleting from history:", error);
-            alert(`Error al eliminar: ${error.message || 'Error desconocido'}`);
+            showToast(`Error al eliminar: ${error.message || 'Error desconocido'}`, "error");
         }
     };
 
@@ -171,7 +173,7 @@ const WorkforceReport: React.FC = () => {
             });
 
             if (hasOverlap) {
-                alert("Ya existe una ausencia (vacación o baja) registrada para este terapeuta en las fechas seleccionadas. Por favor, revisa el historial.");
+                showToast("Ya existe una ausencia registrada para este terapeuta en las fechas seleccionadas.", "error");
                 return;
             }
         }
@@ -196,7 +198,7 @@ const WorkforceReport: React.FC = () => {
             }
 
             if (!userAccount) {
-                alert("Este terapeuta no tiene una cuenta de usuario activa. Por favor, crea una cuenta para el terapeuta en la pestaña 'Equipo y Roles' antes de registrar su asistencia.");
+                showToast("Este terapeuta no tiene una cuenta de usuario activa. Créala en 'Equipo y Roles' antes de registrar asistencia.", "error");
                 return;
             }
 
@@ -220,7 +222,7 @@ const WorkforceReport: React.FC = () => {
             fetchData();
         } catch (error) {
             console.error("Error saving attendance:", error);
-            alert("Error al guardar el registro.");
+            showToast("Error al guardar el registro.", "error");
         }
     };
 
@@ -232,7 +234,7 @@ const WorkforceReport: React.FC = () => {
             fetchData();
         } catch (error) {
             console.error("Error deleting registration:", error);
-            alert("Error al eliminar el registro.");
+            showToast("Error al eliminar el registro.", "error");
         }
     };
 
@@ -312,7 +314,7 @@ const WorkforceReport: React.FC = () => {
             URL.revokeObjectURL(url);
         } catch (err) {
             console.error("Error generating local PDF:", err);
-            alert("No se pudo generar el PDF.");
+            showToast("No se pudo generar el PDF.", "error");
         }
     };
 
@@ -335,7 +337,7 @@ const WorkforceReport: React.FC = () => {
             URL.revokeObjectURL(url);
         } catch (e) {
             console.error("Error printing PDF", e);
-            alert("No se pudo generar el PDF.");
+            showToast("No se pudo generar el PDF.", "error");
         }
     };
 

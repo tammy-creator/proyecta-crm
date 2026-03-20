@@ -6,9 +6,11 @@ import { type Patient, type PatientFile } from './types';
 import { type Appointment } from '../calendar/types';
 import Card from '../../components/ui/Card';
 import { User, Phone, Mail, Search, UserPlus, X, Calendar, ClipboardList, FileText, Upload, Activity, Download, Send, ShieldCheck, ShieldAlert } from 'lucide-react';
+import { useToast } from '../../hooks/useToast';
 import './PatientList.css';
 
 const PatientList: React.FC = () => {
+    const { showToast } = useToast();
     const [patients, setPatients] = useState<Patient[]>([]);
     const [loading, setLoading] = useState(true);
     const [searchTerm, setSearchTerm] = useState('');
@@ -152,7 +154,7 @@ const PatientList: React.FC = () => {
             fetchData();
         } catch (error) {
             console.error("Error saving patient:", error);
-            alert("No se pudo guardar la ficha. Por favor, revisa la conexión.");
+            showToast("No se pudo guardar la ficha. Por favor, revisa la conexión.", "error");
         }
     };
 
@@ -246,13 +248,13 @@ const PatientList: React.FC = () => {
 
                     if (invokeError) {
                         console.error("Error invoking Edge Function:", invokeError);
-                        alert(`El documento se guardó pero hubo un problema al invocar el servicio de email: ${invokeError.message || 'Error de conexión'}`);
+                        showToast(`El documento se guardó pero hubo un problema al invocar el servicio de email: ${invokeError.message || 'Error de conexión'}`, "error");
                     } else if (data && data.success === false) {
                         console.error("SMTP Error:", data.error);
-                        alert(`Error del servidor de correo: ${data.error}`);
+                        showToast(`Error del servidor de correo: ${data.error}`, "error");
                     } else if (data && data.success) {
                         console.log("Email sent successfully:", data.messageId);
-                        alert(`Ficha firmada y email enviado correctamente a: ${recipientEmail}. ID: ${data.messageId}`);
+                        showToast(`Ficha firmada y email enviado correctamente a: ${recipientEmail}`, "success");
                     }
                 }
 
@@ -268,10 +270,10 @@ const PatientList: React.FC = () => {
                 // El alert de éxito ya se muestra dentro del bloque del email si es exitoso
             } catch (error) {
                 console.error("Error persistiendo firma o enviando email:", error);
-                alert("Error crítico al procesar la firma o el envío del email. Revisa la consola.");
+                showToast("Error crítico al procesar la firma o el envío del email.", "error");
             }
         } else {
-            alert("No se ha detectado ninguna firma en el panel.");
+            showToast("No se ha detectado ninguna firma en el panel.", "error");
         }
 
         setIsConsentModalOpen(false);
@@ -291,13 +293,13 @@ const PatientList: React.FC = () => {
 
     const handleResendConsentEmail = async (patient: Patient) => {
         if (!patient.consentSignature) {
-            alert("No hay una firma de consentimiento guardada para este paciente.");
+            showToast("No hay una firma de consentimiento guardada para este paciente.", "error");
             return;
         }
 
         const recipientEmail = patient.tutor1?.email || patient.email;
         if (!recipientEmail) {
-            alert("El paciente no tiene un email configurado.");
+            showToast("El paciente no tiene un email configurado.", "error");
             return;
         }
 
@@ -314,10 +316,10 @@ const PatientList: React.FC = () => {
             if (error) throw error;
             if (data && data.success === false) throw new Error(data.error);
 
-            alert(`Email re-enviado correctamente a: ${recipientEmail}`);
+            showToast(`Email re-enviado correctamente a: ${recipientEmail}`, "success");
         } catch (error: any) {
             console.error("Error re-enviando email:", error);
-            alert(`Error al re-enviar el email: ${error.message || 'Error desconocido'}`);
+            showToast(`Error al re-enviar el email: ${error.message || 'Error desconocido'}`, "error");
         }
     };
 
@@ -327,7 +329,7 @@ const PatientList: React.FC = () => {
             setIsConsentModalOpen(true);
             setIsSigned(true);
         } else {
-            alert(`Visualizando archivo: ${file.name}`);
+            showToast(`Visualizando archivo: ${file.name}`, "info");
         }
     };
 

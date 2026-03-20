@@ -15,12 +15,14 @@ import { createInvoice, getNextInvoiceNumber, existsInvoiceNumber } from '../inv
 import type { Invoice } from '../invoices/types';
 import InvoiceList from '../invoices/InvoiceList';
 import InvoiceDocument from '../invoices/InvoiceDocument';
+import { useToast } from '../../hooks/useToast';
 
 import { useAuth } from '../../context/AuthContext';
 
 
 const BillingView: React.FC = () => {
     const { user } = useAuth();
+    const { showToast } = useToast();
     const isTherapist = user?.role === 'THERAPIST';
     
     // Si es terapeuta, siempre empezamos en TRANSACTIONS
@@ -179,7 +181,7 @@ const BillingView: React.FC = () => {
         
         const trimmedNumber = invoiceNumber.trim();
         if (!trimmedNumber) {
-            alert("⚠️ El número de factura no puede estar vacío.");
+            showToast("El número de factura no puede estar vacío.", "error");
             return null;
         }
 
@@ -190,7 +192,7 @@ const BillingView: React.FC = () => {
             const exists = await existsInvoiceNumber(trimmedNumber);
             
             if (exists) {
-                alert(`⚠️ Error: El número de factura "${trimmedNumber}" ya existe.\nPor favor, introduce un número diferente.`);
+                showToast(`El número de factura "${trimmedNumber}" ya existe.`, "error");
                 setIsCreatingInvoice(false);
                 return null;
             }
@@ -224,8 +226,7 @@ const BillingView: React.FC = () => {
         } catch (error: any) {
             setIsCreatingInvoice(false);
             console.error("Critical Error creating invoice:", error);
-            const msg = error.message || (typeof error === 'object' ? JSON.stringify(error) : String(error));
-            alert(`No se pudo crear la factura:\n${msg}`);
+            showToast("No se pudo crear la factura.", "error");
             return null;
         }
     };

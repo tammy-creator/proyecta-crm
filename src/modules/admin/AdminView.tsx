@@ -44,9 +44,11 @@ import './AdminView.css';
 import AnalyticsDashboard from '../../modules/analytics/AnalyticsDashboard';
 import AdminChangePasswordModal from '../../components/layout/AdminChangePasswordModal';
 import { useAuth } from '../../context/AuthContext';
+import { useToast } from '../../hooks/useToast';
 
 const AdminView: React.FC = () => {
     const { user } = useAuth();
+    const { showToast } = useToast();
     const [activeTab, setActiveTab] = useState<'center' | 'users' | 'services' | 'security' | 'reports' | 'analytics'>('center');
     // ...
     const [settings, setSettings] = useState<CenterSettings | null>(null);
@@ -603,7 +605,7 @@ const AdminView: React.FC = () => {
                                         onClick={() => {
                                             const t = therapists.find(th => th.fullName === selectedUser.fullName);
                                             if (t) { setPasswordTherapistId(t.id); setIsPasswordModalOpen(true); }
-                                            else alert('No se encontró el terapeuta asociado para cambiar contraseña.');
+                                            else showToast('No se encontró el terapeuta asociado.', 'error');
                                         }}
                                     >
                                         <Lock size={14} /> Cambiar Contraseña

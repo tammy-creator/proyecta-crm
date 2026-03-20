@@ -33,6 +33,7 @@ import { type Patient } from '../patients/types';
 import { type Therapist } from '../therapists/types';
 import { type ClinicalService } from '../admin/types';
 import { supabase } from '../../lib/supabase';
+import { useToast } from '../../hooks/useToast';
 import './CalendarView.css';
 
 interface CalendarViewProps {
@@ -57,6 +58,7 @@ const getContrastColor = (hexColor: string) => {
 
 const CalendarView: React.FC<CalendarViewProps> = ({ mode: initialMode, therapistId: filterTherapistId }) => {
     const { user, isRole } = useAuth();
+    const { showToast } = useToast();
 
     // Si no se pasa modo, el admin ve todos hoy, el terapeuta su semana
     const effectiveMode = initialMode || (isRole('ADMIN') ? 'TODAY_MULTI' : 'WEEKLY_SINGLE');
@@ -247,7 +249,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({ mode: initialMode, therapis
         if (isRole('THERAPIST') && user?.therapistId) {
             const status = await getCurrentStatus(user.therapistId);
             if (status !== 'working') {
-                alert("⛔ ACCESO DENEGADO\n\nDebes fichar la ENTRADA en el panel lateral antes de gestionar la agenda clínica.\n\nNormativa laboral vigente.");
+                showToast("Acceso denegado. Debes fichar la ENTRADA antes de gestionar la agenda.", "error");
                 return;
             }
         }
@@ -287,7 +289,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({ mode: initialMode, therapis
         // Validación: Diario de sesión obligatorio
         const needsDiary = selectedAppt.status === 'Finalizada' || selectedAppt.status === 'Cobrada';
         if (needsDiary && (!selectedAppt.sessionDiary || selectedAppt.sessionDiary.trim() === '')) {
-            alert("⚠️ El DIARIO DE SESIÓN es obligatorio para finalizar o cobrar una cita.\n\nPor favor, completa el progreso del paciente antes de guardar.");
+            showToast("El diario de sesión es obligatorio para finalizar o cobrar una cita.", "error");
             return;
         }
 
@@ -456,7 +458,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({ mode: initialMode, therapis
 
     const toggleVoiceDiary = () => {
         if (!('webkitSpeechRecognition' in window) && !('SpeechRecognition' in window)) {
-            alert("Tu navegador no soporta el reconocimiento de voz. Te recomendamos Chrome.");
+            showToast("Tu navegador no soporta el reconocimiento de voz. Te recomendamos Chrome.", "info");
             return;
         }
 

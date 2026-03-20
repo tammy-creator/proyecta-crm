@@ -52,13 +52,9 @@ const LoginPage: React.FC = () => {
 
             <div className="login-card">
                 {/* Logo / Brand */}
-                <div className="login-brand" style={{ justifyContent: 'center' }}>
-                    <div className="login-logo text-center w-full flex justify-center">
-                        <img src={logo} alt="Proyecta Logo" className="login-logo-img" style={{ height: '80px', width: 'auto' }} />
-                    </div>
+                <div className="login-brand">
+                    <img src={logo} alt="Proyecta Logo" className="login-logo-img" style={{ height: '80px', width: 'auto' }} />
                 </div>
-
-                <div className="login-divider" />
 
                 <h2 className="login-heading">Bienvenido de nuevo</h2>
                 <p className="login-desc">Accede con tu cuenta corporativa</p>
@@ -78,7 +74,7 @@ const LoginPage: React.FC = () => {
                             type="email"
                             required
                             autoComplete="email"
-                            placeholder="tu@proyecta.com"
+                            placeholder="tu@centroproyecta.es"
                             value={email}
                             onChange={e => setEmail(e.target.value)}
                             disabled={loading}

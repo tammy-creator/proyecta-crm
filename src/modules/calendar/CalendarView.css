@@ -382,3 +382,73 @@
 .diary-group {
     position: relative;
 }
+
+/* ── Gap Radar Enhanced Styles ── */
+.radar-modal-container {
+    padding: 0;
+}
+
+.radar-filter-bar {
+    background-color: #f8fafc;
+    border-bottom: 1px solid #e2e8f0;
+    padding: 1.25rem;
+}
+
+.radar-slot-card {
+    background: linear-gradient(to bottom right, #ffffff, #f9fafb);
+    border: 1px solid #e2e8f0;
+    border-radius: 14px;
+    padding: 1rem;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    cursor: pointer !important; /* Force pointer manita */
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.02);
+}
+
+.radar-slot-card:hover {
+    border-color: var(--color-accent-blue);
+    transform: translateY(-3px) scale(1.02);
+    box-shadow: 0 12px 20px -8px rgba(0, 0, 0, 0.1);
+    background: linear-gradient(to bottom right, #ffffff, #f0f7ff);
+}
+
+.radar-availability-badge {
+    font-size: 0.7rem;
+    font-weight: 800;
+    padding: 0.25rem 0.75rem;
+    border-radius: 99px;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+}
+
+.radar-availability-high {
+    background: linear-gradient(135deg, #dcfce7, #bbf7d0);
+    color: #15803d;
+}
+
+.radar-availability-medium {
+    background: linear-gradient(135deg, #fef9c3, #fef08a);
+    color: #854d0e;
+}
+
+.radar-day-group-title {
+    font-size: 0.65rem;
+    font-weight: 800;
+    color: #94a3b8;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    padding: 0.5rem 0.25rem;
+    margin-top: 1.5rem;
+}
+
+.radar-day-group-title:first-child {
+    margin-top: 0;
+}
+
+/* Remove old radar-control class as it's now a standard btn-secondary */
+.gap-radar-control {
+    display: none;
+}

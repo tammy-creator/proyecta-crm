@@ -25,7 +25,8 @@ import {
     ArrowUpRight,
     Calendar,
     Clock,
-    ShieldCheck
+    ShieldCheck,
+    Info
 } from 'lucide-react';
 import { 
     getAllAttendance, 
@@ -51,7 +52,8 @@ import './WorkforceReport.css';
 const WorkforceReport: React.FC = () => {
     const { showToast } = useToast();
     const [month, setMonth] = useState(format(new Date(), 'yyyy-MM'));
-    const [selectedTherapistId, setSelectedTherapistId] = useState<string>('');
+    const [filterDate, setFilterDate] = useState(format(new Date(), 'yyyy-MM-dd'));
+    const [selectedTherapistId, setSelectedTherapistId] = useState<string>('all');
     const [therapists, setTherapists] = useState<Therapist[]>([]);
     const [attendances, setAttendances] = useState<Attendance[]>([]);
     const [appointments, setAppointments] = useState<any[]>([]);
@@ -69,14 +71,13 @@ const WorkforceReport: React.FC = () => {
     const [isVacationListModalOpen, setIsVacationListModalOpen] = useState(false);
     const [allVacations, setAllVacations] = useState<Attendance[]>([]);
     const [vacationLoading, setVacationLoading] = useState(false);
+    const [selectedDayAbsences, setSelectedDayAbsences] = useState<{ day: Date, absences: (Attendance & { therapistName?: string })[] } | null>(null);
     const { user: currentUser } = useAuth();
 
     useEffect(() => {
         getTherapists().then(data => {
             setTherapists(data);
-            if (data.length > 0 && !selectedTherapistId) {
-                setSelectedTherapistId(data[0].id);
-            }
+            // Removed forced default selection to allow 'all' by default
         });
 
         getCenterSettings().then(setCenterSettings).catch(console.error);
@@ -88,9 +89,7 @@ const WorkforceReport: React.FC = () => {
     }, []);
 
     useEffect(() => {
-        if (selectedTherapistId) {
-            fetchData();
-        }
+        fetchData();
     }, [month, selectedTherapistId]);
 
     useEffect(() => {
@@ -102,23 +101,46 @@ const WorkforceReport: React.FC = () => {
     }, [month, currentUser]);
 
     const fetchData = async () => {
-        if (!selectedTherapistId) return;
         setLoading(true);
         try {
-            const attData = await getAllAttendance(month, selectedTherapistId);
+            const therapistToFetch = selectedTherapistId === 'all' ? undefined : selectedTherapistId;
+            const attData = await getAllAttendance(month, therapistToFetch);
             setAttendances(attData);
 
             const startDay = parseISO(`${month}-01`);
             const endDay = endOfMonth(startDay);
-            
             const appts = await getAppointments(startDay, endDay);
             
-            const filteredAppts = appts.filter(a => 
-                a.therapistId === selectedTherapistId && 
-                a.status !== 'Cancelada'
-            );
+            const filteredAppts = selectedTherapistId === 'all' 
+                ? appts.filter(a => a.status !== 'Cancelada')
+                : appts.filter(a => a.therapistId === selectedTherapistId && a.status !== 'Cancelada');
             
             setAppointments(filteredAppts);
+
+            // Populate allVacations for the history list
+            if (selectedTherapistId === 'all') {
+                setAllVacations(attData.filter(a => a.type !== 'work'));
+            } else {
+                const currentYear = format(new Date(), 'yyyy');
+                const { data: yearData } = await supabase
+                    .from('attendance')
+                    .select('*')
+                    .eq('therapist_id', selectedTherapistId)
+                    .neq('type', 'work')
+                    .gte('start_time', `${currentYear}-01-01T00:00:00Z`)
+                    .lte('start_time', `${currentYear}-12-31T23:59:59Z`)
+                    .order('start_time', { ascending: false });
+                
+                setAllVacations((yearData || []).map(d => ({
+                    id: d.id,
+                    userId: d.user_id,
+                    therapistId: d.therapist_id,
+                    startTime: d.start_time,
+                    endTime: d.end_time,
+                    type: d.type as 'work' | 'vacation' | 'sick_leave',
+                    notes: d.notes
+                })));
+            }
         } catch (error) {
             console.error("Error fetching workforce data:", error);
         } finally {
@@ -127,12 +149,35 @@ const WorkforceReport: React.FC = () => {
     };
 
     const handleShowVacations = async () => {
-        if (!selectedTherapistId) return;
         setVacationLoading(true);
         setIsVacationListModalOpen(true);
         try {
-            const data = await getTherapistVacations(selectedTherapistId);
-            setAllVacations(data);
+            if (selectedTherapistId === 'all') {
+                const data = await getAllAttendance(month);
+                setAllVacations(data.filter(a => a.type !== 'work'));
+            } else {
+                // Show current year for specific therapist
+                const currentYear = format(new Date(), 'yyyy');
+                const { data, error } = await supabase
+                    .from('attendance')
+                    .select('*')
+                    .eq('therapist_id', selectedTherapistId)
+                    .neq('type', 'work')
+                    .gte('start_time', `${currentYear}-01-01T00:00:00Z`)
+                    .lte('start_time', `${currentYear}-12-31T23:59:59Z`)
+                    .order('start_time', { ascending: false });
+                
+                if (error) throw error;
+                setAllVacations((data || []).map(d => ({
+                    id: d.id,
+                    userId: d.user_id,
+                    therapistId: d.therapist_id,
+                    startTime: d.start_time,
+                    endTime: d.end_time,
+                    type: d.type as any,
+                    notes: d.notes
+                })));
+            }
         } catch (error) {
             console.error("Error fetching vacation history:", error);
         } finally {
@@ -414,7 +459,21 @@ const WorkforceReport: React.FC = () => {
             {/* ── Sub-Header for Controls ── */}
             <div className="workforce-header" style={{ marginBottom: '1.5rem' }}>
                 <div className="workforce-header-controls">
-                    {activeTab !== 'signatures' && (
+                    {selectedTherapistId === 'all' && activeTab === 'daily' && (
+                        <div className="wf-filter-date">
+                            <Calendar size={16} />
+                            <input
+                                type="date"
+                                value={filterDate}
+                                onChange={e => {
+                                    setFilterDate(e.target.value);
+                                    setMonth(format(parseISO(e.target.value), 'yyyy-MM'));
+                                }}
+                                className="wf-date-input"
+                            />
+                        </div>
+                    )}
+                    {activeTab !== 'signatures' && !(activeTab === 'daily' && selectedTherapistId === 'all') && (
                         <input
                             type="month"
                             value={month}
@@ -498,7 +557,7 @@ const WorkforceReport: React.FC = () => {
                             <table className="wf-table">
                                 <thead>
                                     <tr>
-                                        <th>Fecha</th>
+                                        <th>{selectedTherapistId === 'all' ? 'Terapeuta' : 'Fecha'}</th>
                                         <th>Estado</th>
                                         <th>Entrada</th>
                                         <th>Salida</th>
@@ -517,23 +576,55 @@ const WorkforceReport: React.FC = () => {
                                             </td>
                                         </tr>
                                     ) : (
-                                        daysInMonth.map(day => {
-                                            const { workAtt, absenceAtt, apptsCount, hasMissingClockIn } = getDailyData(day);
+                                        (selectedTherapistId === 'all' ? therapists : daysInMonth).map(item => {
+                                            const isAll = selectedTherapistId === 'all';
+                                            const day = isAll ? parseISO(filterDate) : (item as Date);
+                                            const therapist = isAll ? (item as Therapist) : therapists.find(t => t.id === selectedTherapistId);
+                                            
+                                            // Local day data filtering for 'all' view
+                                            const dDate = startOfDay(day);
+                                            const dayAtts = attendances.filter(a => 
+                                                a.therapistId === (isAll ? therapist?.id : selectedTherapistId) && 
+                                                a.startTime && isSameDay(parseISO(a.startTime), day)
+                                            );
+                                            const dayAppts = appointments.filter(a => 
+                                                a.therapistId === (isAll ? therapist?.id : selectedTherapistId) && 
+                                                a.start && isSameDay(parseISO(a.start), day)
+                                            );
+                                            
+                                            const workAtt = dayAtts.find(a => a.type === 'work');
+                                            const absenceAtt = attendances.find(a => {
+                                                if (a.therapistId !== (isAll ? therapist?.id : selectedTherapistId)) return false;
+                                                if (a.type === 'work' || !a.startTime) return false;
+                                                const sDate = startOfDay(parseISO(a.startTime));
+                                                const eDate = a.endTime ? endOfDay(parseISO(a.endTime)) : endOfDay(parseISO(a.startTime));
+                                                return dDate >= sDate && dDate <= eDate;
+                                            });
+
+                                            const apptsCount = dayAppts.length;
+                                            const hasMissingClockIn = apptsCount > 0 && !workAtt && !absenceAtt && !isWeekend(day);
+
                                             const isToday = isSameDay(day, new Date());
                                             const weekend = isWeekend(day);
 
-                                            if (!workAtt && !absenceAtt && !hasMissingClockIn && weekend) return null;
+                                            if (!isAll && !workAtt && !absenceAtt && !hasMissingClockIn && weekend) return null;
 
                                             const rowClass = [
                                                 hasMissingClockIn ? 'wf-row-missing' : '',
-                                                isToday ? 'wf-row-today' : ''
+                                                isToday && !isAll ? 'wf-row-today' : ''
                                             ].filter(Boolean).join(' ');
 
+                                            const key = isAll ? therapist?.id : day.toISOString();
+
                                             return (
-                                                <tr key={day.toISOString()} className={rowClass}>
+                                                <tr key={key} className={rowClass}>
                                                     <td>
-                                                        <span className="wf-date-name">{format(day, "EEEE d", { locale: es })}</span>
-                                                        {isToday && <span className="wf-date-today">HOY</span>}
+                                                        {isAll ? (
+                                                            <span className="wf-date-name" style={{ fontWeight: 600 }}>{therapist?.fullName}</span>
+                                                        ) : (
+                                                            <span className="wf-date-name">{format(day, "EEEE d", { locale: es })}</span>
+                                                        )}
+                                                        {isToday && !isAll && <span className="wf-date-today">HOY</span>}
                                                     </td>
                                                     <td>
                                                         {absenceAtt ? (
@@ -644,7 +735,10 @@ const WorkforceReport: React.FC = () => {
                                     <div>
                                         <h3 className="holiday-title">Vista Gráfica</h3>
                                         <p className="holiday-subtitle">
-                                            Resumen mensual de {therapists.find(t => t.id === selectedTherapistId)?.fullName}
+                                            {selectedTherapistId === 'all' 
+                                                ? `Resumen de ausencias en ${format(parseISO(month + '-01'), 'MMMM yyyy', { locale: es })}`
+                                                : `Resumen mensual de ${therapists.find(t => t.id === selectedTherapistId)?.fullName}`
+                                            }
                                         </p>
                                     </div>
                                 </div>
@@ -654,23 +748,46 @@ const WorkforceReport: React.FC = () => {
                                         <div key={d} className="holidays-grid-day-label">{d}</div>
                                     ))}
                                     {daysInMonth.map(day => {
-                                        const { absenceAtt } = getDailyData(day);
-                                        const isVacation = absenceAtt?.type === 'vacation';
-                                        const isSick = absenceAtt?.type === 'sick_leave';
+                                        const dDate = startOfDay(day);
+                                        const dayAbsences = attendances.filter(a => {
+                                            if (!a.startTime || a.type === 'work') return false;
+                                            if (selectedTherapistId !== 'all' && a.therapistId !== selectedTherapistId) return false;
+                                            const sDate = startOfDay(parseISO(a.startTime));
+                                            const eDate = a.endTime ? endOfDay(parseISO(a.endTime)) : endOfDay(parseISO(a.startTime));
+                                            return dDate >= sDate && dDate <= eDate;
+                                        });
+
+                                        const isVacation = dayAbsences.some(a => a.type === 'vacation');
+                                        const isSick = dayAbsences.some(a => a.type === 'sick_leave');
                                         const isToday = isSameDay(day, new Date());
 
                                         const dayClass = [
                                             'holiday-day',
                                             isVacation ? 'holiday-day-vacation' : '',
                                             isSick ? 'holiday-day-sick' : '',
-                                            !absenceAtt && isWeekend(day) ? 'holiday-day-weekend' : '',
-                                            isToday && !absenceAtt ? 'holiday-day-today' : ''
+                                            dayAbsences.length === 0 && isWeekend(day) ? 'holiday-day-weekend' : '',
+                                            isToday && dayAbsences.length === 0 ? 'holiday-day-today' : ''
                                         ].filter(Boolean).join(' ');
 
                                         return (
-                                            <div key={day.toISOString()} className={dayClass}>
+                                            <div 
+                                                key={day.toISOString()} 
+                                                className={dayClass}
+                                                onClick={() => {
+                                                    if (dayAbsences.length > 0) {
+                                                        setSelectedDayAbsences({ 
+                                                            day, 
+                                                            absences: dayAbsences.map(abs => ({
+                                                                ...abs,
+                                                                therapistName: therapists.find(t => t.id === abs.therapistId)?.fullName
+                                                            }))
+                                                        });
+                                                    }
+                                                }}
+                                                style={{ cursor: dayAbsences.length > 0 ? 'pointer' : 'default' }}
+                                            >
                                                 <span className="holiday-day-number">{format(day, 'd')}</span>
-                                                {absenceAtt && <div className="holiday-day-dot" />}
+                                                {dayAbsences.length > 0 && <div className="holiday-day-dot" />}
                                             </div>
                                         );
                                     })}
@@ -688,59 +805,87 @@ const WorkforceReport: React.FC = () => {
                                 </div>
                             </div>
 
-                            {/* ── Vacation History List ── */}
-                            <div className="wf-table-wrapper" style={{ maxHeight: '500px', overflowY: 'auto' }}>
-                                <div className="p-4 border-b bg-gray-50 flex justify-between items-center">
-                                    <h3 style={{ fontWeight: 600, color: '#1A5F7A' }}>Historial Completo</h3>
-                                    <button 
-                                        className="btn-secondary" 
-                                        onClick={handleShowVacations}
-                                        style={{ padding: '0.25rem 0.75rem', fontSize: '0.75rem' }}
-                                    >
-                                        Actualizar
-                                    </button>
+                            {/* ── Absence Detail Card & History ── */}
+                            <div className="absence-right-column">
+                                <div className="absence-detail-card" style={{ marginBottom: '1.5rem' }}>
+                                    {selectedDayAbsences ? (
+                                        <div className="animate-in">
+                                            <div className="detail-header">
+                                                <Calendar size={18} />
+                                                <span style={{ fontWeight: 600 }}>Ausencias del {format(selectedDayAbsences.day, 'd MMMM', { locale: es })}</span>
+                                                <button 
+                                                    className="btn-close-minimal"
+                                                    onClick={() => setSelectedDayAbsences(null)}
+                                                    style={{ marginLeft: 'auto', border: 'none', background: 'transparent', cursor: 'pointer', opacity: 0.5 }}
+                                                >
+                                                    <Trash2 size={16} />
+                                                </button>
+                                            </div>
+                                            <div className="detail-list" style={{ marginTop: '0.75rem' }}>
+                                                {selectedDayAbsences.absences.map(abs => (
+                                                    <div key={abs.id} className="detail-item" style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', padding: '0.5rem 0', borderBottom: '1px solid #f1f5f9' }}>
+                                                        <div className={`detail-indicator`} style={{ width: '8px', height: '8px', borderRadius: '50%', backgroundColor: abs.type === 'vacation' ? '#0ea5e9' : '#ef4444' }} />
+                                                        <div className="detail-info">
+                                                            <div className="detail-name" style={{ fontWeight: 500, fontSize: '0.9rem' }}>{abs.therapistName}</div>
+                                                            <div className="detail-type" style={{ fontSize: '0.75rem', color: '#64748b' }}>{abs.type === 'vacation' ? 'Vacaciones' : 'Baja médica'}</div>
+                                                        </div>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        </div>
+                                    ) : (
+                                        <div className="absence-empty-state" style={{ textAlign: 'center', padding: '1.5rem', color: '#94a3b8' }}>
+                                            <Info size={32} style={{ margin: '0 auto 0.75rem', opacity: 0.5 }} />
+                                            <p style={{ fontSize: '0.85rem' }}>Seleccione un día marcado en el calendario para ver detalles.</p>
+                                        </div>
+                                    )}
                                 </div>
-                                <table className="wf-table">
-                                    <thead style={{ position: 'sticky', top: 0, zIndex: 1, background: '#f8fafc' }}>
-                                        <tr>
-                                            <th>Fecha</th>
-                                            <th>Tipo</th>
-                                            <th style={{ textAlign: 'right' }}>Acciones</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody>
-                                        {allVacations.length === 0 ? (
+
+                                <div className="wf-table-wrapper" style={{ maxHeight: '350px', overflowY: 'auto' }}>
+                                    <div className="wf-history-header">
+                                        <h3 className="wf-history-title">
+                                            Historial {selectedTherapistId === 'all' ? 'Mensual' : 'Anual'}
+                                        </h3>
+                                        <button 
+                                            className="wf-btn-minimal" 
+                                            onClick={handleShowVacations}
+                                        >
+                                            Ver Todo
+                                        </button>
+                                    </div>
+                                    <table className="wf-table" style={{ fontSize: '0.85rem' }}>
+                                        <thead style={{ position: 'sticky', top: 0, zIndex: 1, background: '#f8fafc' }}>
                                             <tr>
-                                                <td colSpan={3} style={{ textAlign: 'center', padding: '2rem', color: '#64748b' }}>
-                                                    Pulsa "Actualizar" para cargar el historial.
-                                                </td>
+                                                <th>Terapeuta</th>
+                                                <th>Fecha</th>
+                                                <th>Tipo</th>
                                             </tr>
-                                        ) : (
-                                            allVacations.map(v => (
-                                                <tr key={v.id}>
-                                                    <td style={{ fontSize: '0.85rem' }}>
-                                                        {v.startTime ? format(parseISO(v.startTime), 'dd/MM/yyyy') : '—'}
-                                                        {v.endTime && isSameDay(parseISO(v.startTime), parseISO(v.endTime)) ? '' : v.endTime ? ` al ${format(parseISO(v.endTime), 'dd/MM/yyyy')}` : ''}
-                                                    </td>
-                                                    <td>
-                                                        <span className={`wf-badge ${v.type === 'vacation' ? 'wf-badge-vacation' : 'wf-badge-sick'}`} style={{ fontSize: '0.7rem', padding: '1px 6px' }}>
-                                                            {v.type === 'vacation' ? 'VACACIONES' : 'BAJA'}
-                                                        </span>
-                                                    </td>
-                                                    <td style={{ textAlign: 'right' }}>
-                                                        <button 
-                                                            className="wf-action-btn wf-action-delete"
-                                                            onClick={() => handleDeleteFromHistory(v.id!)}
-                                                            title="Eliminar registro"
-                                                        >
-                                                            <Trash2 size={14} />
-                                                        </button>
+                                        </thead>
+                                        <tbody>
+                                            {allVacations.length === 0 ? (
+                                                <tr>
+                                                    <td colSpan={3} style={{ textAlign: 'center', padding: '1rem', color: '#64748b', fontSize: '0.8rem' }}>
+                                                        Cargando historial...
                                                     </td>
                                                 </tr>
-                                            ))
-                                        )}
-                                    </tbody>
-                                </table>
+                                            ) : (
+                                                allVacations.map(v => (
+                                                    <tr key={v.id}>
+                                                        <td style={{ fontWeight: 500 }}>{therapists.find(t => t.id === v.therapistId)?.fullName || '—'}</td>
+                                                        <td>
+                                                            {v.startTime ? format(parseISO(v.startTime), 'dd/MM/yyyy') : '—'}
+                                                        </td>
+                                                        <td>
+                                                            <span className={`wf-badge ${v.type === 'vacation' ? 'wf-badge-vacation' : 'wf-badge-sick'}`} style={{ fontSize: '0.65rem', padding: '0px 4px' }}>
+                                                                {v.type === 'vacation' ? 'VAC' : 'BAJA'}
+                                                            </span>
+                                                        </td>
+                                                    </tr>
+                                                ))
+                                            )}
+                                        </tbody>
+                                    </table>
+                                </div>
                             </div>
                         </div>
                     </div>

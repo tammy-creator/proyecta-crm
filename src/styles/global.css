@@ -131,6 +131,56 @@ button {
     color: #1565C0;
 }
 
+/* Button System */
+.btn-primary {
+    background-color: var(--color-accent-blue);
+    color: #1A5F7A;
+    border: 1px solid rgba(0, 0, 0, 0.05);
+    border-radius: var(--radius-button);
+    padding: 0.75rem 1.25rem;
+    font-weight: 600;
+    font-family: inherit;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+    box-shadow: 0 4px 6px rgba(188, 228, 234, 0.4);
+    cursor: pointer;
+}
+
+.btn-primary:hover {
+    background-color: var(--color-accent-hover);
+    transform: translateY(-1px);
+    box-shadow: 0 6px 12px rgba(188, 228, 234, 0.5);
+}
+
+.btn-primary:active {
+    transform: translateY(0);
+}
+
+.btn-secondary {
+    background-color: transparent;
+    border: 1px solid rgba(0, 0, 0, 0.1);
+    color: var(--color-text-primary);
+    padding: 0.75rem 1.25rem;
+    border-radius: var(--radius-button);
+    font-weight: 600;
+    font-family: inherit;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    transition: all 0.2s ease;
+    cursor: pointer;
+}
+
+.btn-secondary:hover {
+    background-color: var(--color-bg-primary);
+    border-color: var(--color-accent-blue);
+    color: #1A5F7A;
+}
+
 /* Modal System */
 .modal-overlay {
     position: fixed;
@@ -157,6 +207,43 @@ button {
     box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
     animation: slideUp 0.3s ease-out;
     position: relative;
+}
+
+.modal-content.no-padding {
+    padding: 0;
+}
+
+.modal-content.flex-layout {
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+
+.btn-danger {
+    background-color: #fee2e2;
+    border: 1px solid #fca5a5;
+    color: #b91c1c;
+    padding: 0.75rem 1.25rem;
+    border-radius: var(--radius-button);
+    font-weight: 600;
+    font-family: inherit;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    transition: all 0.2s ease;
+    cursor: pointer;
+}
+
+.btn-danger:hover {
+    background-color: #fca5a5;
+    border-color: #ef4444;
+    color: #7f1d1d;
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
 }
 
 @keyframes slideUp {

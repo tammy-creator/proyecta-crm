@@ -18,10 +18,12 @@ import {
     isBefore,
     isAfter,
     endOfDay,
-    addHours
+    addHours,
+    startOfMonth,
+    endOfMonth
 } from 'date-fns';
 import { es } from 'date-fns/locale';
-import { ChevronLeft, ChevronRight, Plus, X, User, Rocket, Puzzle, AlertTriangle, Clock as ClockIcon, DollarSign, Mic, Square } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Plus, X, User, Rocket, Puzzle, AlertTriangle, Clock as ClockIcon, DollarSign, Mic, Square, Info } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { getAppointments, createAppointment, updateAppointment, deleteAppointment } from './service';
 import { getPatients } from '../patients/service';
@@ -78,6 +80,8 @@ const CalendarView: React.FC<CalendarViewProps> = ({ mode: initialMode, therapis
     const [isRadarOpen, setIsRadarOpen] = useState(false);
     const [isRecording, setIsRecording] = useState(false);
     const [gaps, setGaps] = useState<{ start: Date; end: Date; count: number }[]>([]);
+    const [radarRange, setRadarRange] = useState<'today' | 'week' | 'month'>('today');
+    const [radarTherapistId, setRadarTherapistId] = useState<string>('all');
     const [absences, setAbsences] = useState<any[]>([]);
 
     const weekStart = startOfWeek(currentDate, { weekStartsOn: 1 });
@@ -372,34 +376,89 @@ const CalendarView: React.FC<CalendarViewProps> = ({ mode: initialMode, therapis
         fetchData();
     };
 
-    const findGaps = () => {
+    const findGaps = (range?: 'today' | 'week' | 'month', therapistId?: string) => {
+        const targetRange = range || radarRange;
+        const targetTherapistId = therapistId || radarTherapistId;
+        
         const potentialGaps: { start: Date; end: Date; count: number }[] = [];
-        const viewDays = effectiveMode === 'TODAY_MULTI' ? [currentDate] : days;
+        let viewDays: Date[] = [];
+
+        const today = new Date();
+        // Base la búsqueda en hoy si el calendario está en el pasado, sino en el calendario
+        const baseDateForSearch = isBefore(currentDate, today) ? today : currentDate;
+        const startOfSearchWeek = startOfWeek(baseDateForSearch, { weekStartsOn: 1 });
+
+        if (targetRange === 'today') {
+            viewDays = [baseDateForSearch];
+        } else if (targetRange === 'week') {
+            viewDays = eachDayOfInterval({ 
+                start: startOfSearchWeek, 
+                end: addDays(startOfSearchWeek, 5) 
+            });
+        } else if (targetRange === 'month') {
+            viewDays = eachDayOfInterval({ 
+                start: startOfMonth(baseDateForSearch), 
+                end: endOfMonth(baseDateForSearch) 
+            }).filter(d => d.getDay() !== 0 && d.getDay() !== 7);
+        }
+
+        const hoursToSearch = dynamicHours.length > 0 ? dynamicHours : DEFAULT_HOURS;
 
         viewDays.forEach(day => {
-            dynamicHours.forEach((hour: number) => {
+            const dayAbsences = absences.filter(abs => {
+                const absStart = parseISO(abs.start_time);
+                const absEnd = abs.end_time ? parseISO(abs.end_time) : absStart;
+                return (isSameDay(absStart, day) || isSameDay(absEnd, day) || (day > absStart && day < absEnd));
+            });
+            
+            hoursToSearch.forEach((hour: number) => {
                 [0, 30].forEach(min => {
                     const start = setMinutes(setHours(day, hour), min);
                     const end = addMinutes(start, 30);
 
-                    // Contar terapeutas libres en este slot
-                    const busyCount = appointments.filter(appt => {
+                    if (isBefore(end, today)) return;
+
+                    const busyTherapistIds = new Set<string>();
+
+                    appointments.forEach(appt => {
                         const aStart = parseISO(appt.start);
                         const aEnd = parseISO(appt.end);
-                        return isSameDay(aStart, start) && (
-                            (start >= aStart && start < aEnd) ||
-                            (end > aStart && end <= aEnd)
-                        );
-                    }).length;
+                        if (isSameDay(aStart, day)) {
+                            if (start < aEnd && end > aStart) {
+                                busyTherapistIds.add(appt.therapistId);
+                            }
+                        }
+                    });
 
-                    const freeCount = therapists.length - busyCount;
-                    if (freeCount >= Math.max(1, therapists.length - 1)) {
-                        potentialGaps.push({ start, end, count: freeCount });
+                    dayAbsences.forEach(abs => {
+                        const absStart = parseISO(abs.start_time);
+                        const absEnd = abs.end_time ? parseISO(abs.end_time) : addHours(absStart, 1);
+                        if (start < absEnd && end > absStart) {
+                            busyTherapistIds.add(abs.therapist_id);
+                        }
+                    });
+
+                    if (targetTherapistId !== 'all') {
+                        if (!busyTherapistIds.has(targetTherapistId)) {
+                            if (isSlotEnabled(day, hour, targetTherapistId)) {
+                                potentialGaps.push({ start, end, count: 1 });
+                            }
+                        }
+                    } else {
+                        const availableCount = therapists.filter(t => 
+                            !busyTherapistIds.has(t.id) && isSlotEnabled(day, hour, t.id)
+                        ).length;
+                        
+                        if (availableCount > 0) {
+                            potentialGaps.push({ start, end, count: availableCount });
+                        }
                     }
                 });
             });
         });
-        setGaps(potentialGaps.slice(0, 10)); // Mostrar top 10
+
+        const sortedGaps = potentialGaps.sort((a, b) => a.start.getTime() - b.start.getTime());
+        setGaps(sortedGaps.slice(0, 50));
         setIsRadarOpen(true);
     };
 
@@ -530,13 +589,14 @@ const CalendarView: React.FC<CalendarViewProps> = ({ mode: initialMode, therapis
 
                 {!initialMode && (
                     <div className="calendar-actions flex gap-2">
-                        <div
-                            className="gap-radar-control flex items-center gap-2 px-3 py-1 border rounded-full bg-white text-xs font-medium cursor-pointer hover:bg-gray-50"
-                            onClick={findGaps}
+                        <button
+                            className="btn-secondary"
+                            onClick={() => findGaps()}
+                            title="Buscar huecos disponibles en la agenda"
                         >
-                            <Puzzle size={14} className="text-secondary" />
+                            <Puzzle size={18} />
                             <span>Radar de Huecos</span>
-                        </div>
+                        </button>
                         {isRole('ADMIN') && (
                             <button className="btn-primary flex items-center gap-2" onClick={() => handleOpenModal()}>
                                 <Plus size={18} /> Nueva Cita
@@ -923,52 +983,109 @@ const CalendarView: React.FC<CalendarViewProps> = ({ mode: initialMode, therapis
 
             {isRadarOpen && (
                 <div className="modal-overlay">
-                    <div className="modal-content" style={{ maxWidth: '400px' }}>
-                        <div className="modal-header">
+                    <div className="modal-content no-padding flex-layout" style={{ maxWidth: '500px', width: '95%', height: 'auto', minHeight: '400px', maxHeight: '85vh' }}>
+                        <div className="modal-header" style={{ padding: '1.25rem 1.5rem', borderBottom: '1px solid #eee', marginBottom: 0 }}>
                             <div className="flex items-center gap-2">
                                 <Puzzle size={20} className="text-secondary" />
-                                <h3>Radar de Huecos Libres</h3>
+                                <h3 style={{ margin: 0 }}>Radar de Huecos</h3>
                             </div>
-                            <button className="btn-icon-round" onClick={() => setIsRadarOpen(false)}><X size={20} /></button>
+                            <button className="btn-icon-round" onClick={() => setIsRadarOpen(false)}>
+                                <X size={20} />
+                            </button>
                         </div>
-                        <div className="p-4">
-                            <p className="text-sm text-secondary mb-4">Huecos con máxima disponibilidad de terapeutas encontrados:</p>
-                            <div className="space-y-2">
-                                {gaps.length === 0 ? (
-                                    <div className="text-center py-4 text-secondary italic">No se encontraron huecos óptimos.</div>
-                                ) : (
-                                    gaps.map((gap, i) => (
-                                        <div
-                                            key={i}
-                                            className="flex justify-between items-center p-3 border rounded-xl hover:bg-primary-light cursor-pointer transition-colors"
-                                            onClick={() => {
-                                                handleOpenModal(undefined, undefined, gap.start);
-                                                setIsRadarOpen(false);
-                                            }}
-                                        >
-                                            <div className="flex items-center gap-3">
-                                                <div className="bg-white p-2 rounded-lg border shadow-sm">
-                                                    <ClockIcon size={16} className="text-secondary" />
-                                                </div>
-                                                <div>
-                                                    <div className="font-bold text-sm">
-                                                        {format(gap.start, "EEEE d 'de' MMMM", { locale: es })}
+                        
+                        {/* ── Filter Bar ── */}
+                        <div className="radar-filter-bar flex justify-between items-center gap-4 bg-gray-50/50" style={{ padding: '1rem 1.5rem', borderBottom: '1px solid #eee' }}>
+                            <div className="flex bg-gray-200/50 rounded-lg p-1 border border-gray-200 shadow-inner">
+                                {(['today', 'week', 'month'] as const).map(r => (
+                                    <button
+                                        key={r}
+                                        type="button"
+                                        className={`px-3 py-1.5 rounded-md text-[10px] font-bold transition-all ${radarRange === r ? 'bg-white text-primary shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}
+                                        style={{ minWidth: '65px' }}
+                                        onClick={() => {
+                                            setRadarRange(r);
+                                            findGaps(r, radarTherapistId);
+                                        }}
+                                    >
+                                        {r === 'today' ? 'HOY' : r === 'week' ? 'SEMANA' : 'MES'}
+                                    </button>
+                                ))}
+                            </div>
+
+                            <select 
+                                className="text-xs border rounded-lg px-2 py-2 bg-white outline-none focus:ring-2 focus:ring-accent-blue/30 transition-all cursor-pointer flex-1"
+                                style={{ border: '1px solid #e0d4c8', maxWidth: '160px' }}
+                                value={radarTherapistId}
+                                onChange={(e) => {
+                                    setRadarTherapistId(e.target.value);
+                                    findGaps(radarRange, e.target.value);
+                                }}
+                            >
+                                <option value="all">Todos los terapeutas</option>
+                                {therapists.map(t => (
+                                    <option key={t.id} value={t.id}>{t.fullName}</option>
+                                ))}
+                            </select>
+                        </div>
+
+                        <div className="bg-white overflow-y-auto flex-1" style={{ padding: '1.5rem' }}>
+                            {gaps.length === 0 ? (
+                                <div className="text-center py-12">
+                                    <Info size={48} className="mx-auto text-gray-200 mb-2" />
+                                    <p className="text-secondary font-medium">No se encontraron huecos libres en este rango.</p>
+                                    <p className="text-[10px] text-gray-400 mt-1">Prueba con otro rango o terapeuta.</p>
+                                </div>
+                            ) : (
+                                <div className="space-y-6">
+                                    {/* Group by date */}
+                                    {Object.entries(
+                                        gaps.reduce((acc, gap) => {
+                                            const dayLabel = format(gap.start, "EEEE d 'de' MMMM", { locale: es });
+                                            if (!acc[dayLabel]) acc[dayLabel] = [];
+                                            acc[dayLabel].push(gap);
+                                            return acc;
+                                        }, {} as Record<string, typeof gaps>)
+                                    ).map(([day, dayGaps]) => (
+                                        <div key={day}>
+                                            <h4 className="radar-day-group-title">{day}</h4>
+                                            <div className="grid grid-cols-1 gap-3">
+                                                {dayGaps.map((gap, idx) => (
+                                                    <div 
+                                                        key={idx} 
+                                                        className="radar-slot-card"
+                                                        onClick={() => {
+                                                            setCurrentDate(gap.start);
+                                                            setIsRadarOpen(false);
+                                                        }}
+                                                    >
+                                                        <div className="flex items-center gap-3">
+                                                            <div className="bg-accent-blue/20 p-2 rounded-lg text-primary">
+                                                                <ClockIcon size={18} />
+                                                            </div>
+                                                            <div>
+                                                                <div className="font-bold text-sm text-primary">
+                                                                    {format(gap.start, 'HH:mm')} - {format(gap.end, 'HH:mm')}
+                                                                </div>
+                                                                <div className="text-[10px] text-secondary font-medium">
+                                                                    {gap.count} {gap.count === 1 ? 'terapeuta disponible' : 'terapeutas disponibles'}
+                                                                </div>
+                                                            </div>
+                                                        </div>
+                                                        
+                                                        <div className={`radar-availability-badge ${gap.count > 1 ? 'radar-availability-high' : 'radar-availability-medium'}`}>
+                                                            {gap.count > 1 ? 'Alta disponibilidad' : 'Último hueco'}
+                                                        </div>
                                                     </div>
-                                                    <div className="text-xs text-secondary">
-                                                        {format(gap.start, 'HH:mm')} - {format(gap.end, 'HH:mm')}
-                                                    </div>
-                                                </div>
-                                            </div>
-                                            <div className="text-xs font-bold bg-green-100 text-green-700 px-2 py-1 rounded-full">
-                                                {gap.count} Libres
+                                                ))}
                                             </div>
                                         </div>
-                                    ))
-                                )}
-                            </div>
+                                    ))}
+                                </div>
+                            )}
                         </div>
-                        <div className="modal-footer">
-                            <button className="btn-secondary w-full" onClick={() => setIsRadarOpen(false)}>Cerrar</button>
+                        <div className="mt-auto p-4 border-t flex justify-end bg-gray-50" style={{ borderRadius: '0 0 20px 20px' }}>
+                            <button className="btn-secondary" onClick={() => setIsRadarOpen(false)}>Cerrar Radar</button>
                         </div>
                     </div>
                 </div>

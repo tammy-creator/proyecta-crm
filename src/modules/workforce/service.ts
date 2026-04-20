@@ -1,7 +1,9 @@
 import { supabase } from '../../lib/supabase';
-import { format, differenceInSeconds, parseISO, addHours, startOfDay, endOfDay } from 'date-fns';
+import { format, differenceInSeconds, parseISO, addHours, startOfDay, endOfDay, isWithinInterval, set } from 'date-fns';
 import { addAuditLog } from '../admin/service';
 import type { WorkLog, WorkLogEvent, WorkStatus, MonthlyReportSignature, Attendance, AttendanceType } from './types';
+import type { DaySchedule, WorkingHours } from '../therapists/types';
+import { DAYS_OF_WEEK } from '../therapists/types';
 
 // ─── New Attendance System ───────────────────────────────────────────────────
 
@@ -85,7 +87,7 @@ export const getAllAttendance = async (month: string, therapistId?: string): Pro
         .gte('start_time', startDate)
         .lte('start_time', endDate);
 
-    if (therapistId) {
+    if (therapistId && therapistId !== 'all') {
         query = query.eq('therapist_id', therapistId);
     }
 
@@ -104,12 +106,16 @@ export const getAllAttendance = async (month: string, therapistId?: string): Pro
 };
 
 export const getTherapistVacations = async (therapistId: string): Promise<Attendance[]> => {
-    const { data, error } = await supabase
+    let query = supabase
         .from('attendance')
         .select('*')
-        .eq('therapist_id', therapistId)
-        .neq('type', 'work')
-        .order('start_time', { ascending: false });
+        .neq('type', 'work');
+
+    if (therapistId && therapistId !== 'all') {
+        query = query.eq('therapist_id', therapistId);
+    }
+
+    const { data, error } = await query.order('start_time', { ascending: false });
 
     if (error) throw error;
     return (data || []).map(d => ({
@@ -322,12 +328,17 @@ export const getUpcomingAppointment = async (therapistId: string) => {
     const now = new Date();
     const soon = addHours(now, 1).toISOString();
 
-    const { data, error } = await supabase
+    let query = supabase
         .from('appointments')
         .select('id, start_time, patient_name')
-        .eq('therapist_id', therapistId)
         .gte('start_time', now.toISOString())
-        .lte('start_time', soon)
+        .lte('start_time', soon);
+
+    if (therapistId && therapistId !== 'all') {
+        query = query.eq('therapist_id', therapistId);
+    }
+
+    const { data, error } = await query
         .order('start_time', { ascending: true })
         .limit(1)
         .maybeSingle();
@@ -347,12 +358,16 @@ const endOfMonth = (date: Date): Date => {
 // ─── Legacy Work Logs (Keep for compatibility if needed) ───────────────────────
 export const getTodayLog = async (therapistId: string): Promise<WorkLog | null> => {
     const today = format(new Date(), 'yyyy-MM-dd');
-    let { data: log, error } = await supabase
+    let query = supabase
         .from('work_logs')
         .select('*, work_log_events(*)')
-        .eq('therapist_id', therapistId)
-        .eq('date', today)
-        .maybeSingle();
+        .eq('date', today);
+
+    if (therapistId && therapistId !== 'all') {
+        query = query.eq('therapist_id', therapistId);
+    }
+
+    const { data: log, error } = await query.maybeSingle();
     if (error) throw error;
     if (!log) return null;
     return {
@@ -369,19 +384,71 @@ export const getCurrentStatus = async (therapistId: string): Promise<WorkStatus>
     return attendance ? 'working' : 'offline';
 };
 
+export const checkScheduleAdherence = async (therapistId: string, checkDate?: Date): Promise<{ isAdherent: boolean; currentBlock?: WorkingHours }> => {
+    try {
+        const { data: therapist, error } = await supabase
+            .from('therapists')
+            .select('schedule')
+            .eq('id', therapistId)
+            .single();
+
+        if (error || !therapist) return { isAdherent: true };
+
+        const schedule: DaySchedule[] = therapist.schedule || [];
+        const now = checkDate || new Date();
+        const dayIdx = now.getDay(); 
+        
+        // Sunday
+        if (dayIdx === 0) return { isAdherent: false };
+
+        // DAYS_OF_WEEK: ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado']
+        const dayName = DAYS_OF_WEEK[dayIdx - 1]; 
+        const daySched = schedule.find(s => 
+            s.day?.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "") === 
+            dayName.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "")
+        );
+
+        if (!daySched || !daySched.enabled || !daySched.blocks.length) {
+            return { isAdherent: false };
+        }
+
+        const activeBlock = daySched.blocks.find(block => {
+            const [startH, startM] = block.start.split(':').map(Number);
+            const [endH, endM] = block.end.split(':').map(Number);
+            
+            const startDate = set(now, { hours: startH, minutes: startM, seconds: 0, milliseconds: 0 });
+            const endDate = set(now, { hours: endH, minutes: endM, seconds: 0, milliseconds: 0 });
+            
+            return isWithinInterval(now, { start: startDate, end: endDate });
+        });
+
+        return {
+            isAdherent: !!activeBlock,
+            currentBlock: activeBlock
+        };
+    } catch (e) {
+        console.error("Error checking schedule adherence:", e);
+        return { isAdherent: true };
+    }
+};
+
 const getCurrentAttendanceByTherapist = async (therapistId: string): Promise<Attendance | null> => {
     const today = startOfDay(new Date()).toISOString();
     const tonight = endOfDay(new Date()).toISOString();
 
-    const { data, error } = await supabase
+    let query = supabase
         .from('attendance')
         .select('*')
-        .eq('therapist_id', therapistId)
         .eq('type', 'work')
         .is('end_time', null)
         .gte('start_time', today)
-        .lte('start_time', tonight)
-        .maybeSingle();
+        .lte('start_time', tonight);
+
+    if (therapistId && therapistId !== 'all') {
+        query = query.eq('therapist_id', therapistId);
+    }
+
+    const { data, error } = await query.maybeSingle();
 
     if (error) throw error;
     if (!data) return null;
@@ -402,18 +469,23 @@ export const getLiveWorkStats = async (
     
     // Calculate total seconds from all 'work' records today
     const today = startOfDay(new Date()).toISOString();
-    const { data: allToday } = await supabase
+    let query = supabase
         .from('attendance')
         .select('*')
-        .eq('therapist_id', therapistId)
         .eq('type', 'work')
         .gte('start_time', today);
+
+    if (therapistId && therapistId !== 'all') {
+        query = query.eq('therapist_id', therapistId);
+    }
+
+    const { data: allToday } = await query;
 
     let totalSeconds = 0;
     (allToday || []).forEach(record => {
         const start = parseISO(record.start_time);
         const end = record.end_time ? parseISO(record.end_time) : new Date();
-        totalSeconds += differenceInSeconds(end, start);
+        totalSeconds += Math.max(0, differenceInSeconds(end, start));
     });
 
     return { 
@@ -456,15 +528,19 @@ export const getMonthlyReport = async (therapistId: string, month: string): Prom
     const lastDay = endOfMonth(parseISO(`${month}-01`));
     const endDate = lastDay.toISOString();
 
-    const { data, error } = await supabase
+    let query = supabase
         .from('attendance')
         .select('*')
-        .eq('therapist_id', therapistId)
         .eq('type', 'work')
         .not('end_time', 'is', null)
         .gte('start_time', startDate)
-        .lte('start_time', endDate)
-        .order('start_time', { ascending: true });
+        .lte('start_time', endDate);
+
+    if (therapistId && therapistId !== 'all') {
+        query = query.eq('therapist_id', therapistId);
+    }
+
+    const { data, error } = await query.order('start_time', { ascending: true });
 
     if (error) throw error;
 
@@ -474,7 +550,7 @@ export const getMonthlyReport = async (therapistId: string, month: string): Prom
         const day = format(parseISO(record.start_time), 'yyyy-MM-dd');
         const start = parseISO(record.start_time);
         const end = parseISO(record.end_time);
-        const minutes = differenceInSeconds(end, start) / 60;
+        const minutes = Math.max(0, differenceInSeconds(end, start) / 60);
         dailyMap[day] = (dailyMap[day] || 0) + minutes;
     });
 
@@ -520,12 +596,16 @@ export const signMonthlyReport = async (
 };
 
 export const getSignature = async (therapistId: string, month: string): Promise<MonthlyReportSignature | undefined> => {
-    const { data, error } = await supabase
+    let query = supabase
         .from('monthly_report_signatures')
         .select('*')
-        .eq('therapist_id', therapistId)
-        .eq('month', month)
-        .maybeSingle();
+        .eq('month', month);
+
+    if (therapistId && therapistId !== 'all') {
+        query = query.eq('therapist_id', therapistId);
+    }
+
+    const { data, error } = await query.maybeSingle();
     if (error || !data) return undefined;
     return {
         id: data.id,

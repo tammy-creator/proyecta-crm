@@ -9,6 +9,7 @@ import AdminView from './modules/admin/AdminView';
 import WaitingList from './modules/patients/WaitingList';
 import WorkforceReport from './modules/workforce/WorkforceReport';
 import LoginPage from './pages/LoginPage';
+import ReviewRedirect from './pages/ReviewRedirect';
 import RequireAuth from './components/layout/RequireAuth';
 import { AuthProvider, useAuth } from './context/AuthContext';
 
@@ -66,6 +67,8 @@ const AppRoutes = () => {
         <Route path="billing" element={<BillingView />} />
         <Route path="admin" element={<AdminView />} />
       </Route>
+      {/* Ruta para redirección de reseñas de WhatsApp */}
+      <Route path="/r/:id" element={<ReviewRedirect />} />
 
       {/* Cualquier ruta desconocida → inicio */}
       <Route path="*" element={<Navigate to="/" replace />} />

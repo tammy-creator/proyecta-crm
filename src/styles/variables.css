@@ -17,6 +17,10 @@
   --color-accent-hover: #A5D6DE;
   /* Un poco más oscuro para hover */
 
+  --color-primary: #1A5F7A;
+  --color-primary-rgb: 26, 95, 122;
+  --color-border: rgba(0, 0, 0, 0.08);
+
   /* Colores de Estado (Semántica) */
   --color-status-success: #88D8B0;
   /* Verde: Cobrado/Asistido (suave) */

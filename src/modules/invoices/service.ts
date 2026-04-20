@@ -3,23 +3,34 @@ import type { Invoice } from './types';
 
 const mapInvoice = (row: any): Invoice => ({
     id: row.id,
-    number: row.number,
-    date: row.date,
+    number: row.number ?? 'S/N',
+    date: row.date || new Date().toISOString(),
     patientId: row.patient_id,
-    patientName: row.patient_name ?? '',
-    amount: row.amount,
-    status: row.status,
-    items: row.items ?? [],
+    patientName: row.patient_name ?? 'Paciente Desconocido',
+    amount: Number(row.amount || 0),
+    status: row.status || 'Issued',
+    items: Array.isArray(row.items) ? row.items : [],
     transactionId: row.transaction_id,
 });
 
 export const getInvoices = async (): Promise<Invoice[]> => {
-    const { data, error } = await supabase
-        .from('invoices')
-        .select('*')
-        .order('date', { ascending: false });
-    if (error) throw error;
-    return (data ?? []).map(mapInvoice);
+    try {
+        const { data, error } = await supabase
+            .from('invoices')
+            .select('*')
+            .order('date', { ascending: false });
+        
+        if (error) {
+            console.error("[Invoices Service] Error fetching invoices:", error);
+            throw error;
+        }
+        
+        const mapped = (data ?? []).map(mapInvoice);
+        return mapped;
+    } catch (e) {
+        console.error("[Invoices Service] Critical error in getInvoices:", e);
+        throw e;
+    }
 };
 
 export const getNextInvoiceNumber = async (): Promise<string> => {
@@ -57,7 +68,6 @@ export const getNextInvoiceNumber = async (): Promise<string> => {
 
 export const existsInvoiceNumber = async (number: string): Promise<boolean> => {
     try {
-        console.log(`[Service] Querying DB for invoice number: ${number}`);
         const { data, error, status } = await supabase
             .from('invoices')
             .select('id')
@@ -68,7 +78,6 @@ export const existsInvoiceNumber = async (number: string): Promise<boolean> => {
             console.error(`[Service] Supabase Error (${status}):`, error);
             throw error;
         }
-        console.log(`[Service] Query result:`, data);
         return !!data;
     } catch (e) {
         console.error("Error in existsInvoiceNumber:", e);

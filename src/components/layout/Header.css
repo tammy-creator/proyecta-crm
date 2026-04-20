@@ -25,7 +25,7 @@
     padding: 0 2rem;
     position: sticky;
     top: 0;
-    z-index: 90;
+    z-index: 9999;
     box-shadow: 0 2px 10px rgba(0, 0, 0, 0.01);
 }
 
@@ -109,7 +109,7 @@
     align-items: center;
     gap: 0.5rem;
     padding: 0.5rem 1rem;
-    border-radius: full;
+    border-radius: 999px;
     border: 1px solid var(--color-border);
     background-color: white;
     color: var(--color-text-secondary);
@@ -124,23 +124,9 @@
     color: var(--color-primary);
 }
 
-.btn-icon-round {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    width: 40px;
-    height: 40px;
-    border-radius: 50%;
-    border: 1px solid var(--color-border);
+/* Standardized btn-icon-round is now global. Specific header overrides if any: */
+.header-actions .btn-icon-round {
     background-color: white;
-    color: var(--color-text-secondary);
-    cursor: pointer;
-    transition: all 0.2s;
-}
-
-.btn-icon-round:hover {
-    background-color: var(--color-bg-primary);
-    color: var(--color-primary);
 }
 
 .notification-badge {

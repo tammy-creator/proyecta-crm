@@ -1,28 +1,41 @@
 .layout-container {
     display: flex;
+    width: 100%;
     min-height: 100vh;
     background-color: var(--color-bg-primary);
 }
 
+/* Base Layout Components */
 .main-content {
     flex: 1;
-    margin-left: 260px;
-    /* Width of sidebar */
     display: flex;
     flex-direction: column;
-    height: 100vh;
-    overflow: hidden;
+    height: 100vh; /* Fixed viewport height */
+    overflow: hidden; /* Do not scroll the main container */
+    transition: margin-left 0.3s ease;
+    background-color: var(--color-bg-primary);
+    min-width: 0;
 }
 
+.content-scrollable {
+    flex: 1; /* Takes ALL remaining space after Header */
+    overflow-y: auto; /* Independent scroll */
+    overflow-x: hidden;
+    min-height: 0; /* CRITICAL: Allows flex item to be smaller than its content */
+    display: flex;
+    flex-direction: column;
+    position: relative;
+    -webkit-overflow-scrolling: touch;
+}
+
+/* Other Header/Navigation Components - These are hidden in calendar-fullscreen but kept for other views */
 .top-header {
     height: 70px;
     display: flex;
     align-items: center;
     justify-content: flex-end;
-    /* Date on the right for now */
     padding: 0 2rem;
     background-color: transparent;
-    /* Cleaner look */
 }
 
 .date-display {
@@ -32,15 +45,9 @@
     font-size: 1.1rem;
 }
 
-.content-scrollable {
-    flex: 1;
-    overflow-y: auto;
-    padding: 1rem 2rem 2rem 2rem;
-}
-
 /* Scrollbar Styling for "Calm" feel */
 .content-scrollable::-webkit-scrollbar {
-    width: 8px;
+    width: 10px;
 }
 
 .content-scrollable::-webkit-scrollbar-track {
@@ -48,8 +55,9 @@
 }
 
 .content-scrollable::-webkit-scrollbar-thumb {
-    background-color: rgba(0, 0, 0, 0.1);
-    border-radius: 4px;
+    background-color: rgba(0, 0, 0, 0.2);
+    border-radius: 10px;
+    border: 2px solid var(--color-bg-primary);
 }
 
 .content-scrollable::-webkit-scrollbar-thumb:hover {

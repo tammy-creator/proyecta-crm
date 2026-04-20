@@ -1,8 +1,8 @@
-export type AppointmentStatus = 'Programada' | 'En Sesión' | 'Finalizada' | 'Cobrada' | 'Cancelada' | 'Ausente';
+export type AppointmentStatus = 'Programada' | 'En Sesión' | 'Finalizada' | 'Cobrada' | 'Cancelada' | 'Ausente' | 'Bloqueada';
 
 export interface Appointment {
     id: string;
-    patientId: string;
+    patientId?: string;
     therapistId: string;
     patientName: string; // Denormalized for simpler display in mock
     therapistName: string;
@@ -23,6 +23,7 @@ export interface Appointment {
     };
     cancellationReason?: string; // Motivo de cancelación
     voiceNoteUrl?: string; // Almacén de audio o referencia
+    notificacionRecordatorioEnviada?: boolean; // Integración con automatización de recordatorios de citas
 }
 
 export interface DayAvailability {

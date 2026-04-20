@@ -45,6 +45,9 @@ export interface Patient {
     consentLopd?: boolean;
     consentMarketing?: boolean;
     consentDate?: string;
+    therapistSignature?: string;
+    therapistId?: string; // ID del terapeuta asignado
+    resenaClic?: boolean;
     createdAt: string;
 }
 
@@ -58,6 +61,8 @@ export interface WaitingListEntry {
     urgency: UrgencyLevel;
     registrationDate: string;
     notes?: string;
+    preferredDays?: number[]; // [1, 2, 3...]
+    preferredHours?: string[]; // ["17:00", "18:00"...]
 }
 
 export interface PatientFilters {

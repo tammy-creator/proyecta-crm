@@ -2,8 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { getTransactions, recordPayment, updateTransaction, createTransaction, toggleReconciliation } from './service';
 import { type Transaction, type PaymentMethod } from './types';
 import Card from '../../components/ui/Card';
-import { DollarSign, Clock, CheckCircle, CreditCard, Wallet, Send, Download, Calendar as CalendarIcon, Edit2, X, FileText, Receipt, Filter } from 'lucide-react';
-import { format, parseISO, startOfDay, endOfDay } from 'date-fns';
+import { DollarSign, Clock, CheckCircle, CreditCard, Wallet, Send, Download, Calendar as CalendarIcon, Edit2, X, FileText, Receipt, Filter, TrendingUp, AlertTriangle, Banknote, User } from 'lucide-react';
+import { format, parseISO, startOfDay, endOfDay, isValid } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { getPatients } from '../patients/service';
 import { type Patient } from '../patients/types';
@@ -11,11 +11,12 @@ import { getAppointments, getUnpaidAppointments } from '../calendar/service';
 import { markAppointmentPaid, setAppointmentPaidStatus } from '../calendar/service';
 import { type Appointment } from '../calendar/types';
 import './BillingView.css';
-import { createInvoice, getNextInvoiceNumber, existsInvoiceNumber } from '../invoices/service';
+import { createInvoice, getInvoices, getNextInvoiceNumber, existsInvoiceNumber } from '../invoices/service';
 import type { Invoice } from '../invoices/types';
 import InvoiceList from '../invoices/InvoiceList';
 import InvoiceDocument from '../invoices/InvoiceDocument';
 import { useToast } from '../../hooks/useToast';
+import PrintPortal from '../../components/ui/PrintPortal';
 
 import { useAuth } from '../../context/AuthContext';
 
@@ -41,6 +42,7 @@ const BillingView: React.FC = () => {
     // Transaction Modals
     const [isEditModalOpen, setIsEditModalOpen] = useState(false);
     const [isClosingModalOpen, setIsClosingModalOpen] = useState(false);
+    const [invoices, setInvoices] = useState<Invoice[]>([]);
     const [editingTransaction, setEditingTransaction] = useState<Transaction | null>(null);
 
     // Invoice Generation
@@ -59,7 +61,17 @@ const BillingView: React.FC = () => {
 
     useEffect(() => {
         fetchData();
-    }, [selectedDate]);
+    }, [selectedDate, statusFilter, methodFilter, reconciledFilter, activeTab]);
+
+    // Manage body class for printing
+    useEffect(() => {
+        if (printingInvoice) {
+            document.body.classList.add('print-active');
+        } else {
+            document.body.classList.remove('print-active');
+        }
+        return () => document.body.classList.remove('print-active');
+    }, [printingInvoice]);
 
     // Refrescar al volver a la pestaña / módulo para detectar cambios externos (ej: cita eliminada en calendario)
     useEffect(() => {
@@ -74,30 +86,48 @@ const BillingView: React.FC = () => {
     }, [selectedDate]);
 
     const fetchData = async () => {
-        setLoading(true);
+        if (!selectedDate) {
+            setLoading(false);
+            return;
+        }
+
         const dateObj = parseISO(selectedDate);
+        if (!isValid(dateObj)) {
+            setLoading(false);
+            return;
+        }
+
+        setLoading(true);
         
         // Parámetros de filtrado según rol
         const tName = isTherapist ? user?.name : undefined;
         const tId = isTherapist ? user?.therapistId : undefined;
 
-        const [txData, pData, apptData, unpaidAppts] = await Promise.all([
-            getTransactions(tName),
-            getPatients(),
-            getAppointments(startOfDay(dateObj), endOfDay(dateObj), tId),
-            getUnpaidAppointments(tId)
-        ]);
-        setTransactions(txData);
-        setPatients(pData);
-        // Solo citas no canceladas del día seleccionado
-        setTodayAppointments(apptData.filter(a => a.status !== 'Cancelada'));
-        // Todas las citas no pagadas hasta hoy (evitar contar citas futuras como deuda)
-        const now = new Date();
-        setHistoricalUnpaidAppointments(unpaidAppts.filter(a =>
-            a.status !== 'Cancelada' &&
-            new Date(a.start) <= now
-        ));
-        setLoading(false);
+        try {
+            const [txData, pData, apptData, unpaidAppts, invData] = await Promise.all([
+                getTransactions(tName),
+                getPatients(),
+                getAppointments(startOfDay(dateObj), endOfDay(dateObj), tId),
+                getUnpaidAppointments(tId),
+                getInvoices()
+            ]);
+            setTransactions(txData);
+            setPatients(pData);
+            setInvoices(invData);
+            // Solo citas no canceladas del día seleccionado
+            setTodayAppointments(apptData.filter(a => a.status !== 'Cancelada'));
+            // Todas las citas no pagadas hasta hoy (evitar contar citas futuras como deuda)
+            const now = new Date();
+            setHistoricalUnpaidAppointments(unpaidAppts.filter(a =>
+                a.status !== 'Cancelada' &&
+                new Date(a.start) <= now
+            ));
+        } catch (error) {
+            console.error("Error fetching billing data:", error);
+            showToast("Error al cargar datos financieros", "error");
+        } finally {
+            setLoading(false);
+        }
     };
 
     // Force refresh when invoice modal closes to ensure buttons update
@@ -124,7 +154,7 @@ const BillingView: React.FC = () => {
     const handleChargeAppointment = async (appt: Appointment, method: PaymentMethod) => {
         const tx = await createTransaction({
             appointmentId: appt.id,
-            patientId: appt.patientId,
+            patientId: appt.patientId ?? '',
             patientName: appt.patientName,
             therapistName: appt.therapistName,
             amount: appt.price ?? 0,
@@ -233,9 +263,17 @@ const BillingView: React.FC = () => {
 
     const handlePrintInvoice = (invoice: any) => {
         setPrintingInvoice(invoice);
+        document.body.classList.add('print-active');
+        
         setTimeout(() => {
             window.print();
-        }, 500);
+        }, 800);
+        
+        // Clear state after sufficient time for the print dialog to open
+        setTimeout(() => {
+            setPrintingInvoice(null);
+            document.body.classList.remove('print-active');
+        }, 3000);
     };
 
     const handleToggleReconciliation = async (txId: string, current: boolean) => {
@@ -269,11 +307,11 @@ const BillingView: React.FC = () => {
 
 
     // Totals for the cards
-    // 1. Facturado y Cobrado del día seleccionado
-    const transactionsForSelectedDate = transactions.filter(t => (t.date ?? '').slice(0, 10) === selectedDate);
+    // 1. Total Facturado: Suma de todas las facturas legales emitidas (Global)
+    const totalInvoiced = invoices.reduce((acc: number, inv: Invoice) => acc + Number(inv.amount || 0), 0);
 
-    const totalInvoiced = transactionsForSelectedDate.reduce((acc: number, t: Transaction) => acc + Number(t.amount || 0), 0);
-    const totalCollected = transactionsForSelectedDate
+    // 2. Total Cobrado: Suma de lo pagado HOY
+    const totalCollected = txForDay
         .filter((t: Transaction) => t.status === 'Pagado')
         .reduce((acc: number, t: Transaction) => acc + Number(t.amount || 0), 0);
 
@@ -346,18 +384,21 @@ const BillingView: React.FC = () => {
         <div className="billing-container">
             <div className="page-header">
                 <div>
-                    <h2 className="page-title">{isTherapist ? 'Mi Facturación' : 'Finanzas y Facturación'}</h2>
+                    <h1 className="page-title">
+                        <Banknote size={28} style={{ color: '#1A5F7A' }} />
+                        {isTherapist ? 'Mi Facturación' : 'Finanzas y Facturación'}
+                    </h1>
                     <p className="page-subtitle">
                         {isTherapist 
                             ? 'Control de tus sesiones cobradas y pendientes' 
                             : 'Control de ingresos, caja diaria y facturas legales'}
                     </p>
                 </div>
-                <div className="flex items-center gap-4">
+                <div className="flex items-center gap-3" style={{ flexWrap: 'wrap' }}>
                     {activeTab === 'TRANSACTIONS' && (
                         <>
                             <div className="date-filter-modern">
-                                <CalendarIcon size={18} className="text-secondary" />
+                                <CalendarIcon size={16} style={{ color: '#94a3b8' }} />
                                 <input
                                     type="date"
                                     className="date-input-clean"
@@ -365,40 +406,34 @@ const BillingView: React.FC = () => {
                                     onChange={(e) => setSelectedDate(e.target.value)}
                                 />
                             </div>
-
-                            {/* Status Filter */}
                             <div className="date-filter-modern">
-                                <Filter size={18} className="text-secondary" />
+                                <Filter size={16} style={{ color: '#94a3b8' }} />
                                 <select
                                     className="date-input-clean"
                                     value={statusFilter}
                                     onChange={(e) => setStatusFilter(e.target.value as any)}
-                                    style={{ cursor: 'pointer' }}
                                 >
-                                    <option value="ALL">Todos los Estados</option>
+                                    <option value="ALL">Todos</option>
                                     <option value="Pendiente">Pendiente</option>
                                     <option value="Pagado">Pagado</option>
                                 </select>
                             </div>
-
-                            {/* Method Filter */}
                             <div className="date-filter-modern">
-                                <CreditCard size={18} className="text-secondary" />
+                                <CreditCard size={16} style={{ color: '#94a3b8' }} />
                                 <select
                                     className="date-input-clean"
                                     value={methodFilter}
                                     onChange={(e) => setMethodFilter(e.target.value as any)}
-                                    style={{ cursor: 'pointer' }}
                                 >
-                                    <option value="ALL">Todos los Métodos</option>
+                                    <option value="ALL">Método</option>
                                     <option value="Efectivo">Efectivo</option>
                                     <option value="Tarjeta">Tarjeta</option>
                                     <option value="Transferencia">Transferencia</option>
                                 </select>
                             </div>
                             {!isTherapist && (
-                                <button className="btn-secondary flex items-center gap-2" onClick={() => setIsClosingModalOpen(true)}>
-                                    <Wallet size={18} />
+                                <button className="btn-secondary flex items-center gap-2" onClick={() => setIsClosingModalOpen(true)} style={{ borderRadius: '12px', padding: '0.5rem 1rem', fontSize: '0.85rem' }}>
+                                    <Wallet size={16} />
                                     Cierre de Caja
                                 </button>
                             )}
@@ -408,8 +443,8 @@ const BillingView: React.FC = () => {
             </div>
 
             {!isTherapist && (
-                <div className="finance-overview" style={{ marginTop: '2rem' }}>
-                    <Card className="overview-card cursor-pointer hover:shadow-md transition-all" onClick={() => handleCardClick('INVOICED')}>
+                <div className="finance-overview">
+                    <Card className="overview-card" onClick={() => handleCardClick('INVOICED')}>
                         <div className="overview-icon status-neutral">
                             <DollarSign size={24} />
                         </div>
@@ -418,22 +453,22 @@ const BillingView: React.FC = () => {
                             <span className="overview-value">{totalInvoiced.toFixed(2)}€</span>
                         </div>
                     </Card>
-                    <Card className="overview-card cursor-pointer hover:shadow-md transition-all" onClick={() => handleCardClick('COLLECTED')}>
+                    <Card className="overview-card" onClick={() => handleCardClick('COLLECTED')}>
                         <div className="overview-icon status-positive">
-                            <CheckCircle size={24} />
+                            <TrendingUp size={24} />
                         </div>
                         <div className="overview-info">
                             <span className="overview-label">Total Cobrado</span>
-                            <span className="overview-value">{totalCollected.toFixed(2)}€</span>
+                            <span className="overview-value" style={{ color: '#059669' }}>{totalCollected.toFixed(2)}€</span>
                         </div>
                     </Card>
-                    <Card className="overview-card cursor-pointer hover:shadow-md transition-all" onClick={() => handleCardClick('PENDING')}>
+                    <Card className="overview-card" onClick={() => handleCardClick('PENDING')}>
                         <div className="overview-icon status-attention">
-                            <Clock size={24} />
+                            <AlertTriangle size={22} />
                         </div>
                         <div className="overview-info">
                             <span className="overview-label">Pendiente</span>
-                            <span className="overview-value" style={{ color: '#D97706' }}>{pendingAmount.toFixed(2)}€</span>
+                            <span className="overview-value" style={{ color: '#d97706' }}>{pendingAmount.toFixed(2)}€</span>
                         </div>
                     </Card>
                 </div>
@@ -550,11 +585,10 @@ const BillingView: React.FC = () => {
                     </div>
                 </div>
             ) : (
-                <>
+                <div id="BILLING-CONTENT">
                     <div className="billing-list-header flex justify-between items-center mb-4 px-2">
                         <h3 className="text-lg font-bold text-primary">Listado del día: {format(parseISO(selectedDate), "dd 'de' MMMM", { locale: es })}</h3>
                     </div>
-
                     <div className="billing-table-wrapper">
                         {filteredTx.length === 0 && apptRowsWithoutTx.length === 0 ? (
                             <div className="empty-state">No hay citas ni transacciones para este día.</div>
@@ -563,27 +597,41 @@ const BillingView: React.FC = () => {
                                 <thead>
                                     <tr>
                                         <th>Hora</th>
-                                        <th>Paciente</th>
+                                        <th style={{ minWidth: '200px' }}>Paciente</th>
                                         <th>Concepto</th>
                                         <th>Importe</th>
                                         <th>Estado</th>
                                         <th>Método</th>
-                                        <th>Acciones</th>
+                                        <th style={{ textAlign: 'right' }}>Acciones</th>
                                     </tr>
                                 </thead>
                                 <tbody>
                                     {apptRowsWithoutTx.map((appt) => (
                                         <tr key={`appt-${appt.id}`} className="row-pending">
-                                            <td className="text-secondary text-sm">{format(new Date(appt.start), 'HH:mm')}</td>
-                                            <td style={{ fontWeight: 600 }}>{appt.patientName}</td>
-                                            <td>{appt.type}</td>
+                                            <td className="text-secondary text-sm">
+                                                {appt.start ? format(new Date(appt.start), 'HH:mm') : '—'}
+                                            </td>
+                                            <td style={{ fontWeight: 600 }}>
+                                                <div className="flex items-center gap-2">
+                                                    <div className="flex items-center justify-center bg-gray-100 rounded-full" style={{ width: 28, height: 28 }}>
+                                                        <User size={14} className="text-secondary" />
+                                                    </div>
+                                                    {appt.patientName}
+                                                </div>
+                                            </td>
+                                            <td>
+                                                <div className="flex items-center gap-2">
+                                                    <Receipt size={14} className="text-secondary opacity-60" />
+                                                    {appt.type}
+                                                </div>
+                                            </td>
                                             <td className="amount-text text-secondary">
-                                                {appt.price != null ? `${appt.price.toFixed(2)}€` : '—'}
+                                                {appt.price != null ? `${Number(appt.price).toFixed(2)}€` : '—'}
                                             </td>
                                             <td><span className="badge badge-warning">Sin cobrar</span></td>
                                             <td>—</td>
-                                            <td>
-                                                <div className="payment-actions flex gap-1">
+                                            <td style={{ textAlign: 'right' }}>
+                                                <div className="payment-actions flex gap-1 justify-end">
                                                     <button className="btn-payment-method" onClick={() => handleChargeAppointment(appt, 'Efectivo')} title="Cobrar Efectivo"><Wallet size={14} /></button>
                                                     <button className="btn-payment-method" onClick={() => handleChargeAppointment(appt, 'Tarjeta')} title="Cobrar Tarjeta"><CreditCard size={14} /></button>
                                                     <button className="btn-payment-method" onClick={() => handleChargeAppointment(appt, 'Transferencia')} title="Cobrar Transferencia"><Send size={14} /></button>
@@ -598,8 +646,20 @@ const BillingView: React.FC = () => {
                                                     ? format(new Date(t.date), 'HH:mm')
                                                     : '—'}
                                             </td>
-                                            <td style={{ fontWeight: 600 }}>{t.patientName}</td>
-                                            <td>{t.category}</td>
+                                            <td style={{ fontWeight: 600 }}>
+                                                <div className="flex items-center gap-2">
+                                                    <div className="flex items-center justify-center bg-gray-100 rounded-full" style={{ width: 28, height: 28 }}>
+                                                        <User size={14} className="text-secondary" />
+                                                    </div>
+                                                    {t.patientName}
+                                                </div>
+                                            </td>
+                                            <td>
+                                                <div className="flex items-center gap-2">
+                                                    <Receipt size={14} className="text-secondary opacity-60" />
+                                                    {t.category}
+                                                </div>
+                                            </td>
                                             <td className="amount-text">{t.amount.toFixed(2)}€</td>
                                             <td>
                                                 <span className={`badge ${t.status === 'Pagado' ? 'badge-success' : 'badge-warning'}`}>
@@ -609,15 +669,15 @@ const BillingView: React.FC = () => {
                                             <td>
                                                 {t.method ? (
                                                     <span className="method-tag">
-                                                        {t.method === 'Tarjeta' && <CreditCard size={12} style={{ marginRight: 4 }} />}
-                                                        {t.method === 'Efectivo' && <Wallet size={12} style={{ marginRight: 4 }} />}
-                                                        {t.method === 'Transferencia' && <Send size={12} style={{ marginRight: 4 }} />}
+                                                        {t.method === 'Tarjeta' && <CreditCard size={12} />}
+                                                        {t.method === 'Efectivo' && <Wallet size={12} />}
+                                                        {t.method === 'Transferencia' && <Send size={12} />}
                                                         {t.method}
                                                     </span>
                                                 ) : '—'}
                                             </td>
-                                            <td>
-                                                <div className="flex gap-2">
+                                            <td style={{ textAlign: 'right' }}>
+                                                <div className="flex gap-2 justify-end">
                                                     <button className="btn-icon micro" onClick={() => handleEditOpen(t)} title="Editar Transacción"><Edit2 size={14} /></button>
                                                     {t.status === 'Pagado' && !t.invoiceId && (
                                                         <button className="btn-icon micro text-secondary" onClick={() => handleOpenGenerateInvoice(t)} title="Generar Factura"><FileText size={14} /></button>
@@ -639,8 +699,12 @@ const BillingView: React.FC = () => {
                             </table>
                         )}
                     </div>
-                </>
+                </div>
             )}
+
+            {/* Espaciador final para asegurar margen inferior visual */}
+            <div className="billing-bottom-spacer" />
+
 
             {isEditModalOpen && editingTransaction && (
                 <div className="modal-overlay">
@@ -912,16 +976,18 @@ const BillingView: React.FC = () => {
             {/* Hidden Printable Invoice */}
             {
                 printingInvoice && (
-                    <InvoiceDocument
-                        invoice={printingInvoice}
-                        patientDetails={{
-                            dni: patients.find(p => p.id === printingInvoice.patientId)?.tutor1?.dni,
-                            address: patients.find(p => p.id === printingInvoice.patientId)?.address,
-                            tutorName: patients.find(p => p.id === printingInvoice.patientId)?.tutor1 ?
-                                `${patients.find(p => p.id === printingInvoice.patientId)?.tutor1?.firstName} ${patients.find(p => p.id === printingInvoice.patientId)?.tutor1?.lastName}`
-                                : printingInvoice.patientName
-                        }}
-                    />
+                    <PrintPortal>
+                        <InvoiceDocument
+                            invoice={printingInvoice}
+                            patientDetails={{
+                                dni: patients.find(p => p.id === printingInvoice.patientId)?.tutor1?.dni,
+                                address: patients.find(p => p.id === printingInvoice.patientId)?.address,
+                                tutorName: patients.find(p => p.id === printingInvoice.patientId)?.tutor1 ?
+                                    `${patients.find(p => p.id === printingInvoice.patientId)?.tutor1?.firstName} ${patients.find(p => p.id === printingInvoice.patientId)?.tutor1?.lastName}`
+                                    : printingInvoice.patientName
+                            }}
+                        />
+                    </PrintPortal>
                 )
             }
         </div >

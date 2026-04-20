@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../../context/AuthContext';
+import { getIllustrativeAvatar } from '../../modules/therapists/utils';
 import { Bell, LogOut, ChevronDown, Clock, LayoutDashboard, Calendar, Users, FileText, ShieldCheck, UserRound } from 'lucide-react';
 import './Header.css';
 import { useLocation, useNavigate } from 'react-router-dom';
@@ -7,11 +8,16 @@ import WorkforceWidget from '../../modules/workforce/WorkforceWidget';
 import NotificationPanel from '../notifications/NotificationPanel';
 import { getNotifications, getDismissedIds, dismissNotification } from '../../modules/notifications/service';
 import type { Notification } from '../../modules/notifications/types';
+import { useRealtimeNotifications } from '../../hooks/useRealtimeNotifications';
 
 const Header: React.FC = () => {
     const { user, logout, isRole } = useAuth();
     const location = useLocation();
     const navigate = useNavigate();
+    
+    // Activate Real-time WhatsApp/System Notifications
+    useRealtimeNotifications();
+
     const [isProfileOpen, setIsProfileOpen] = useState(false);
     const [isWorkforceOpen, setIsWorkforceOpen] = useState(false);
 
@@ -25,42 +31,71 @@ const Header: React.FC = () => {
     // Fetch notifications
     useEffect(() => {
         if (user) {
-            loadNotifications();
+            loadNotifications().catch(e => console.error("Error in loadNotifications effect:", e));
             if (user.role === 'THERAPIST') {
-                checkClockInStatus();
+                checkClockInStatus().catch(e => console.error("Error in checkClockInStatus effect:", e));
             }
         }
+        
+        const handleWorkforceUpdate = () => {
+            if (user?.role === 'THERAPIST') {
+                checkClockInStatus();
+            }
+        };
+
+        const handleNotificationRefresh = () => {
+            loadNotifications();
+        };
+        
+        window.addEventListener('workforce-update', handleWorkforceUpdate);
+        window.addEventListener('notification-refresh', handleNotificationRefresh);
+        return () => {
+            window.removeEventListener('workforce-update', handleWorkforceUpdate);
+            window.removeEventListener('notification-refresh', handleNotificationRefresh);
+        };
     }, [user, location.pathname]);
 
     const checkClockInStatus = async () => {
-        if (!user || !user.therapistId) return; // Ensure therapistId exists
-        const { getLiveWorkStats } = await import('../../modules/workforce/service');
-        const stats = await getLiveWorkStats(user.therapistId); // Use user.therapistId
+        if (!user || !user.therapistId) return; 
+        const { getLiveWorkStats, checkScheduleAdherence } = await import('../../modules/workforce/service');
+        const [stats, adherence] = await Promise.all([
+            getLiveWorkStats(user.therapistId),
+            checkScheduleAdherence(user.therapistId)
+        ]);
 
-        // If they are offline AND haven't been reminded this session
-        const hasBeenReminded = sessionStorage.getItem('clock_in_reminded');
-        if (stats.status === 'offline' && !hasBeenReminded) {
+        if (stats.status === 'offline' && adherence.isAdherent) {
             setShowClockInReminder(true);
-            sessionStorage.setItem('clock_in_reminded', 'true');
+        } else {
+            setShowClockInReminder(false);
         }
     };
 
     const loadNotifications = async () => {
-        if (!user) return;
-        const role = user.role as 'ADMIN' | 'THERAPIST';
+        try {
+            if (!user) return;
+            const role = user.role as 'ADMIN' | 'THERAPIST';
 
-        const allNotifs = await getNotifications(role, user.therapistId || user.id);
+            const allNotifs = await getNotifications(role, user.therapistId || user.id);
 
-        // Filtrar las que han sido descartadas hoy
-        const dismissedIds = getDismissedIds();
-        const filtered = allNotifs.filter(n => !dismissedIds.includes(n.id));
+            // Filtrar las que han sido descartadas hoy
+            const dismissedIds = getDismissedIds();
+            const filtered = allNotifs.filter(n => !dismissedIds.includes(n.id));
 
-        setNotifications(filtered);
-        setUnreadCount(filtered.filter(n => !n.read).length);
+            setNotifications(filtered);
+            setUnreadCount(filtered.filter(n => !n.read).length);
+        } catch (error: any) {
+            console.error("Error executing loadNotifications:", error.message || error);
+        }
     };
 
     const handleDismiss = (id: string) => {
-        dismissNotification(id);
+        // Detect if it's a persistent DB notification (they don't use these prefixes)
+        const isDynamic = id.startsWith('cancel-') || 
+                         id.startsWith('unsigned-') || 
+                         id.startsWith('my-unsigned-') || 
+                         id.startsWith('missing-diary-');
+        
+        dismissNotification(id, !isDynamic);
         const updated = notifications.filter(n => n.id !== id);
         setNotifications(updated);
         setUnreadCount(updated.filter(n => !n.read).length);
@@ -103,11 +138,35 @@ const Header: React.FC = () => {
                         <span>No has fichado la entrada todavía. Recuerda registrar tu inicio de jornada.</span>
                     </div>
                     <div className="flex items-center gap-4">
-                        <button className="underline font-bold" onClick={() => {
-                            setIsWorkforceOpen(true);
-                            setShowClockInReminder(false);
-                        }}>Fichar Ahora</button>
-                        <button onClick={() => setShowClockInReminder(false)}>&times;</button>
+                        <button 
+                            style={{
+                                backgroundColor: '#854d0e',
+                                color: '#fef3c7',
+                                padding: '0.4rem 1.25rem',
+                                borderRadius: '999px',
+                                border: 'none',
+                                fontWeight: '700',
+                                fontSize: '0.875rem',
+                                cursor: 'pointer',
+                                boxShadow: '0 2px 5px rgba(133, 77, 14, 0.2)',
+                                transition: 'all 0.2s ease',
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '0.5rem'
+                            }}
+                            onMouseEnter={(e) => {
+                                e.currentTarget.style.backgroundColor = '#713f12';
+                                e.currentTarget.style.transform = 'translateY(-1px)';
+                            }}
+                            onMouseLeave={(e) => {
+                                e.currentTarget.style.backgroundColor = '#854d0e';
+                                e.currentTarget.style.transform = 'none';
+                            }}
+                            onClick={() => {
+                                setIsWorkforceOpen(true);
+                            }}>
+                            Fichar Ahora
+                        </button>
                     </div>
                 </div>
             )}
@@ -163,7 +222,13 @@ const Header: React.FC = () => {
                             className="header-profile-btn"
                             onClick={() => setIsProfileOpen(!isProfileOpen)}
                         >
-                            <div className="avatar small">{user?.name.charAt(0)}</div>
+                            <div className="avatar small">
+                                <img 
+                                    src={getIllustrativeAvatar({ fullName: user?.name, avatarUrl: user?.avatarUrl })} 
+                                    alt={user?.name} 
+                                    style={{ width: '100%', height: '100%', borderRadius: '50%', objectFit: 'cover' }} 
+                                />
+                            </div>
                             <span className="profile-name">{user?.name}</span>
                             <ChevronDown size={14} className={`transition-transform ${isProfileOpen ? 'rotate-180' : ''}`} />
                         </button>

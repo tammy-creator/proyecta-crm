@@ -26,10 +26,13 @@ interface DashboardStats {
     weeklyOccupancy: { day: string; fullDate: string; count: number }[];
 }
 
+import { getAIActivity } from '../modules/notifications/service';
+
 const Dashboard: React.FC = () => {
     const navigate = useNavigate();
     const { user, isRole } = useAuth();
     const [todayAppointments, setTodayAppointments] = useState<Appointment[]>([]);
+    const [aiLogs, setAiLogs] = useState<any[]>([]);
     const [selectedAppt, setSelectedAppt] = useState<Appointment | null>(null);
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [stats, setStats] = useState<DashboardStats>({
@@ -77,29 +80,35 @@ const Dashboard: React.FC = () => {
     };
 
     useEffect(() => {
-        if (user && isRole('THERAPIST') && !isRole('ADMIN')) {
-            navigate('/calendar', { replace: true });
-        }
-    }, [user, isRole, navigate]);
-
-    useEffect(() => {
-        if (user && (!isRole('THERAPIST') || isRole('ADMIN'))) {
+        loadDashboardData();
+        
+        const handleRefresh = () => {
             loadDashboardData();
-        } else if (user) {
-            setLoading(false);
-        }
+            loadAILogs();
+        };
+
+        window.addEventListener('notification-refresh', handleRefresh);
+        return () => window.removeEventListener('notification-refresh', handleRefresh);
     }, [user]);
 
+    const loadAILogs = async () => {
+        const logs = await getAIActivity(3);
+        setAiLogs(logs);
+    };
+
     const loadDashboardData = async () => {
+        if (!user) return;
         try {
+            loadAILogs();
             const today = new Date();
             const start = startOfDay(today);
             const end = endOfDay(today);
 
-            // Cargar en paralelo
+            // Si es terapeuta, filtramos por su ID, si es admin, pedimos 'all'
+            const effectiveTherapistId = isRole('ADMIN') ? undefined : user.therapistId;
             const [appts, transactions, patientsResult] = await Promise.all([
-                getAppointments(start, end),
-                getTransactions(),
+                getAppointments(start, end, effectiveTherapistId),
+                getTransactions(effectiveTherapistId),
                 supabase
                     .from('patients')
                     .select('id', { count: 'exact' })
@@ -143,7 +152,7 @@ const Dashboard: React.FC = () => {
 
             // 4. Ocupación Semanal (Últimos 7 días)
             const weekStart = subDays(today, 6);
-            const weekAppts = await getAppointments(startOfDay(weekStart), endOfDay(today));
+            const weekAppts = await getAppointments(startOfDay(weekStart), endOfDay(today), effectiveTherapistId);
             
             const days = eachDayOfInterval({ start: weekStart, end: today });
             const weeklyOccupancy = days.map(day => {
@@ -215,11 +224,9 @@ const Dashboard: React.FC = () => {
                     setSelectedAppt(null);
                 }}
             />
-            <div className="flex justify-between items-center mb-6">
-                <div>
-                    <h2 className="page-title">Panel de Control</h2>
-                    <p className="text-secondary text-sm">Resumen general de Proyecta</p>
-                </div>
+            <div className="flex flex-col items-center justify-center mb-10 text-center">
+                <h2 className="page-title" style={{ marginBottom: '0.5rem' }}>Panel de Control</h2>
+                <p className="text-secondary text-base opacity-80">Resumen general de Proyecta</p>
             </div>
 
             <div className="stats-grid">
@@ -239,7 +246,7 @@ const Dashboard: React.FC = () => {
                 ))}
             </div>
 
-            <div className="dashboard-content-grid chart-section">
+            <div className="dashboard-content-grid chart-section top-row">
                 <Card 
                     title="Ocupación Semanal (Citas por día)" 
                     subtitle="Actividad de los últimos 7 días"
@@ -247,7 +254,7 @@ const Dashboard: React.FC = () => {
                     className="occupancy-chart"
                 >
                     <div className="chart-wrapper">
-                        <ResponsiveContainer width="100%" height="100%">
+                        <ResponsiveContainer width="100%" height="100%" minWidth={0}>
                             <BarChart data={stats.weeklyOccupancy} margin={{ top: 20, right: 10, left: -20, bottom: 0 }}>
                                 <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
                                 <XAxis 
@@ -283,6 +290,33 @@ const Dashboard: React.FC = () => {
                                 />
                             </BarChart>
                         </ResponsiveContainer>
+                    </div>
+                </Card>
+
+                <Card title="Actividad del Bot (IA)" className="ai-logs-preview" subtitle="Últimos 3 días">
+                    <div className="ai-logs-container">
+                        {aiLogs.length === 0 ? (
+                            <div className="text-secondary text-sm p-4 text-center italic">Sin actividad reciente.</div>
+                        ) : (
+                            <table className="ai-logs-table">
+                                <thead>
+                                    <tr>
+                                        <th>Fecha</th>
+                                        <th>Acción</th>
+                                        <th>Detalles</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {aiLogs.slice(0, 8).map(log => (
+                                        <tr key={log.id}>
+                                            <td className="log-date">{format(log.date, 'dd/MM HH:mm')}</td>
+                                            <td className="log-title">{log.title}</td>
+                                            <td className="log-message">{log.message}</td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                        )}
                     </div>
                 </Card>
             </div>
@@ -367,6 +401,7 @@ const Dashboard: React.FC = () => {
                         )}
                     </div>
                 </Card>
+
             </div>
         </div>
     );

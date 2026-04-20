@@ -28,8 +28,8 @@ const NotificationPanel: React.FC<NotificationPanelProps> = ({ notifications, on
         <div className="notification-panel">
             <div className="notification-header">
                 <h3>Notificaciones</h3>
-                <button className="close-panel-btn" onClick={onClose} title="Cerrar">
-                    <X size={18} />
+                <button className="btn-icon-round" style={{ width: '32px', height: '32px' }} onClick={onClose} title="Cerrar">
+                    <X size={16} />
                 </button>
             </div>
 
@@ -61,16 +61,18 @@ const NotificationPanel: React.FC<NotificationPanelProps> = ({ notifications, on
                                     <div className="w-2 h-2 rounded-full bg-blue-500"></div>
                                 </button>
                             )}
-                            <button
-                                className="dismiss-btn"
-                                title="Descartar"
-                                onClick={(e) => {
-                                    e.stopPropagation();
-                                    onDismiss(n.id);
-                                }}
-                            >
-                                <X size={14} />
-                            </button>
+                            {!n.id.startsWith('sign-') && (
+                                <button
+                                    className="dismiss-btn"
+                                    title="Descartar"
+                                    onClick={(e) => {
+                                        e.stopPropagation();
+                                        onDismiss(n.id);
+                                    }}
+                                >
+                                    <X size={14} />
+                                </button>
+                            )}
                         </div>
                     ))
                 )}

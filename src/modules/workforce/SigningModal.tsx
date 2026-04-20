@@ -10,6 +10,8 @@ import type { Therapist } from '../therapists/types';
 import { useAuth } from '../../context/AuthContext';
 import SignaturePad from 'signature_pad';
 import { generateDetailedReportPDF } from '../../utils/pdfGenerator';
+import WorkforcePrintDocument from './WorkforcePrintDocument';
+import PrintPortal from '../../components/ui/PrintPortal';
 
 interface SigningModalProps {
     onClose: () => void;
@@ -29,6 +31,8 @@ const SigningModal: React.FC<SigningModalProps> = ({ onClose }) => {
     const [attendances, setAttendances] = useState<any[]>([]);
     const [appointments, setAppointments] = useState<any[]>([]);
     const [centerSettings, setCenterSettings] = useState<any>(null);
+    const [isPrinting, setIsPrinting] = useState(false);
+    const [printData, setPrintData] = useState<any>(null);
 
     const canvasRef = useRef<HTMLCanvasElement>(null);
     const sigPadRef = useRef<SignaturePad | null>(null);
@@ -130,14 +134,14 @@ const SigningModal: React.FC<SigningModalProps> = ({ onClose }) => {
         const getReportDailyData = (day: Date) => {
             const dayAtts = attendances.filter(a => a.startTime && isSameDay(parseISO(a.startTime), day));
             const dayAppts = appointments.filter(a => a.start && isSameDay(parseISO(a.start), day));
-            const workAtt = dayAtts.find(a => a.type === 'work');
+            const workAtts = dayAtts.filter(a => a.type === 'work');
             const absenceAtt = dayAtts.find(a => a.type !== 'work');
-            return { workAtt, absenceAtt, apptsCount: dayAppts.length };
+            return { workAtts, absenceAtt, apptsCount: dayAppts.length };
         };
 
         const therapistObject = { id: user.therapistId, fullName: user.name || 'Terapeuta', email: '', phone: '', specialty: '' } as Therapist;
 
-        return generateDetailedReportPDF({
+        const doc = await generateDetailedReportPDF({
             month: selectedMonth,
             therapist: therapistObject,
             daysInMonth: daysInMonthToPrint,
@@ -145,6 +149,7 @@ const SigningModal: React.FC<SigningModalProps> = ({ onClose }) => {
             centerSettings,
             signature: sig || signature
         });
+        return doc.output('blob');
     };
 
     const handleSign = async () => {
@@ -202,17 +207,33 @@ const SigningModal: React.FC<SigningModalProps> = ({ onClose }) => {
     };
 
     const handleDownloadPDF = async () => {
+        if (!user || !user.therapistId) return;
         try {
-            const blob = await generateLocalPDF();
-            const url = URL.createObjectURL(blob);
-            const link = document.createElement('a');
-            link.href = url;
-            link.download = `Reporte_${(user?.name || 'Terapeuta').replace(/\s+/g, '_')}_${selectedMonth}.pdf`;
-            link.click();
-            URL.revokeObjectURL(url);
+            const therapistObject = { id: user.therapistId, fullName: user.name || 'Terapeuta', email: '', phone: '', specialty: '' } as Therapist;
+            const daysInMonthToPrint = eachDayOfInterval({
+                start: startOfMonth(parseISO(selectedMonth + '-01')),
+                end: endOfMonth(parseISO(selectedMonth + '-01'))
+            });
+
+            const getReportDailyData = (day: Date) => {
+                const dayAtts = attendances.filter(a => a.startTime && isSameDay(parseISO(a.startTime), day));
+                const dayAppts = appointments.filter(a => a.start && isSameDay(parseISO(a.start), day));
+                const workAtts = dayAtts.filter(a => a.type === 'work');
+                const absenceAtt = dayAtts.find(a => a.type !== 'work');
+                return { workAtts, absenceAtt, apptsCount: dayAppts.length };
+            };
+
+            setPrintData({
+                month: selectedMonth,
+                therapist: therapistObject,
+                daysInMonth: daysInMonthToPrint,
+                getDailyData: getReportDailyData,
+                signature: signature
+            });
+            setIsPrinting(true);
         } catch (err) {
-            console.error("Error generating local PDF:", err);
-            setError("No se pudo generar el PDF.");
+            console.error("Error preparing print:", err);
+            setError("No se pudo iniciar la impresión.");
         }
     };
 
@@ -382,6 +403,50 @@ const SigningModal: React.FC<SigningModalProps> = ({ onClose }) => {
                     )}
                 </div>
             </div>
+
+            {/* ── Print Preview Modal ── */}
+            {isPrinting && printData && (
+                <div className="modal-overlay" style={{ zIndex: 1100 }}>
+                    <div className="modal-content flex-layout" style={{ maxWidth: '900px', padding: 0, height: '90vh', display: 'flex', flexDirection: 'column' }}>
+                        <div className="modal-header no-print" style={{ padding: '1rem 1.5rem', borderBottom: '1px solid #e2e8f0', flexShrink: 0 }}>
+                            <div className="flex items-center gap-2">
+                                <Printer size={20} className="text-secondary" />
+                                <h3 style={{ margin: 0 }}>Vista Previa de Impresión</h3>
+                            </div>
+                            <button className="btn-icon-round" onClick={() => setIsPrinting(false)}>
+                                <X size={20} />
+                            </button>
+                        </div>
+
+                        <div className="modal-body" style={{ flex: 1, overflowY: 'auto', backgroundColor: '#f1f5f9', padding: '2rem' }}>
+                            <div className="print-preview-container" style={{ 
+                                backgroundColor: 'white', 
+                                boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)', 
+                                margin: '0 auto',
+                                width: '210mm',
+                                minHeight: '297mm'
+                            }}>
+                                <WorkforcePrintDocument {...printData} centerSettings={centerSettings} />
+                            </div>
+                        </div>
+
+                        {/* Dedicated Print Portal (Only visible during window.print()) */}
+                        <PrintPortal>
+                            <div className="printable-document">
+                                <WorkforcePrintDocument {...printData} centerSettings={centerSettings} />
+                            </div>
+                        </PrintPortal>
+
+                        <div className="modal-footer no-print" style={{ padding: '1rem 1.5rem', borderTop: '1px solid #e2e8f0', justifyContent: 'flex-end' }}>
+                            <button className="btn-secondary" onClick={() => setIsPrinting(false)}>Cancelar</button>
+                            <button className="btn-primary flex items-center gap-2" onClick={() => window.print()}>
+                                <Printer size={18} />
+                                <span>Imprimir / Guardar PDF</span>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 };

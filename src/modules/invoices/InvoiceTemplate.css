@@ -2,8 +2,8 @@
 
 .invoice-print-area {
     width: 210mm;
-    min-height: 297mm;
-    padding: 20mm;
+    min-height: auto;
+    padding: 15mm;
     margin: 0 auto;
     background: white;
     font-family: 'Montserrat', sans-serif;
@@ -251,17 +251,13 @@
     }
 
     .invoice-print-area {
-        position: absolute;
-        top: 0;
-        left: 0;
+        position: relative;
         width: 100%;
-        min-height: 100%;
         margin: 0;
         padding: 0;
         /* Let inner content handle padding or use standard page margins */
         box-shadow: none;
         border: none;
-        z-index: 9999;
         background: white;
     }
 
@@ -500,9 +496,7 @@
     }
 
     .invoice-print-area {
-        position: absolute;
-        top: 0;
-        left: 0;
+        position: relative;
         width: 100%;
         margin: 0;
         padding: 0;

@@ -1,4 +1,4 @@
-export type NotificationType = 'CANCEL' | 'WORKFORCE' | 'REPORT' | 'DIARY' | 'INFO';
+export type NotificationType = 'CANCEL' | 'WORKFORCE' | 'REPORT' | 'DIARY' | 'INFO' | 'WHATSAPP' | 'SYSTEM' | 'AI_LOG';
 
 export interface Notification {
     id: string;

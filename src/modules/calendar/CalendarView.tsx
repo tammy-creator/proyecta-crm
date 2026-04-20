@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { useLocation } from 'react-router-dom';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
+import { useLocation, useNavigate } from 'react-router-dom';
 import {
     format,
     startOfWeek,
@@ -20,19 +20,22 @@ import {
     endOfDay,
     addHours,
     startOfMonth,
-    endOfMonth
+    endOfMonth,
+    startOfDay,
+    startOfToday
 } from 'date-fns';
 import { es } from 'date-fns/locale';
-import { ChevronLeft, ChevronRight, Plus, X, User, Rocket, Puzzle, AlertTriangle, Clock as ClockIcon, DollarSign, Mic, Square, Info } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Plus, X, User, Rocket, Puzzle, AlertTriangle, Clock as ClockIcon, DollarSign, Mic, Square, Info, Search, ArrowLeft } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { getAppointments, createAppointment, updateAppointment, deleteAppointment } from './service';
-import { getPatients } from '../patients/service';
+import { getPatients, getWaitingList } from '../patients/service';
 import { getTherapists } from '../therapists/service';
 import { getServices } from '../admin/service';
 import { getCurrentStatus } from '../workforce/service';
 import { type Appointment } from './types';
 import { type Patient } from '../patients/types';
 import { type Therapist } from '../therapists/types';
+import { getIllustrativeAvatar } from '../therapists/utils';
 import { type ClinicalService } from '../admin/types';
 import { supabase } from '../../lib/supabase';
 import { useToast } from '../../hooks/useToast';
@@ -41,51 +44,57 @@ import './CalendarView.css';
 interface CalendarViewProps {
     mode?: 'TODAY_MULTI' | 'WEEKLY_SINGLE';
     therapistId?: string;
+    onEditTherapist?: (therapist: Therapist) => void;
 }
 
 // Default fixed hours fallback (8:00 to 21:00)
 const DEFAULT_HOURS = Array.from({ length: 14 }, (_, i) => i + 8);
 
-// Helper for contrast logic requested by user
-const getContrastColor = (hexColor: string) => {
-    // If color is too light, return black, otherwise return white
-    // Using YIQ formula
-    const hex = hexColor.replace('#', '');
-    const r = parseInt(hex.substr(0, 2), 16);
-    const g = parseInt(hex.substr(2, 2), 16);
-    const b = parseInt(hex.substr(4, 2), 16);
-    const yiq = ((r * 299) + (g * 587) + (b * 114)) / 1000;
-    return (yiq >= 160) ? '#0f172a' : '#ffffff';
-};
-
-const CalendarView: React.FC<CalendarViewProps> = ({ mode: initialMode, therapistId: filterTherapistId }) => {
+const CalendarView: React.FC<CalendarViewProps> = ({ mode: initialMode, therapistId: filterTherapistId, onEditTherapist }) => {
     const { user, isRole } = useAuth();
     const { showToast } = useToast();
 
-    // Si no se pasa modo, el admin ve todos hoy, el terapeuta su semana
-    const effectiveMode = initialMode || (isRole('ADMIN') ? 'TODAY_MULTI' : 'WEEKLY_SINGLE');
-    const effectiveTherapistId = filterTherapistId || (isRole('THERAPIST') ? user?.therapistId : undefined);
-
-    const location = useLocation(); // Hoisted to top level
+    const location = useLocation();
+    const navigate = useNavigate();
 
     const [currentDate, setCurrentDate] = useState(new Date());
     const [currentTime, setCurrentTime] = useState(new Date());
+    
+    const [dynamicHours, setDynamicHours] = useState<number[]>(DEFAULT_HOURS);
+    
+    // Configuración ultra-flexible para que todo quepa en una sola pantalla
+    const isEmbedded = !!initialMode;
+    const gridRef = useRef<HTMLDivElement>(null);
+    const [containerHeight, setContainerHeight] = useState(600);
+    // Garantizamos un mínimo de 70px por hora para que las citas se lean perfectamente
+    const slotHeight = isEmbedded ? Math.max(70, (containerHeight - 70) / (dynamicHours.length || 1)) : 80;
+    const timeColWidth = isEmbedded ? 50 : 55; // Slightly wider for perfect comfort
+
     const [appointments, setAppointments] = useState<Appointment[]>([]);
     const [patients, setPatients] = useState<Patient[]>([]);
     const [therapists, setTherapists] = useState<Therapist[]>([]);
     const [services, setServices] = useState<ClinicalService[]>([]);
-    const [dynamicHours, setDynamicHours] = useState<number[]>(DEFAULT_HOURS);
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [selectedAppt, setSelectedAppt] = useState<Partial<Appointment> | null>(null);
     const [isRadarOpen, setIsRadarOpen] = useState(false);
     const [isRecording, setIsRecording] = useState(false);
-    const [gaps, setGaps] = useState<{ start: Date; end: Date; count: number }[]>([]);
+    const [gaps, setGaps] = useState<{ start: Date; end: Date; count: number; therapists?: string[]; therapistIds?: string[] }[]>([]);
     const [radarRange, setRadarRange] = useState<'today' | 'week' | 'month'>('today');
     const [radarTherapistId, setRadarTherapistId] = useState<string>('all');
     const [absences, setAbsences] = useState<any[]>([]);
 
+    // Doctoralia Style States
+    const [selectedTherapistIds, setSelectedTherapistIds] = useState<string[]>([]);
+    const [therapistSearch, setTherapistSearch] = useState('');
+    const [draggedApptId, setDraggedApptId] = useState<string | null>(null);
+    const [viewMode, setViewMode] = useState<'day' | 'week'>(initialMode === 'WEEKLY_SINGLE' ? 'week' : (isRole('ADMIN') ? 'day' : 'week'));
+
+    // Si no se pasa modo, se controla con viewMode
+    const effectiveMode = initialMode || (viewMode === 'day' ? 'TODAY_MULTI' : 'WEEKLY_SINGLE');
+    const effectiveTherapistId = filterTherapistId || (isRole('THERAPIST') ? user?.therapistId : undefined);
+
     const weekStart = startOfWeek(currentDate, { weekStartsOn: 1 });
-    const weekEnd = addDays(weekStart, 5); // Hasta Sábado (5 días después del lunes)
+    const weekEnd = addDays(weekStart, 6); // Lunes a Domingo (6 días después del lunes)
 
     // Columnas: O bien los días de la semana, o bien los terapeutas
     const days = eachDayOfInterval({ start: weekStart, end: weekEnd });
@@ -114,35 +123,75 @@ const CalendarView: React.FC<CalendarViewProps> = ({ mode: initialMode, therapis
     };
 
     const fetchAbsences = async () => {
-        const { data } = await supabase
-            .from('attendance')
-            .select('*')
-            .neq('type', 'work')
-            .or(`start_time.gte.${weekStart.toISOString()},end_time.lte.${weekEnd.toISOString()}`);
-        setAbsences(data || []);
+        try {
+            const { data, error } = await supabase
+                .from('attendance')
+                .select('*')
+                .neq('type', 'work')
+                .or(`start_time.gte.${weekStart.toISOString()},end_time.lte.${weekEnd.toISOString()}`);
+            
+            if (error) {
+                console.error("Error fetching absences:", error);
+                return;
+            }
+            setAbsences(data || []);
+        } catch (err) {
+            console.error("Critical error in fetchAbsences:", err);
+        }
     };
 
     const fetchData = () => {
         getAppointments(weekStart, weekEnd).then(data => {
-            // Apply status check immediately upon fetch
             const updatedData = calculateStatuses(data);
             setAppointments(updatedData);
+        }).catch(err => {
+            console.error("Error fetching appointments:", err);
+            showToast("Error al cargar citas", "error");
         });
         fetchAbsences();
     };
 
     useEffect(() => {
+        const handleRefresh = () => {
+            console.log("Real-time refresh triggered");
+            fetchData();
+        };
+        window.addEventListener('calendar-refresh', handleRefresh);
+        return () => window.removeEventListener('calendar-refresh', handleRefresh);
+    }, [weekStart, weekEnd]); // Depend on week start/end to ensure closure has right context
+
+    useEffect(() => {
         fetchData();
-        getPatients().then(setPatients);
+        getPatients().then(setPatients).catch(err => console.error("Error in getPatients effect:", err.message || err));
         getTherapists().then(data => {
             setTherapists(data);
-            // Compute dynamic hour range from therapists' schedules
-            computeDynamicHours(data);
-        });
-        getServices().then(setServices);
+            setSelectedTherapistIds(data.map(t => t.id)); // Select all by default
+            // Compute dynamic hour range from therapists' schedules, filtering if necessary
+            computeDynamicHours(data, filterTherapistId || (isRole('THERAPIST') ? user?.therapistId : undefined));
+        }).catch(err => console.error("Error in getTherapists effect:", err.message || err));
+        getServices().then(setServices).catch(err => console.error("Error in getServices effect:", err.message || err));
     }, [currentDate]);
 
     // Handle navigation from Dashboard
+    // Measure container height to adjust slots dynamically in modal mode
+    useEffect(() => {
+        if (!isEmbedded) return;
+        const updateSize = () => {
+            if (gridRef.current) {
+                setContainerHeight(gridRef.current.clientHeight);
+            }
+        };
+        updateSize();
+        // Use ResizeObserver for more reliable measurements
+        const resizeObserver = new ResizeObserver(updateSize);
+        if (gridRef.current) resizeObserver.observe(gridRef.current);
+        window.addEventListener('resize', updateSize);
+        return () => {
+            resizeObserver.disconnect();
+            window.removeEventListener('resize', updateSize);
+        };
+    }, [isEmbedded, dynamicHours]);
+
     useEffect(() => {
         const state = location.state as { openAppointmentId?: string } | null;
         if (state?.openAppointmentId && appointments.length > 0) {
@@ -165,7 +214,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({ mode: initialMode, therapis
         else setCurrentDate(subWeeks(currentDate, 1));
     };
 
-    // Saltar domingos si estamos en modo día
+
     useEffect(() => {
         if (effectiveMode === 'TODAY_MULTI' && getDay(currentDate) === 0) {
             // Si es domingo, saltar al lunes
@@ -190,12 +239,14 @@ const CalendarView: React.FC<CalendarViewProps> = ({ mode: initialMode, therapis
         return () => window.removeEventListener('workforce-update', handler);
     }, []);
 
-    const computeDynamicHours = (therapistList: Therapist[]) => {
+    const computeDynamicHours = (therapistList: Therapist[], filterId?: string) => {
         let minHour = 8;
         let maxHour = 21;
         let found = false;
 
-        therapistList.forEach(t => {
+        const filteredList = filterId ? therapistList.filter(t => t.id === filterId) : therapistList;
+
+        filteredList.forEach(t => {
             if (!t.schedule || t.schedule.length === 0) return;
             t.schedule.forEach(day => {
                 if (!day.enabled || day.blocks.length === 0) return;
@@ -212,9 +263,10 @@ const CalendarView: React.FC<CalendarViewProps> = ({ mode: initialMode, therapis
         });
 
         // Add 1 hour buffer before start to help readability, clamp between 6-23
-        const finalMin = Math.max(6, found ? minHour - 1 : 8);
-        const finalMax = Math.min(23, found ? maxHour + 1 : 21);
-        setDynamicHours(Array.from({ length: finalMax - finalMin }, (_, i) => i + finalMin));
+        // In embedded mode, be even tighter if found
+        const finalMin = Math.max(6, found ? minHour : 8);
+        const finalMax = Math.min(23, found ? maxHour : 21);
+        setDynamicHours(Array.from({ length: Math.max(1, finalMax - finalMin) }, (_, i) => i + finalMin));
     };
 
     const goToToday = () => setCurrentDate(new Date());
@@ -224,7 +276,6 @@ const CalendarView: React.FC<CalendarViewProps> = ({ mode: initialMode, therapis
 
         // Check for absence blocking
         const isAbsence = absences.some((a: any) => {
-            if (a.therapist_id !== tId) return false;
             const start = parseISO(a.start_time);
             const end = a.end_time ? parseISO(a.end_time) : start;
             const slotTime = setMinutes(setHours(date, hour), 0);
@@ -248,28 +299,122 @@ const CalendarView: React.FC<CalendarViewProps> = ({ mode: initialMode, therapis
         });
     };
 
+    const getAvailableTherapists = (startStr?: string, endStr?: string) => {
+        if (!startStr || !endStr) return therapists;
+        const start = parseISO(startStr);
+        const end = parseISO(endStr);
+        const dayNames = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'];
+        const dayName = dayNames[getDay(start)];
+
+        return therapists.filter(t => {
+            // Include if it's the already selected therapist for an existing appointment
+            if (selectedAppt?.id && t.id === selectedAppt.therapistId) return true;
+
+            // 1. Check absences
+            const hasAbsence = absences.some((a: any) => {
+                const aStart = parseISO(a.start_time);
+                const aEnd = a.end_time ? parseISO(a.end_time) : aStart;
+                if (a.therapist_id !== t.id) return false;
+                // Overlap check
+                return start < aEnd && end > aStart;
+            });
+            if (hasAbsence) return false;
+
+            // 2. Check schedule
+            if (!t.schedule || t.schedule.length === 0) return true; // By default open if no schedule
+            const daySchedule = t.schedule.find(d => d.day === dayName);
+            if (!daySchedule || !daySchedule.enabled) return false;
+
+            const startTimeVal = start.getHours() * 60 + start.getMinutes();
+            const endTimeVal = end.getHours() * 60 + end.getMinutes();
+
+            return daySchedule.blocks.some(block => {
+                const [bStartH, bStartM] = block.start.split(':').map(Number);
+                const [bEndH, bEndM] = block.end.split(':').map(Number);
+                const bStartTimeVal = bStartH * 60 + bStartM;
+                const bEndTimeVal = bEndH * 60 + bEndM;
+                // Interval must be fully contained in block
+                return startTimeVal >= bStartTimeVal && endTimeVal <= bEndTimeVal;
+            });
+        });
+    };
+
+    const checkForWaitingListMatches = async (apptStart: string) => {
+        try {
+            const date = parseISO(apptStart);
+            const dayOfWeek = getDay(date); // 0=Sun, 1=Mon, 2=Tue...
+            // Convert to 1=Mon, 2=Tue... used in our UI (S=6)
+            const uiDay = dayOfWeek === 0 ? 7 : dayOfWeek;
+            const apptMinutes = date.getHours() * 60 + date.getMinutes();
+
+            const waitingList = await getWaitingList();
+            const matches = waitingList.filter(entry => {
+                const dayMatch = !entry.preferredDays?.length || entry.preferredDays.includes(uiDay);
+                // Fuzzy hour match: preferred hour is within 30 minutes of the freed slot
+                const hourMatch = !entry.preferredHours?.length || entry.preferredHours.some(h => {
+                    const [ph, pm] = h.split(':').map(Number);
+                    const prefMinutes = ph * 60 + pm;
+                    return Math.abs(apptMinutes - prefMinutes) <= 30;
+                });
+                return dayMatch && hourMatch;
+            });
+
+            if (matches.length > 0) {
+                const names = matches.map(m => m.patientName).join(', ');
+                showToast(`¡Aviso! ${matches.length} paciente(s) en lista de espera encajan con este hueco: ${names}`, 'info');
+            }
+        } catch (err) {
+            console.error('Error checking waiting list matches:', err);
+        }
+    };
+
     const handleOpenModal = async (appt?: Appointment, tId?: string, date?: Date) => {
         // Validación de Control Horario
         if (isRole('THERAPIST') && user?.therapistId) {
             const status = await getCurrentStatus(user.therapistId);
             if (status !== 'working') {
-                showToast("Acceso denegado. Debes fichar la ENTRADA antes de gestionar la agenda.", "error");
-                return;
+                // Verificar si estamos dentro de su horario laboral TEÓRICO
+                const therapist = therapists.find(t => t.id === user.therapistId);
+                if (therapist) {
+                    const now = new Date();
+                    const dayNames = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'];
+                    const dayName = dayNames[getDay(now)];
+                    const daySchedule = therapist.schedule?.find(d => d.day === dayName);
+                    
+                    if (daySchedule && daySchedule.enabled) {
+                        const currentMinutes = now.getHours() * 60 + now.getMinutes();
+                        const isInShift = daySchedule.blocks.some(block => {
+                            const [startH, startM] = block.start.split(':').map(Number);
+                            const [endH, endM] = block.end.split(':').map(Number);
+                            const startMin = startH * 60 + startM;
+                            const endMin = endH * 60 + endM;
+                            return currentMinutes >= startMin && currentMinutes < endMin;
+                        });
+
+                        if (isInShift) {
+                            showToast("Acceso denegado. Estás en tu horario laboral y debes fichar la ENTRADA para gestionar la agenda.", "error");
+                            return;
+                        }
+                    }
+                }
             }
         }
 
         if (appt) {
             setSelectedAppt(appt);
         } else {
-            const therapistId = tId || therapists[0]?.id || '';
+            const startBase = date || new Date();
+            const startStr = formatISO(startBase);
+            // Default duration 60m
+            const endStr = formatISO(addMinutes(startBase, 60));
+            
+            const available = getAvailableTherapists(startStr, endStr);
+            const therapistId = tId || available[0]?.id || therapists[0]?.id || '';
             const therapist = therapists.find(t => t.id === therapistId);
             const offset = therapist?.sessionStartOffset || 0;
 
-            let startBase = date || new Date();
-            // Si venimos de un clic en el calendario, la hora ya está en el date.
-            // Aplicamos el desfase del terapeuta.
             const startWithOffset = setMinutes(setHours(startBase, startBase.getHours()), offset);
-            const startStr = formatISO(startWithOffset);
+            const finalStartStr = formatISO(startWithOffset);
 
             setSelectedAppt({
                 patientId: '',
@@ -278,8 +423,8 @@ const CalendarView: React.FC<CalendarViewProps> = ({ mode: initialMode, therapis
                 therapistName: therapist?.fullName || '',
                 serviceId: '',
                 type: 'Terapia',
-                start: startStr,
-                end: formatISO(addMinutes(parseISO(startStr), 60)),
+                start: finalStartStr,
+                end: formatISO(addMinutes(parseISO(finalStartStr), 60)),
                 status: 'Programada'
             });
         }
@@ -298,19 +443,33 @@ const CalendarView: React.FC<CalendarViewProps> = ({ mode: initialMode, therapis
         }
 
         const finalAppt = { ...selectedAppt };
-        const p = patients.find(p => p.id === finalAppt.patientId);
-        if (p) finalAppt.patientName = `${p.firstName} ${p.lastName}`;
-        const t = therapists.find(t => t.id === finalAppt.therapistId);
-        if (t) finalAppt.therapistName = t.fullName;
+        const isBlocked = finalAppt.status === 'Bloqueada';
 
-        // Ensure type name is set if service is selected
-        if (finalAppt.serviceId) {
-            const s = services.find(s => s.id === finalAppt.serviceId);
-            if (s) finalAppt.type = s.name;
+        if (isBlocked) {
+            finalAppt.patientId = undefined;
+            finalAppt.serviceId = undefined;
+            finalAppt.patientName = 'HORARIO BLOQUEADO';
+            finalAppt.type = 'Bloqueo';
+        } else {
+            const p = patients.find(p => p.id === finalAppt.patientId);
+            if (p) finalAppt.patientName = `${p.firstName} ${p.lastName}`;
+            const t = therapists.find(t => t.id === finalAppt.therapistId);
+            if (t) finalAppt.therapistName = t.fullName;
+
+            // Ensure type name is set if service is selected
+            if (finalAppt.serviceId) {
+                const s = services.find(s => s.id === finalAppt.serviceId);
+                if (s) finalAppt.type = s.name;
+            }
         }
 
-        if (finalAppt.id) await updateAppointment(finalAppt as Appointment);
-        else {
+        if (finalAppt.id) {
+            await updateAppointment(finalAppt as Appointment);
+            // If we just cancelled the appointment, check for waiting list matches
+            if (finalAppt.status === 'Cancelada' && finalAppt.start) {
+                await checkForWaitingListMatches(finalAppt.start);
+            }
+        } else {
             if (finalAppt.recurrence && (finalAppt.recurrence.weeks || finalAppt.recurrence.until || (finalAppt.recurrence.days && finalAppt.recurrence.days.length > 0))) {
                 const startBase = parseISO(finalAppt.start!);
                 const endBase = parseISO(finalAppt.end!);
@@ -378,13 +537,14 @@ const CalendarView: React.FC<CalendarViewProps> = ({ mode: initialMode, therapis
 
     const findGaps = (range?: 'today' | 'week' | 'month', therapistId?: string) => {
         const targetRange = range || radarRange;
-        const targetTherapistId = therapistId || radarTherapistId;
+        const targetTherapistId = therapistId || (radarTherapistId === 'all' && effectiveTherapistId ? effectiveTherapistId : radarTherapistId);
         
-        const potentialGaps: { start: Date; end: Date; count: number }[] = [];
-        let viewDays: Date[] = [];
+        if (targetTherapistId !== radarTherapistId) setRadarTherapistId(targetTherapistId);
+        if (targetRange !== radarRange) setRadarRange(targetRange);
 
-        const today = new Date();
-        // Base la búsqueda en hoy si el calendario está en el pasado, sino en el calendario
+        const foundGaps: { start: Date; end: Date; count: number; therapists?: string[]; therapistIds?: string[] }[] = [];
+        let viewDays: Date[] = [];
+        const today = startOfToday();
         const baseDateForSearch = isBefore(currentDate, today) ? today : currentDate;
         const startOfSearchWeek = startOfWeek(baseDateForSearch, { weekStartsOn: 1 });
 
@@ -394,73 +554,114 @@ const CalendarView: React.FC<CalendarViewProps> = ({ mode: initialMode, therapis
             viewDays = eachDayOfInterval({ 
                 start: startOfSearchWeek, 
                 end: addDays(startOfSearchWeek, 5) 
-            });
+            }).filter(d => isAfter(d, today) || isSameDay(d, today));
         } else if (targetRange === 'month') {
             viewDays = eachDayOfInterval({ 
                 start: startOfMonth(baseDateForSearch), 
                 end: endOfMonth(baseDateForSearch) 
-            }).filter(d => d.getDay() !== 0 && d.getDay() !== 7);
+            }).filter(d => (isAfter(d, today) || isSameDay(d, today)) && d.getDay() !== 0 && d.getDay() !== 6); 
         }
 
-        const hoursToSearch = dynamicHours.length > 0 ? dynamicHours : DEFAULT_HOURS;
-
         viewDays.forEach(day => {
-            const dayAbsences = absences.filter(abs => {
-                const absStart = parseISO(abs.start_time);
-                const absEnd = abs.end_time ? parseISO(abs.end_time) : absStart;
-                return (isSameDay(absStart, day) || isSameDay(absEnd, day) || (day > absStart && day < absEnd));
-            });
+            const dayName = format(day, "EEEE", { locale: es });
+            const capitalizedDay = dayName.charAt(0).toUpperCase() + dayName.slice(1);
             
-            hoursToSearch.forEach((hour: number) => {
-                [0, 30].forEach(min => {
-                    const start = setMinutes(setHours(day, hour), min);
-                    const end = addMinutes(start, 30);
+            const therapistsToInspect = targetTherapistId === 'all' 
+                ? therapists 
+                : therapists.filter(t => t.id === targetTherapistId);
 
-                    if (isBefore(end, today)) return;
+            therapistsToInspect.forEach(t => {
+                const daySchedule = t.schedule?.find(s => s.day === capitalizedDay);
+                if (!daySchedule || !daySchedule.enabled || !daySchedule.blocks) return;
 
-                    const busyTherapistIds = new Set<string>();
+                daySchedule.blocks.forEach(block => {
+                    const [startH, startM] = block.start.split(':').map(Number);
+                    const [endH, endM] = block.end.split(':').map(Number);
+                    
+                    const workStart = setMinutes(setHours(startOfDay(day), startH), startM);
+                    const workEnd = setMinutes(setHours(startOfDay(day), endH), endM);
 
-                    appointments.forEach(appt => {
-                        const aStart = parseISO(appt.start);
-                        const aEnd = parseISO(appt.end);
-                        if (isSameDay(aStart, day)) {
-                            if (start < aEnd && end > aStart) {
-                                busyTherapistIds.add(appt.therapistId);
+                    // Filter valid appointments only
+                    const tAppts = appointments
+                        .filter(a => a.therapistId === t.id && (a.status !== 'Cancelada' && a.status !== 'Ausente'))
+                        .filter(a => isSameDay(parseISO(a.start), day))
+                        .map(a => ({ start: parseISO(a.start), end: parseISO(a.end) }))
+                        .sort((a, b) => a.start.getTime() - b.start.getTime());
+
+                    let cursor = workStart;
+                    // If searching for today, don't show past gaps
+                    if (isSameDay(day, today) && isBefore(cursor, new Date())) {
+                        cursor = new Date();
+                        // Round up to nearest 5m? No, just use as is for precision
+                    }
+
+                    tAppts.forEach(appt => {
+                        // Ensure appointment is within current block
+                        if (isBefore(appt.start, cursor)) {
+                            if (isAfter(appt.end, cursor)) cursor = appt.end;
+                            return;
+                        }
+                        if (isAfter(appt.start, workEnd)) return;
+
+                        if (isAfter(appt.start, cursor)) {
+                            let gapCursor = cursor;
+                            while (differenceInMinutes(appt.start, gapCursor) >= 60) {
+                                const nextSlot = addHours(gapCursor, 1);
+                                foundGaps.push({ 
+                                    start: gapCursor, 
+                                    end: nextSlot, 
+                                    count: 1, 
+                                    therapists: [t.fullName?.split(' ')[0] || 'Terapeuta'],
+                                    therapistIds: [t.id]
+                                });
+                                gapCursor = nextSlot;
                             }
+                        }
+                        if (isAfter(appt.end, cursor)) {
+                            cursor = appt.end;
                         }
                     });
 
-                    dayAbsences.forEach(abs => {
-                        const absStart = parseISO(abs.start_time);
-                        const absEnd = abs.end_time ? parseISO(abs.end_time) : addHours(absStart, 1);
-                        if (start < absEnd && end > absStart) {
-                            busyTherapistIds.add(abs.therapist_id);
-                        }
-                    });
-
-                    if (targetTherapistId !== 'all') {
-                        if (!busyTherapistIds.has(targetTherapistId)) {
-                            if (isSlotEnabled(day, hour, targetTherapistId)) {
-                                potentialGaps.push({ start, end, count: 1 });
-                            }
-                        }
-                    } else {
-                        const availableCount = therapists.filter(t => 
-                            !busyTherapistIds.has(t.id) && isSlotEnabled(day, hour, t.id)
-                        ).length;
-                        
-                        if (availableCount > 0) {
-                            potentialGaps.push({ start, end, count: availableCount });
+                    // Final gap in block
+                    if (isBefore(cursor, workEnd)) {
+                        let gapCursor = cursor;
+                        while (differenceInMinutes(workEnd, gapCursor) >= 60) {
+                            const nextSlot = addHours(gapCursor, 1);
+                            foundGaps.push({ 
+                                start: gapCursor, 
+                                end: nextSlot, 
+                                count: 1, 
+                                therapists: [t.fullName?.split(' ')[0] || 'Terapeuta'],
+                                therapistIds: [t.id]
+                            });
+                            gapCursor = nextSlot;
                         }
                     }
                 });
             });
         });
 
-        const sortedGaps = potentialGaps.sort((a, b) => a.start.getTime() - b.start.getTime());
-        setGaps(sortedGaps.slice(0, 50));
+        // Group gaps that are at the same time across different therapists
+        const mergedGaps: { start: Date; end: Date; count: number; therapists?: string[]; therapistIds?: string[] }[] = [];
+        foundGaps.forEach(g => {
+            const existing = mergedGaps.find(mg => 
+                mg.start.getTime() === g.start.getTime() && 
+                mg.end.getTime() === g.end.getTime()
+            );
+            if (existing) {
+                existing.count++;
+                if (g.therapists) existing.therapists = Array.from(new Set([...(existing.therapists || []), ...g.therapists]));
+                if (g.therapistIds) existing.therapistIds = Array.from(new Set([...(existing.therapistIds || []), ...g.therapistIds]));
+            } else {
+                mergedGaps.push({ ...g });
+            }
+        });
+
+        setGaps(mergedGaps.sort((a, b) => a.start.getTime() - b.start.getTime()).slice(0, 50));
         setIsRadarOpen(true);
     };
+
+
 
     const getAppointmentPosition = (start: string, end: string) => {
         const startDate = parseISO(start);
@@ -469,14 +670,19 @@ const CalendarView: React.FC<CalendarViewProps> = ({ mode: initialMode, therapis
         const startMin = startDate.getMinutes();
         const duration = differenceInMinutes(endDate, startDate);
         const baseHour = dynamicHours.length > 0 ? dynamicHours[0] : 8;
-        const top = (startHour - baseHour) * 80 + (startMin / 60) * 80;
-        const height = (duration / 60) * 80;
+        const top = (startHour - baseHour) * slotHeight + (startMin / 60) * slotHeight;
+        const height = (duration / 60) * slotHeight;
         return { top: `${top}px`, height: `${height}px` };
     };
 
     const filteredAppointments = appointments.filter(appt => {
         if (isRole('THERAPIST')) {
             return appt.therapistId === (effectiveTherapistId || 'NONE');
+        }
+        if (effectiveMode === 'WEEKLY_SINGLE') {
+            if (selectedTherapistIds.length > 0) {
+                return selectedTherapistIds.includes(appt.therapistId);
+            }
         }
         return effectiveTherapistId ? appt.therapistId === effectiveTherapistId : true;
     });
@@ -563,88 +769,290 @@ const CalendarView: React.FC<CalendarViewProps> = ({ mode: initialMode, therapis
         }, 100);
     };
 
-    const columns = effectiveMode === 'TODAY_MULTI' ? therapists : days;
-    const gridStyle = {
-        display: 'grid',
-        gridTemplateColumns: `80px repeat(${columns.length}, 1fr)`
+    const handleDragStart = (e: React.DragEvent, apptId: string) => {
+        setDraggedApptId(apptId);
+        e.dataTransfer.effectAllowed = 'move';
+        e.currentTarget.classList.add('opacity-40', 'scale-95');
     };
 
+    const handleDragEnd = (e: React.DragEvent) => {
+        e.currentTarget.classList.remove('opacity-40', 'scale-95');
+        setDraggedApptId(null);
+    };
+
+    const handleDrop = async (e: React.DragEvent, targetDate: Date, targetHour: number, targetMin: number, targetTherapistId?: string) => {
+        e.preventDefault();
+        e.currentTarget.classList.remove('bg-gray-100/50');
+        if (!draggedApptId) return;
+
+        const appt = appointments.find(a => a.id === draggedApptId);
+        if (!appt) return;
+
+        const startBase = parseISO(appt.start);
+        const endBase = parseISO(appt.end);
+        const duration = differenceInMinutes(endBase, startBase);
+
+        const newStart = setMinutes(setHours(targetDate, targetHour), targetMin);
+        const newEnd = addMinutes(newStart, duration);
+
+        const updatedAppt = {
+            ...appt,
+            start: formatISO(newStart),
+            end: formatISO(newEnd),
+            therapistId: targetTherapistId || appt.therapistId
+        };
+
+        // Optimistic UI update
+        setAppointments(prev => prev.map(a => a.id === draggedApptId ? (updatedAppt as Appointment) : a));
+        setDraggedApptId(null);
+
+        // API call
+        await updateAppointment(updatedAppt as Appointment);
+    };
+
+    const visibleTherapists = therapists.filter(t => selectedTherapistIds.includes(t.id));
+    const isMultiDay = effectiveMode !== 'TODAY_MULTI';
+    const columns = !isMultiDay ? visibleTherapists : days;
+    
+    // Configuración dinámica de columnas
+    // Forzamos 100% para que el navegador intente ajustar las columnas al ancho disponible
+    const gridStyle = {
+        display: 'grid',
+        gridTemplateColumns: `${timeColWidth}px repeat(${columns.length}, minmax(0, 1fr))`,
+        minWidth: '100%',
+        gap: !isMultiDay ? '4px' : '2px'
+    };
+
+    const patientCache = useMemo(() => new Map(patients.map(p => [p.id, p])), [patients]);
+
     return (
-        <div className={`calendar-container ${initialMode ? 'embedded-mode' : ''}`}>
-            <div className="calendar-controls">
-                <div className="calendar-nav">
-                    <button className="btn-secondary" onClick={goToToday}>Hoy</button>
-                    <div className="nav-arrows flex gap-2">
-                        <button className="btn-icon-round" onClick={prevPeriod}><ChevronLeft size={20} /></button>
-                        <button className="btn-icon-round" onClick={nextPeriod}><ChevronRight size={20} /></button>
+        <div className={`calendar-page-layout ${initialMode ? 'embedded-mode' : ''} ${isRole('THERAPIST') && !initialMode ? 'therapist-mode' : ''}`}>
+            {/* Si no estamos integrados y NO somos terapeutas viendo su propia agenda forzada, mostrar panel izquierdo */}
+            {!initialMode && isRole('ADMIN') && (
+                <div className="calendar-left-sidebar">
+                    <div className="calendar-left-sidebar-header">
+                        <div className="calendar-left-sidebar-title-row">
+                            <h3 className="calendar-left-sidebar-title">Filtros de Terapeutas</h3>
+                            <button onClick={() => navigate('/dashboard')} className="calendar-back-btn" title="Volver al inicio">
+                                <ArrowLeft size={18} />
+                            </button>
+                        </div>
+                        <div className="calendar-search-wrapper">
+                            <Search className="calendar-search-icon" size={16} />
+                            <input 
+                                type="text" 
+                                placeholder="Buscar..." 
+                                className="calendar-search-input"
+                                value={therapistSearch}
+                                onChange={e => setTherapistSearch(e.target.value)}
+                            />
+                        </div>
+                    </div>
+                    <div className="calendar-therapist-list">
+                        {therapists
+                            .filter(t => t.fullName.toLowerCase().includes(therapistSearch.toLowerCase()))
+                            .map(t => {
+                                const isSelected = selectedTherapistIds.includes(t.id);
+                                return (
+                                    <div 
+                                        key={t.id}
+                                        className={`calendar-therapist-item ${isSelected ? 'selected' : ''}`}
+                                        onClick={() => {
+                                            if (isSelected) {
+                                                setSelectedTherapistIds(prev => prev.filter(id => id !== t.id));
+                                            } else {
+                                                setSelectedTherapistIds(prev => [...prev, t.id]);
+                                            }
+                                        }}
+                                    >
+                                        <div className="calendar-checkbox-wrapper">
+                                            <input 
+                                                type="checkbox" 
+                                                checked={isSelected}
+                                                readOnly
+                                                className="calendar-checkbox"
+                                                onClick={e => e.stopPropagation()}
+                                                onChange={() => {
+                                                    if (isSelected) setSelectedTherapistIds(prev => prev.filter(id => id !== t.id));
+                                                    else setSelectedTherapistIds(prev => [...prev, t.id]);
+                                                }}
+                                            />
+                                        </div>
+                                        <img src={getIllustrativeAvatar(t)} alt={t.fullName} className="calendar-therapist-avatar" />
+                                        <div className="calendar-therapist-info">
+                                            <div className="calendar-therapist-name" title={t.fullName}>{t.fullName}</div>
+                                            <div className="calendar-therapist-spec" title={t.specialty || ''}>{t.specialty || 'Terapeuta'}</div>
+                                        </div>
+                                    </div>
+                                );
+                            })}
                     </div>
                 </div>
+            )}
 
-                <h2 className="current-view-label">
-                    {effectiveMode === 'TODAY_MULTI'
-                        ? format(currentDate, "eeee, d 'de' MMMM", { locale: es })
-                        : `${format(weekStart, "d MMM", { locale: es })} - ${format(weekEnd, "d MMM", { locale: es })}`
-                    }
-                </h2>
-
-                {!initialMode && (
-                    <div className="calendar-actions flex gap-2">
-                        <button
-                            className="btn-secondary"
-                            onClick={() => findGaps()}
-                            title="Buscar huecos disponibles en la agenda"
-                        >
-                            <Puzzle size={18} />
-                            <span>Radar de Huecos</span>
-                        </button>
-                        {isRole('ADMIN') && (
-                            <button className="btn-primary flex items-center gap-2" onClick={() => handleOpenModal()}>
-                                <Plus size={18} /> Nueva Cita
-                            </button>
-                        )}
+            <div className={`calendar-container ${initialMode ? 'embedded-mode' : ''}`} style={isEmbedded ? { flex: '0 0 auto', minHeight: 0, minWidth: 0 } : {}}>
+                <div className="calendar-controls-wrapper">
+                <div className="calendar-nav-toolbar">
+                    <div className="calendar-nav-left">
+                        <h2 className="current-view-label uppercase text-sm tracking-wider text-gray-800 font-extrabold max-w-[200px] text-left truncate">
+                            {effectiveMode === 'TODAY_MULTI'
+                                ? format(currentDate, "eeee, d MMMM yyyy", { locale: es })
+                                : `SEMANA: ${format(weekStart, "d MMM", { locale: es })} - ${format(weekEnd, "d MMM", { locale: es })}`
+                            }
+                        </h2>
+                        <div className="calendar-nav-controls">
+                            <button className="nav-btn-arrow" onClick={prevPeriod} title="Anterior"><ChevronLeft size={20} /></button>
+                            <button className="nav-btn-today" onClick={goToToday}>Hoy</button>
+                            <button className="nav-btn-arrow" onClick={nextPeriod} title="Siguiente"><ChevronRight size={20} /></button>
+                        </div>
                     </div>
-                )}
+
+                    {!initialMode && (
+                        <div className="calendar-actions flex items-center gap-4">
+                            {isRole('ADMIN') && (
+                                <div className="calendar-view-toggle">
+                                    {selectedTherapistIds.length === 0 && isRole('ADMIN') && viewMode === 'week' && (
+                                        <div className="absolute top-[-30px] right-0 bg-red-100 text-red-700 px-3 py-1 rounded text-xs animate-bounce shadow">
+                                            Selecciona un terapeuta a la izquierda
+                                        </div>
+                                    )}
+                                    <button 
+                                        className={`view-toggle-btn ${viewMode === 'day' ? 'active' : ''}`}
+                                        onClick={() => setViewMode('day')}
+                                    >DÍA</button>
+                                    <button 
+                                        className={`view-toggle-btn ${viewMode === 'week' ? 'active' : ''}`}
+                                        onClick={() => {
+                                            if (selectedTherapistIds.length === 0) {
+                                                showToast('Selecciona al menos un terapeuta a la izquierda para ver su vista semanal', 'info');
+                                            }
+                                            setViewMode('week');
+                                        }}
+                                    >SEMANA</button>
+                                </div>
+                            )}
+
+                            <button className="calendar-btn-pill calendar-btn-secondary" onClick={() => findGaps(radarRange, effectiveTherapistId || 'all')} style={{ display: 'flex', alignItems: 'center', gap: '6px' }} title="Buscar huecos disponibles en la agenda">
+                                <Puzzle size={16} /> Radar Huecos
+                            </button>
+                            {isRole('ADMIN') && (
+                                <button className="calendar-btn-pill calendar-btn-primary" onClick={() => handleOpenModal()} style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                    <Plus size={16} /> Nueva Cita
+                                </button>
+                            )}
+                        </div>
+                    )}
+                </div>
             </div>
 
-            <div className="calendar-grid-wrapper">
-                <div className="calendar-header" style={gridStyle}>
-                    <div className="header-cell"></div>
+            <div className={`calendar-grid-wrapper h-full overflow-hidden flex flex-col bg-white ${isEmbedded ? 'flex-1 border border-gray-200 rounded-xl shadow-sm' : ''}`} style={isEmbedded ? { minHeight: '0' } : {}}>
+                <div ref={gridRef} className="calendar-main-grid flex-1 overflow-y-auto" style={{ ...gridStyle, scrollbarGutter: 'stable', height: '100%' }}>
+                    {/* --- HEADER ROW (Sticky) --- */}
+                    <div className="weekly-header-cell" 
+                         style={{ 
+                             gridColumn: '1', 
+                             position: 'sticky', 
+                             top: 0, 
+                             left: 0,
+                             zIndex: 110, 
+                             backgroundColor: '#fcfbfa', 
+                             borderBottom: '1px solid #e2e8f0', 
+                             borderRight: '1px solid #e2e8f0',
+                             height: isEmbedded ? '60px' : '70px',
+                             borderTopLeftRadius: isEmbedded ? '0.75rem' : '0'
+                         }}>
+                        {effectiveMode === 'WEEKLY_SINGLE' && (
+                            <div 
+                                style={{
+                                    display: 'flex',
+                                    flexDirection: 'column',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    height: '100%',
+                                    padding: '2px',
+                                    cursor: onEditTherapist ? 'pointer' : 'default'
+                                }}
+                                onClick={() => {
+                                    if (onEditTherapist && effectiveTherapistId) {
+                                        const t = therapists.find(t => t.id === effectiveTherapistId);
+                                        if (t) onEditTherapist(t);
+                                    }
+                                }}
+                                className={onEditTherapist ? 'header-link-hover' : ''}
+                                title="Ver ficha y horario"
+                            >
+                                {effectiveTherapistId && therapists.some(t => t.id === effectiveTherapistId) ? (
+                                    <span style={{ 
+                                        fontSize: isEmbedded ? '11px' : '13px', 
+                                        fontWeight: '800', 
+                                        color: '#334155', 
+                                        textTransform: 'uppercase' 
+                                    }}>
+                                        {therapists.find(t => t.id === effectiveTherapistId)?.fullName.split(' ')[0]}
+                                    </span>
+                                ) : (
+                                    <span style={{ fontSize: '10px', color: '#94a3b8', fontWeight: 'bold' }}>
+                                        {isRole('ADMIN') ? 'Equipo' : 'Tú'}
+                                    </span>
+                                )}
+                            </div>
+                        )}
+                    </div>
+                    
                     {columns.map((col, i) => (
-                        <div key={i} className="header-cell">
+                        <div key={`header-${i}`} className="header-cell relative flex flex-col items-center" style={{ 
+                            gridColumn: `${i + 2}`,
+                            position: 'sticky',
+                            top: 0,
+                            zIndex: 100,
+                            height: isEmbedded ? '45px' : '70px',
+                            padding: isEmbedded ? '4px 0' : '0.5rem 0',
+                            textAlign: 'center',
+                            ...(effectiveMode === 'TODAY_MULTI' 
+                                ? { backgroundColor: `${(col as Therapist).color}15`, borderTopLeftRadius: '12px', borderTopRightRadius: '12px', border: `1px solid ${(col as Therapist).color}30` } 
+                                : { backgroundColor: '#f0f4f8', border: '1px solid #e1e8f0', borderTopLeftRadius: '8px', borderTopRightRadius: '8px' }),
+                            borderBottom: '1px solid #e2e8f0'
+                        }}>
                             {effectiveMode === 'TODAY_MULTI' ? (
-                                <div className="therapist-col-header flex items-center gap-3">
-                                    <div className="therapist-avatar-wrapper">
-                                        {(col as Therapist).avatarUrl ? (
-                                            <img src={(col as Therapist).avatarUrl} alt={(col as Therapist).fullName} className="therapist-header-avatar" />
-                                        ) : (
-                                            <div className="therapist-header-avatar-placeholder" style={{ backgroundColor: (col as Therapist).color + '20', color: (col as Therapist).color }}>
-                                                {(col as Therapist).fullName.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2)}
-                                            </div>
-                                        )}
-                                        <div className="therapist-status-indicator" style={{ backgroundColor: (col as Therapist).color }}></div>
+                                <div className="therapist-col-header">
+                                    <div className="therapist-avatar-wrapper shadow-sm" style={{ width: '32px', height: '32px', backgroundColor: 'white', borderRadius: '50%' }}>
+                                        <img src={getIllustrativeAvatar(col as Therapist)} alt={(col as Therapist).fullName} className="therapist-header-avatar" style={{ border: 'none', width: '100%', height: '100%', borderRadius: '50%' }} />
                                     </div>
-                                    <span className="therapist-name-label">{(col as Therapist).fullName}</span>
+                                    <span className="therapist-name-label">
+                                        {((col as Therapist).fullName).split(' ')[0]} {((col as Therapist).fullName).split(' ')[1] || ''}
+                                    </span>
                                 </div>
                             ) : (
-                                <div className={`day-col-header ${isSameDay(col as Date, new Date()) ? 'today' : ''}`}>
-                                    <span className="day-name">{format(col as Date, 'eee', { locale: es })}</span>
-                                    <span className="day-number">{format(col as Date, 'd')}</span>
+                                <div className={`day-col-header ${isSameDay(col as Date, new Date()) ? 'today' : ''} flex flex-row items-center justify-center gap-1 h-full`}>
+                                    <span className="day-name font-bold text-[11px] uppercase text-gray-500">
+                                        {format(col as Date, 'EEE', { locale: es })}
+                                    </span>
+                                    <span className={`day-number font-black text-[13px] ${isSameDay(col as Date, new Date()) ? 'bg-[#e07a5f] text-white rounded-md px-1' : 'text-gray-800'}`}>
+                                        {format(col as Date, 'd')}
+                                    </span>
                                 </div>
                             )}
                         </div>
                     ))}
-                </div>
 
-                <div className="calendar-body" style={gridStyle}>
-                    <div className="time-column">
-                        {dynamicHours.map((h: number) => <div key={h} className="time-cell">{h}:00</div>)}
+                    {/* --- BODY COLUMNS (Row 2) --- */}
+                    <div className="time-column flex flex-col bg-[#fcfbfa]" style={{ gridRow: '2', gridColumn: '1', position: 'sticky', left: 0, zIndex: 90, borderRight: '1px solid #e2e8f0' }}>
+                        {dynamicHours.map((h: number) => (
+                            <div key={h} className="time-cell-group flex flex-col items-center justify-start" style={{ height: `${slotHeight}px`, padding: isEmbedded ? '4px 0' : '6px 0' }}>
+                                <div className="font-semibold text-gray-500 text-[11px] w-full text-center">{h}:00</div>
+                                {!isEmbedded && (
+                                    <div className="font-medium text-gray-400 text-[10px] w-full text-center mt-auto">{h}:30</div>
+                                )}
+                            </div>
+                        ))}
                     </div>
 
                     {columns.map((col, i) => (
-                        <div key={i} className="day-column">
+                        <div key={`col-${i}`} className="day-column" style={{ gridRow: '2', gridColumn: `${i + 2}` }}>
                             {/* Current Time Line Indicator */}
                             {((effectiveMode === 'TODAY_MULTI' && isSameDay(currentDate, new Date())) || 
-                              (effectiveMode === 'WEEKLY_SINGLE' && isSameDay(col as Date, new Date()))) && (
+                              (effectiveMode === 'WEEKLY_SINGLE' && isSameDay(col as Date, new Date()))) && 
+                              (currentTime.getHours() >= (dynamicHours[0] || 8) && currentTime.getHours() <= (dynamicHours[dynamicHours.length - 1] || 21)) && (
                                 <div 
                                     className="current-time-line" 
                                     style={{ 
@@ -654,23 +1062,31 @@ const CalendarView: React.FC<CalendarViewProps> = ({ mode: initialMode, therapis
                                     {(i === 0 || effectiveMode === 'WEEKLY_SINGLE') && <div className="line-ball" />}
                                 </div>
                             )}
-                            {/* Slots clicables de fondo */}
+                            {/* Slots clicables de fondo interactivos para Drag & Drop */}
                             {dynamicHours.map((h: number) => {
                                 const date = effectiveMode === 'TODAY_MULTI' ? currentDate : (col as Date);
                                 const tId = effectiveMode === 'TODAY_MULTI' ? (col as Therapist).id : effectiveTherapistId;
                                 const enabled = isSlotEnabled(date, h, tId);
 
                                 return (
-                                    <div
-                                        key={h}
-                                        className={`grid-slot ${!enabled ? 'slot-disabled' : ''}`}
-                                        onClick={() => {
-                                            if (!enabled) return;
-                                            const startWithHour = setHours(date, h);
-                                            const startWithTime = setMinutes(startWithHour, 0);
-                                            handleOpenModal(undefined, tId, startWithTime);
-                                        }}
-                                    />
+                                    <div key={h} className="relative w-full" style={{ height: `${slotHeight}px` }}>
+                                        {/* 00-30 Slot */}
+                                        <div
+                                            className={`grid-slot-half ${!enabled ? 'slot-disabled' : ''}`}
+                                            onClick={() => enabled && handleOpenModal(undefined, tId, setMinutes(setHours(date, h), 0))}
+                                            onDragOver={e => { e.preventDefault(); e.currentTarget.classList.add('drag-over'); }}
+                                            onDragLeave={e => e.currentTarget.classList.remove('drag-over')}
+                                            onDrop={e => { e.currentTarget.classList.remove('drag-over'); handleDrop(e, date, h, 0, tId); }}
+                                        />
+                                        {/* 30-60 Slot */}
+                                        <div
+                                            className={`grid-slot-half solid-border ${!enabled ? 'slot-disabled' : ''}`}
+                                            onClick={() => enabled && handleOpenModal(undefined, tId, setMinutes(setHours(date, h), 30))}
+                                            onDragOver={e => { e.preventDefault(); e.currentTarget.classList.add('drag-over'); }}
+                                            onDragLeave={e => e.currentTarget.classList.remove('drag-over')}
+                                            onDrop={e => { e.currentTarget.classList.remove('drag-over'); handleDrop(e, date, h, 30, tId); }}
+                                        />
+                                    </div>
                                 );
                             })}
 
@@ -717,49 +1133,110 @@ const CalendarView: React.FC<CalendarViewProps> = ({ mode: initialMode, therapis
                                         return isSameDay(parseISO(appt.start), col as Date);
                                     }
                                 })
-                                .map(appt => {
+                                .sort((a, b) => parseISO(a.start).getTime() - parseISO(b.start).getTime())
+                                .reduce((acc, appt) => {
+                                    const active = acc.active.filter(a => parseISO(a.end) > parseISO(appt.start));
+                                    const overlapIndex = active.length;
+                                    active.push(appt);
+                                    acc.result.push({ ...appt, overlapIndex });
+                                    acc.active = active;
+                                    return acc;
+                                }, { result: [] as any[], active: [] as any[] }).result
+                                .map((appt: any) => {
                                     const pos = getAppointmentPosition(appt.start, appt.end);
-                                    const statusColorMap: Record<string, string> = {
-                                        'Programada': '#BCE4EA',
-                                        'En Sesión': '#FFB74D',
-                                        'Finalizada': '#E0E0E0', // Gray for finished
-                                        'Cobrada': '#81C784',
-                                        'Cancelada': '#E57373',
-                                        'Ausente': '#90A4AE'
+                                    
+                                    // Súper-posición parcial gráfica de los bloques y offset horizontal si hay overlap
+                                    const adjustedHeight = `calc(${pos.height} + 4px)`;
+                                    const horizontalOffset = appt.overlapIndex > 0 ? `${appt.overlapIndex * 15}px` : '4px';
+                                    const rightOffset = appt.overlapIndex > 0 ? `-${appt.overlapIndex * 5}px` : '4px';
+
+                                    // DOCTORALIA PASTEL COLOR MAPPING STANDARD (Softer, better contrast)
+                                    const statusStyles: Record<string, { bg: string, border: string, text: string }> = {
+                                        'Programada': { bg: '#eff6ff', border: '#bfdbfe', text: '#1d4ed8' },       // Pastel blue
+                                        'En Sesión': { bg: '#ecfdf5', border: '#a7f3d0', text: '#047857' },        // Pastel mint green
+                                        'Finalizada': { bg: '#fefce8', border: '#fde047', text: '#a16207' },       // Pastel yellow
+                                        'Cobrada': { bg: '#fefce8', border: '#fde047', text: '#a16207' },          // Pastel yellow
+                                        'Cancelada': { bg: '#fef2f2', border: '#fecaca', text: '#b91c1c' },        // Pastel red
+                                        'Ausente': { bg: '#f8fafc', border: '#e2e8f0', text: '#334155' },          // Pastel gray
+                                        'Bloqueada': { bg: '#f1f5f9', border: '#cbd5e1', text: '#475569' },        // Sober gray
                                     };
 
-                                    const bgColor = statusColorMap[appt.status] || '#BCE4EA';
+                                    const styleConfig = statusStyles[appt.status] || statusStyles['Programada'];
+                                    
+                                    const durationMins = (parseISO(appt.end).getTime() - parseISO(appt.start).getTime()) / 60000;
+                                    const isShortBlock = durationMins <= 30;
+                                    
+                                    const pData = patientCache.get(appt.patientId);
+
                                     const hasDiary = !!appt.sessionDiary;
                                     const isPaid = !!appt.isPaid;
                                     const needsDiary = appt.status === 'Finalizada' || appt.status === 'Cobrada';
+                                    const apptTherapist = therapists.find(t => t.id === appt.therapistId);
 
                                     return (
                                         <div
                                             key={appt.id}
-                                            className={`appointment-block status-${appt.status.replace(' ', '-').toLowerCase()}`}
+                                            draggable
+                                            onDragStart={(e) => handleDragStart(e, appt.id)}
+                                            onDragEnd={handleDragEnd}
+                                            className={`appointment-block ${appt.status === 'Bloqueada' ? 'status-blocked' : ''}`}
                                             style={{
-                                                ...pos,
-                                                borderLeftColor: therapists.find(t => t.id === appt.therapistId)?.color,
-                                                backgroundColor: bgColor,
-                                                color: getContrastColor(bgColor)
+                                                top: pos.top,
+                                                height: adjustedHeight,
+                                                left: horizontalOffset,
+                                                right: rightOffset,
+                                                backgroundColor: styleConfig.bg,
+                                                borderColor: styleConfig.border,
+                                                color: styleConfig.text,
+                                                zIndex: 10 + appt.overlapIndex,
+                                                boxShadow: appt.overlapIndex > 0 ? '-4px 0 15px rgba(0,0,0,0.05)' : '0 1px 3px rgba(0,0,0,0.05)',
+                                                borderRadius: isShortBlock ? '9999px' : '0.85rem'
                                             }}
-                                            onClick={(e) => {
-                                                e.stopPropagation();
-                                                handleOpenModal(appt);
+                                            onClick={() => {
+                                                setSelectedAppt(appt);
+                                                setIsModalOpen(true);
                                             }}
-                                            title={`Estado: ${appt.status} | Tipo: ${appt.type} | Paciente: ${appt.patientName}`}
                                         >
-                                            <div className="flex justify-between items-start w-full">
-                                                <span className="appt-patient" style={{ fontWeight: 600, fontSize: '0.75rem' }}>{appt.patientName}</span>
-                                                <div className="flex gap-1">
-                                                    {needsDiary && !hasDiary && <span title="Falta diario de sesión"><AlertTriangle size={12} className="text-danger" /></span>}
-                                                    {!isPaid && (appt.status === 'Finalizada' || appt.status === 'Ausente') && <span title="Pendiente de cobro"><DollarSign size={12} style={{ color: '#d32f2f' }} /></span>}
-                                                    {appt.recurrence && (appt.status !== 'Cancelada') && (appt.recurrence.weeks || appt.recurrence.days || appt.recurrence.until) && (
-                                                        <span title="Cita recurrente"><ClockIcon size={12} className="text-secondary" /></span>
-                                                    )}
-                                                </div>
+                                            <div className="appt-icon-tray">
+                                                {appt.status === 'Programada' && <ClockIcon size={12} />}
+                                                {appt.status === 'En Sesión' && <Rocket size={12} />}
+                                                {(appt.status === 'Finalizada' || appt.status === 'Cobrada') && <DollarSign size={12} />}
+                                                {appt.status === 'Cancelada' && <AlertTriangle size={12} />}
+                                                {appt.status === 'Ausente' && <User size={12} />}
+                                                {appt.status === 'Bloqueada' && <Info size={12} />}
                                             </div>
-                                            <span className="appt-type" style={{ fontSize: '0.65rem', opacity: 0.8 }}>{appt.type}</span>
+                                            <div className="appt-block-content">
+                                                <div className="appt-block-header">
+                                                    {effectiveMode === 'WEEKLY_SINGLE' && apptTherapist && (
+                                                        <div className="appt-inner-avatar" title={apptTherapist.fullName} style={{ backgroundColor: 'white' }}>
+                                                            <img src={getIllustrativeAvatar(apptTherapist)} alt={apptTherapist.fullName} />
+                                                        </div>
+                                                    )}
+                                                    <div className="appt-patient-name" style={{ color: styleConfig.text }}>
+                                                        {appt.status === 'Bloqueada' ? 'HORARIO BLOQUEADO' : appt.patientName}
+                                                        {isPaid && <span className="appt-paid-badge" title="Cita Cobrada">€</span>}
+                                                    </div>
+                                                </div>
+                                                <div className="appt-time-type">
+                                                    <span>{format(parseISO(appt.start), 'HH:mm')}-{format(parseISO(appt.end), 'HH:mm')} | {apptTherapist?.fullName?.split(' ')[0] || 'T'}</span>
+                                                    <div style={{ marginLeft: 'auto', display: 'flex', gap: '4px' }}>
+                                                        {needsDiary && !hasDiary && <AlertTriangle size={12} style={{ color: '#ef4444' }} />}
+                                                        {!isPaid && (appt.status === 'Finalizada' || appt.status === 'Ausente') && <DollarSign size={12} style={{ color: '#ef4444' }} />}
+                                                    </div>
+                                                </div>
+                                                <div className="appt-service-type">
+                                                    {appt.type}
+                                                </div>
+                                                {!isShortBlock && <div className="appt-status-text">Status: {appt.status === 'Programada' ? 'Pendiente' : appt.status}</div>}
+                                            </div>
+
+                                            {/* Hover Tooltip flotante */}
+                                            <div className="appt-hover-tooltip">
+                                                <div className="tooltip-arrow"></div>
+                                                <div className="tooltip-title">{appt.status === 'Bloqueada' ? 'Horario Bloqueado' : appt.patientName}</div>
+                                                {appt.status !== 'Bloqueada' && <div className="tooltip-detail"><User size={12}/> Tel: <b>{pData?.phone || 'No registrado'}</b></div>}
+                                                <div className="tooltip-badge">{appt.status === 'Bloqueada' ? 'Bloqueo' : appt.type}</div>
+                                            </div>
                                         </div>
                                     );
                                 })
@@ -768,85 +1245,151 @@ const CalendarView: React.FC<CalendarViewProps> = ({ mode: initialMode, therapis
                     ))}
                 </div>
             </div>
+        </div>
+            
+
 
             {isModalOpen && selectedAppt && (
                 <div className="modal-overlay">
-                    <div className="modal-content" style={{ maxWidth: '500px' }}>
+                    <div className="modal-content appointment-modal-narrow">
                         <div className="modal-header">
                             <h3>{selectedAppt.id ? 'Detalles de la Cita' : 'Nueva Cita'}</h3>
                             <button className="btn-icon-round" onClick={() => setIsModalOpen(false)}><X size={20} /></button>
                         </div>
                         <form className="modal-form" onSubmit={handleSave}>
-                            <div className="form-group">
-                                <label><User size={14} style={{ marginRight: 6 }} /> Paciente</label>
-                                <select required value={selectedAppt.patientId} onChange={e => setSelectedAppt({ ...selectedAppt, patientId: e.target.value })} style={{ padding: '0.75rem', borderRadius: '8px', border: '1px solid #ddd' }}>
-                                    <option value="">Seleccionar paciente...</option>
-                                    {patients.map(p => <option key={p.id} value={p.id}>{p.firstName} {p.lastName}</option>)}
-                                </select>
-                            </div>
-                            <div className="form-group">
-                                <label><User size={14} style={{ marginRight: 6 }} /> Terapeuta</label>
-                                {isRole('ADMIN') ? (
-                                    <select
-                                        required
-                                        value={selectedAppt.therapistId}
-                                        onChange={e => {
-                                            const t = therapists.find(th => th.id === e.target.value);
-                                            setSelectedAppt({ ...selectedAppt, therapistId: e.target.value, therapistName: t?.fullName || '' });
-                                        }}
-                                        style={{ padding: '0.75rem', borderRadius: '8px', border: '1px solid #ddd' }}
-                                    >
-                                        <option value="">Seleccionar terapeuta...</option>
-                                        {therapists.map(t => <option key={t.id} value={t.id}>{t.fullName}</option>)}
-                                    </select>
-                                ) : (
-                                    <input
-                                        type="text"
-                                        readOnly
-                                        value={selectedAppt.therapistName || ''}
-                                        style={{ background: '#f9fafb', color: '#6b7280', padding: '0.75rem', borderRadius: '8px', border: '1px solid #ddd' }}
-                                    />
+                            <div className="form-grid">
+                                <div className="form-group" style={{ gridColumn: 'span 2' }}>
+                                    <div className="flex items-center justify-between p-3 bg-gray-50 rounded-xl border border-dashed mb-2">
+                                        <div className="flex items-center gap-2">
+                                            <div className={`p-2 rounded-lg ${selectedAppt.status === 'Bloqueada' ? 'bg-slate-200 text-slate-700' : 'bg-blue-50 text-blue-600'}`}>
+                                                <Puzzle size={18} />
+                                            </div>
+                                            <div>
+                                                <div className="text-sm font-bold">Bloquear este horario</div>
+                                                <div className="text-xs text-gray-500">Impide que se agenden citas en este bloque</div>
+                                            </div>
+                                        </div>
+                                        <label className="relative inline-flex items-center cursor-pointer">
+                                            <input 
+                                                type="checkbox" 
+                                                className="sr-only peer"
+                                                checked={selectedAppt.status === 'Bloqueada'}
+                                                onChange={e => {
+                                                    const isBlocked = e.target.checked;
+                                                    setSelectedAppt({
+                                                        ...selectedAppt,
+                                                        status: isBlocked ? 'Bloqueada' : 'Programada',
+                                                        patientId: isBlocked ? undefined : '',
+                                                        patientName: isBlocked ? 'HORARIO BLOQUEADO' : '',
+                                                        type: isBlocked ? 'Bloqueo' : 'Terapia'
+                                                    });
+                                                }}
+                                            />
+                                            <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-slate-600"></div>
+                                        </label>
+                                    </div>
+                                </div>
+                                {selectedAppt.status !== 'Bloqueada' && (
+                                    <div className="form-group">
+                                        <label><User size={12} className="mr-1" /> Paciente</label>
+                                        <select
+                                            required
+                                            value={selectedAppt.patientId}
+                                            onChange={e => {
+                                                const p = patients.find(pat => pat.id === e.target.value);
+                                                setSelectedAppt({ ...selectedAppt, patientId: e.target.value, patientName: p ? `${p.firstName} ${p.lastName}` : '' });
+                                            }}
+                                            style={{ height: '36px', padding: '0 0.75rem', borderRadius: '8px', border: '1px solid #ddd', width: '100%', fontSize: '0.85rem' }}
+                                        >
+                                            <option value="">Seleccionar paciente...</option>
+                                            {patients.map(p => <option key={p.id} value={p.id}>{p.firstName} {p.lastName}</option>)}
+                                        </select>
+                                    </div>
                                 )}
+                                <div className="form-group" style={{ gridColumn: selectedAppt.status === 'Bloqueada' ? 'span 2' : 'auto' }}>
+                                    <label><User size={12} className="mr-1" /> Terapeuta</label>
+                                    <div className="flex items-center gap-2">
+                                        <select
+                                            required
+                                            disabled={!isRole('ADMIN')}
+                                            value={selectedAppt.therapistId}
+                                            onChange={e => {
+                                                const t = therapists.find(th => th.id === e.target.value);
+                                                setSelectedAppt({ ...selectedAppt, therapistId: e.target.value, therapistName: t?.fullName || '' });
+                                            }}
+                                            style={{ flex: 1, height: '36px', padding: '0 0.75rem', borderRadius: '8px', border: '1px solid #ddd', fontSize: '0.85rem' }}
+                                        >
+                                            <option value="">Seleccionar terapeuta...</option>
+                                            {getAvailableTherapists(selectedAppt.start, selectedAppt.end).map(t => (
+                                                <option key={t.id} value={t.id}>{t.fullName}</option>
+                                            ))}
+                                        </select>
+                                        {selectedAppt.therapistId && (
+                                            <div style={{ width: 28, height: 28, borderRadius: '50%', overflow: 'hidden', flexShrink: 0, border: '1px solid #eee' }}>
+                                                <img 
+                                                    src={getIllustrativeAvatar(therapists.find(t => t.id === selectedAppt.therapistId)!)} 
+                                                    alt="Avatar" 
+                                                    style={{ width: '100%', height: '100%', objectFit: 'cover' }} 
+                                                />
+                                            </div>
+                                        )}
+                                    </div>
+                                </div>
                             </div>
-                            <div className="flex gap-4">
-                                <div className="form-group" style={{ flex: 2 }}><label>Fecha</label><input type="date" required value={getModalDate()} onChange={e => handleModalDateChange(e.target.value)} /></div>
-                                <div className="form-group" style={{ flex: 1 }}><label>Inicio</label><input type="time" required value={getModalStartTime()} onChange={e => handleModalTimeChange('start', e.target.value)} /></div>
-                                <div className="form-group" style={{ flex: 1 }}><label>Fin</label><input type="time" required value={getModalEndTime()} onChange={e => handleModalTimeChange('end', e.target.value)} /></div>
+                            <div className="form-row-3">
+                                <div className="form-group"><label>Fecha</label><input type="date" required value={getModalDate()} onChange={e => handleModalDateChange(e.target.value)} style={{ height: '36px', fontSize: '0.85rem' }} /></div>
+                                <div className="form-group"><label>Inicio</label><input type="time" required value={getModalStartTime()} onChange={e => handleModalTimeChange('start', e.target.value)} style={{ height: '36px', fontSize: '0.85rem' }} /></div>
+                                <div className="form-group"><label>Fin</label><input type="time" required value={getModalEndTime()} onChange={e => handleModalTimeChange('end', e.target.value)} style={{ height: '36px', fontSize: '0.85rem' }} /></div>
                             </div>
-                            <div className="form-group">
-                                <label>Servicio Clínico</label>
-                                <select
-                                    required
-                                    value={selectedAppt.serviceId || ''}
-                                    onChange={e => {
-                                        const s = services.find(srv => srv.id === e.target.value);
-                                        setSelectedAppt({
-                                            ...selectedAppt,
-                                            serviceId: e.target.value,
-                                            type: s ? s.name : selectedAppt.type
-                                        });
-                                    }}
-                                    style={{ padding: '0.75rem', borderRadius: '8px', border: '1px solid #ddd' }}
-                                >
-                                    <option value="">Seleccionar servicio...</option>
-                                    {services.map(s => <option key={s.id} value={s.id}>{s.name} ({s.price}€)</option>)}
-                                </select>
+                            <div className="form-grid">
+                                {selectedAppt.status !== 'Bloqueada' && (
+                                    <div className="form-group">
+                                        <label>Servicio Clínico</label>
+                                        <select
+                                            required
+                                            value={selectedAppt.serviceId || ''}
+                                            onChange={e => {
+                                                const s = services.find(srv => srv.id === e.target.value);
+                                                setSelectedAppt({
+                                                    ...selectedAppt,
+                                                    serviceId: e.target.value,
+                                                    type: s ? s.name : selectedAppt.type
+                                                });
+                                            }}
+                                            style={{ height: '36px', padding: '0 0.75rem', borderRadius: '8px', border: '1px solid #ddd', width: '100%', fontSize: '0.85rem' }}
+                                        >
+                                            <option value="">Seleccionar...</option>
+                                            {services.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
+                                        </select>
+                                    </div>
+                                )}
+                                <div className="form-group" style={{ gridColumn: selectedAppt.status === 'Bloqueada' ? 'span 2' : 'auto' }}>
+                                    <label>Estado</label>
+                                    <select
+                                        value={selectedAppt.status}
+                                        onChange={e => {
+                                            const newStatus = e.target.value as any;
+                                            if (selectedAppt) {
+                                                setSelectedAppt({ ...selectedAppt, status: newStatus });
+                                                    if (selectedAppt.start) {
+                                                        checkForWaitingListMatches(selectedAppt.start);
+                                                    }
+                                            }
+                                        }}
+                                        style={{ height: '36px', padding: '0 0.75rem', borderRadius: '8px', border: '1px solid #ddd', width: '100%', fontSize: '0.85rem' }}
+                                    >
+                                        <option value="Programada">Programada</option>
+                                        <option value="En Sesión">En Sesión</option>
+                                        <option value="Finalizada">Finalizada</option>
+                                        <option value="Cobrada">Cobrada</option>
+                                        <option value="Cancelada">Cancelada</option>
+                                        <option value="Ausente">Ausente</option>
+                                        <option value="Bloqueada">🔒 Bloqueada</option>
+                                    </select>
+                                </div>
                             </div>
-                            <div className="form-group">
-                                <label>Estado</label>
-                                <select
-                                    value={selectedAppt.status}
-                                    onChange={e => setSelectedAppt({ ...selectedAppt, status: e.target.value as any })}
-                                    style={{ padding: '0.75rem', borderRadius: '8px', border: '1px solid #ddd' }}
-                                >
-                                    <option value="Programada">Programada</option>
-                                    <option value="En Sesión">En Sesión</option>
-                                    <option value="Finalizada">Finalizada</option>
-                                    <option value="Cobrada">Cobrada</option>
-                                    <option value="Cancelada">Cancelada</option>
-                                    <option value="Ausente">Ausente</option>
-                                </select>
-                            </div>
+
+
 
                             {selectedAppt.status === 'Cancelada' && (
                                 <div className="form-group">
@@ -885,10 +1428,11 @@ const CalendarView: React.FC<CalendarViewProps> = ({ mode: initialMode, therapis
                                     </div>
                                     <textarea
                                         required
-                                        placeholder="Anota el progreso de la sesión aquí..."
                                         value={selectedAppt.sessionDiary || ''}
                                         onChange={e => setSelectedAppt({ ...selectedAppt, sessionDiary: e.target.value })}
-                                        style={{ width: '100%', minHeight: '100px', padding: '0.75rem', borderRadius: '8px', border: '1px solid #ddd', fontFamily: 'inherit' }}
+                                        placeholder="Escribe el progreso de la sesión..."
+                                        rows={3}
+                                        style={{ width: '100%', minHeight: '80px', padding: '0.75rem', borderRadius: '8px', border: '1px solid #ddd', fontFamily: 'inherit', fontSize: '0.875rem' }}
                                     />
                                 </div>
                             )}
@@ -899,7 +1443,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({ mode: initialMode, therapis
                                         <Puzzle size={14} /> Configuración de Recurrencia
                                     </label>
 
-                                    <div className="day-selector flex gap-1 mb-4">
+                                    <div className="day-selector flex gap-1 mb-2">
                                         {['L', 'M', 'X', 'J', 'V', 'S'].map((day, i) => {
                                             const dayNum = i + 1;
                                             const isSelected = selectedAppt.recurrence?.days?.includes(dayNum);
@@ -908,6 +1452,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({ mode: initialMode, therapis
                                                     key={day}
                                                     type="button"
                                                     className={`day-btn ${isSelected ? 'active' : ''}`}
+                                                    style={{ width: '28px', height: '28px', fontSize: '0.7rem' }}
                                                     onClick={() => {
                                                         const currentDays = selectedAppt.recurrence?.days || [];
                                                         const newDays = isSelected
@@ -925,25 +1470,25 @@ const CalendarView: React.FC<CalendarViewProps> = ({ mode: initialMode, therapis
                                         })}
                                     </div>
 
-                                    <div className="grid grid-cols-2 gap-4">
+                                    <div className="form-grid">
                                         <div className="form-group">
-                                            <label className="text-xs">Repetir durante (Semanas)</label>
+                                            <label>Repetir (Semanas)</label>
                                             <input
                                                 type="number"
                                                 min="1"
                                                 max="52"
                                                 disabled={!!selectedAppt.recurrence?.until}
-                                                placeholder="Nº semanas"
+                                                placeholder="Nº"
                                                 value={selectedAppt.recurrence?.weeks || ''}
                                                 onChange={e => setSelectedAppt({
                                                     ...selectedAppt,
                                                     recurrence: { ...selectedAppt.recurrence, weeks: parseInt(e.target.value) || undefined, until: undefined }
                                                 })}
-                                                style={{ padding: '0.5rem', borderRadius: '6px' }}
+                                                style={{ height: '34px', padding: '0 0.5rem', borderRadius: '6px', fontSize: '0.85rem' }}
                                             />
                                         </div>
                                         <div className="form-group">
-                                            <label className="text-xs">O hasta fecha límite</label>
+                                            <label>O hasta fecha</label>
                                             <input
                                                 type="date"
                                                 disabled={!!selectedAppt.recurrence?.weeks && selectedAppt.recurrence.weeks > 0}
@@ -952,7 +1497,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({ mode: initialMode, therapis
                                                     ...selectedAppt,
                                                     recurrence: { ...selectedAppt.recurrence, until: e.target.value, weeks: undefined }
                                                 })}
-                                                style={{ padding: '0.5rem', borderRadius: '6px' }}
+                                                style={{ height: '34px', padding: '0 0.5rem', borderRadius: '6px', fontSize: '0.85rem' }}
                                             />
                                         </div>
                                     </div>
@@ -995,46 +1540,62 @@ const CalendarView: React.FC<CalendarViewProps> = ({ mode: initialMode, therapis
                         </div>
                         
                         {/* ── Filter Bar ── */}
-                        <div className="radar-filter-bar flex justify-between items-center gap-4 bg-gray-50/50" style={{ padding: '1rem 1.5rem', borderBottom: '1px solid #eee' }}>
-                            <div className="flex bg-gray-200/50 rounded-lg p-1 border border-gray-200 shadow-inner">
-                                {(['today', 'week', 'month'] as const).map(r => (
-                                    <button
-                                        key={r}
-                                        type="button"
-                                        className={`px-3 py-1.5 rounded-md text-[10px] font-bold transition-all ${radarRange === r ? 'bg-white text-primary shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}
-                                        style={{ minWidth: '65px' }}
-                                        onClick={() => {
-                                            setRadarRange(r);
-                                            findGaps(r, radarTherapistId);
+                        <div className="radar-filter-bar">
+                            <div className="radar-label-row">
+                                <span className="radar-label">Rango de búsqueda</span>
+                                <span className="radar-label">Profesional</span>
+                            </div>
+                            
+                            <div className="flex items-center gap-4">
+                                <div className="radar-range-selector flex-[0.4]">
+                                    {(['today', 'week', 'month'] as const).map(r => (
+                                        <button
+                                            key={r}
+                                            type="button"
+                                            className={`radar-range-btn ${radarRange === r ? 'active' : ''}`}
+                                            onClick={() => {
+                                                setRadarRange(r);
+                                                findGaps(r, radarTherapistId);
+                                            }}
+                                        >
+                                            {r === 'today' && <ClockIcon size={14} />}
+                                            {r === 'week' && <Search size={14} />}
+                                            {r === 'month' && <Puzzle size={14} />}
+                                            <span>{r === 'today' ? 'Hoy' : r === 'week' ? 'Semana' : 'Mes'}</span>
+                                        </button>
+                                    ))}
+                                </div>
+
+                                <div className="radar-therapist-select-wrapper flex-[0.6]">
+                                    <select 
+                                        className="radar-therapist-select"
+                                        disabled={!!effectiveTherapistId && (isRole('THERAPIST') || !!filterTherapistId)}
+                                        value={radarTherapistId}
+                                        onChange={(e) => {
+                                            setRadarTherapistId(e.target.value);
+                                            findGaps(radarRange, e.target.value);
                                         }}
                                     >
-                                        {r === 'today' ? 'HOY' : r === 'week' ? 'SEMANA' : 'MES'}
-                                    </button>
-                                ))}
+                                        <option value="all">👥 Todos los profesionales</option>
+                                        {therapists.map(t => (
+                                            <option key={t.id} value={t.id}>👤 {t.fullName}</option>
+                                        ))}
+                                    </select>
+                                    <div className="radar-therapist-select-icon">
+                                        <ChevronRight size={16} className="rotate-90" />
+                                    </div>
+                                </div>
                             </div>
-
-                            <select 
-                                className="text-xs border rounded-lg px-2 py-2 bg-white outline-none focus:ring-2 focus:ring-accent-blue/30 transition-all cursor-pointer flex-1"
-                                style={{ border: '1px solid #e0d4c8', maxWidth: '160px' }}
-                                value={radarTherapistId}
-                                onChange={(e) => {
-                                    setRadarTherapistId(e.target.value);
-                                    findGaps(radarRange, e.target.value);
-                                }}
-                            >
-                                <option value="all">Todos los terapeutas</option>
-                                {therapists.map(t => (
-                                    <option key={t.id} value={t.id}>{t.fullName}</option>
-                                ))}
-                            </select>
                         </div>
 
                         <div className="bg-white overflow-y-auto flex-1" style={{ padding: '1.5rem' }}>
                             {gaps.length === 0 ? (
                                 <div className="text-center py-12">
-                                    <Info size={48} className="mx-auto text-gray-200 mb-2" />
-                                    <p className="text-secondary font-medium">No se encontraron huecos libres en este rango.</p>
-                                    <p className="text-[10px] text-gray-400 mt-1">Prueba con otro rango o terapeuta.</p>
+                                    <div className="bg-slate-50 w-20 h-20 rounded-full flex items-center justify-center mx-auto mb-4 border border-dashed border-slate-200">
+                                        <Info size={32} className="text-slate-300" />
+                                    </div>
+                                    <p className="text-primary font-bold text-lg">No hay huecos disponibles</p>
+                                    <p className="text-sm text-secondary mt-1 max-w-[250px] mx-auto">Prueba ampliando el rango o cambiando de terapeuta.</p>
                                 </div>
                             ) : (
                                 <div className="space-y-6">
@@ -1048,33 +1609,47 @@ const CalendarView: React.FC<CalendarViewProps> = ({ mode: initialMode, therapis
                                         }, {} as Record<string, typeof gaps>)
                                     ).map(([day, dayGaps]) => (
                                         <div key={day}>
-                                            <h4 className="radar-day-group-title">{day}</h4>
+                                            <h4 className="radar-day-group-title flex items-center gap-2">
+                                                <div className="w-1.5 h-1.5 rounded-full bg-accent-blue font-bold"></div>
+                                                {day}
+                                            </h4>
                                             <div className="grid grid-cols-1 gap-3">
                                                 {dayGaps.map((gap, idx) => (
                                                     <div 
                                                         key={idx} 
-                                                        className="radar-slot-card"
+                                                        className="radar-slot-card group"
                                                         onClick={() => {
-                                                            setCurrentDate(gap.start);
+                                                            const targetTId = radarTherapistId !== 'all' 
+                                                                ? radarTherapistId 
+                                                                : gap.therapistIds?.[0];
+
+                                                            setSelectedAppt({ 
+                                                                start: formatISO(gap.start), 
+                                                                end: formatISO(gap.end),
+                                                                therapistId: targetTId
+                                                            });
                                                             setIsRadarOpen(false);
+                                                            setIsModalOpen(true);
                                                         }}
                                                     >
-                                                        <div className="flex items-center gap-3">
-                                                            <div className="bg-accent-blue/20 p-2 rounded-lg text-primary">
-                                                                <ClockIcon size={18} />
+                                                        <div className="flex items-center gap-4">
+                                                            <div className="bg-gradient-to-br from-blue-50 to-indigo-50 p-3 rounded-2xl text-accent-blue border border-blue-100 shadow-sm group-hover:scale-110 transition-transform">
+                                                                <ClockIcon size={20} />
                                                             </div>
                                                             <div>
-                                                                <div className="font-bold text-sm text-primary">
+                                                                <div className="font-extrabold text-base text-primary flex items-center gap-2">
                                                                     {format(gap.start, 'HH:mm')} - {format(gap.end, 'HH:mm')}
                                                                 </div>
-                                                                <div className="text-[10px] text-secondary font-medium">
-                                                                    {gap.count} {gap.count === 1 ? 'terapeuta disponible' : 'terapeutas disponibles'}
+                                                                <div className="text-xs text-secondary font-semibold mt-0.5 opacity-80">
+                                                                    {radarTherapistId === 'all' 
+                                                                        ? `Disponible con: ${gap.therapists?.join(', ')}`
+                                                                        : `${gap.count} bloque(s) libre(s)`}
                                                                 </div>
                                                             </div>
                                                         </div>
                                                         
                                                         <div className={`radar-availability-badge ${gap.count > 1 ? 'radar-availability-high' : 'radar-availability-medium'}`}>
-                                                            {gap.count > 1 ? 'Alta disponibilidad' : 'Último hueco'}
+                                                            {gap.count > 1 ? 'Preferente' : 'Último'}
                                                         </div>
                                                     </div>
                                                 ))}
@@ -1095,3 +1670,4 @@ const CalendarView: React.FC<CalendarViewProps> = ({ mode: initialMode, therapis
 };
 
 export default CalendarView;
+

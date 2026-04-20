@@ -11,6 +11,7 @@ interface User {
     role: UserRole;
     requiresPasswordChange: boolean;
     therapistId?: string;
+    avatarUrl?: string;
 }
 
 interface AuthContextType {
@@ -40,8 +41,9 @@ const mapUser = (supabaseUser: SupabaseUser): User => {
         role,
         requiresPasswordChange,
         therapistId: meta.therapist_id,
+        avatarUrl: meta.avatar_url,
     };
-};
+}
 
 export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
     const [user, setUser] = useState<User | null>(null);
@@ -49,18 +51,28 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
-        // Get initial session
-        supabase.auth.getSession().then(({ data: { session } }) => {
-            setSession(session);
-            const initialUser = session?.user ? mapUser(session.user) : null;
-            setUser(initialUser);
+        // Get initial session with error handling to prevent infinite loading
+        const initAuth = async () => {
+            try {
+                const { data: { session }, error } = await supabase.auth.getSession();
+                if (error) throw error;
+                
+                setSession(session);
+                const initialUser = session?.user ? mapUser(session.user) : null;
+                setUser(initialUser);
 
-            // Sync therapistId if missing
-            if (initialUser && !initialUser.therapistId) {
-                syncTherapistId(initialUser.id);
+                // Sync therapistId if missing
+                if (initialUser && !initialUser.therapistId) {
+                    syncTherapistId(initialUser.id);
+                }
+            } catch (error) {
+                console.error("Initial auth session error:", error);
+            } finally {
+                setLoading(false);
             }
-            setLoading(false);
-        });
+        };
+
+        initAuth();
 
         // Listen for auth state changes
         const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
@@ -87,7 +99,17 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
                 .maybeSingle();
 
             if (account?.therapist_id) {
-                setUser(prev => prev ? { ...prev, therapistId: account.therapist_id } : null);
+                const { data: tData } = await supabase
+                    .from('therapists')
+                    .select('avatar_url')
+                    .eq('id', account.therapist_id)
+                    .maybeSingle();
+
+                setUser(prev => prev ? { 
+                    ...prev, 
+                    therapistId: account.therapist_id,
+                    avatarUrl: tData?.avatar_url || prev.avatarUrl
+                } : null);
                 return;
             }
 
@@ -101,7 +123,17 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
                     .maybeSingle();
 
                 if (therapist) {
-                    setUser(prev => prev ? { ...prev, therapistId: therapist.id } : null);
+                    const { data: tData } = await supabase
+                        .from('therapists')
+                        .select('avatar_url')
+                        .eq('id', therapist.id)
+                        .maybeSingle();
+
+                    setUser(prev => prev ? { 
+                        ...prev, 
+                        therapistId: therapist.id,
+                        avatarUrl: tData?.avatar_url || prev.avatarUrl 
+                    } : null);
                 }
             }
         } catch (e) {

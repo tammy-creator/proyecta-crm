@@ -1,3 +1,16 @@
+.dashboard-container {
+    max-width: 1300px;
+    margin: 0 auto;
+    padding: 2.5rem 1.5rem 4rem 1.5rem; /* Reduced horizontal padding for better space utilization */
+    width: 100%;
+    animation: fadeIn 0.5s ease-out;
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(10px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
 .page-title {
     font-size: 1.75rem;
     font-weight: 700;
@@ -8,8 +21,8 @@
 .stats-grid {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
-    gap: 1.5rem;
-    margin-bottom: 2.5rem !important; /* Reduced to match bottom feeling */
+    gap: 2rem;
+    margin-bottom: 3.5rem !important;
 }
 
 .chart-section {
@@ -80,11 +93,11 @@
 }
 
 .stat-value {
-    font-size: 1.85rem;
+    font-size: 2.2rem;
     font-weight: 800;
     line-height: 1;
     color: var(--color-text-primary);
-    margin-bottom: 2px;
+    margin-bottom: 4px;
 }
 
 .stat-title {
@@ -105,13 +118,16 @@
 
 .dashboard-content-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
-    gap: 1.5rem;
+    grid-template-columns: repeat(auto-fit, minmax(500px, 1fr));
+    gap: 3.5rem;
+}
+
+.dashboard-content-grid.top-row {
+    grid-template-columns: 1.5fr 1fr;
 }
 
 .occupancy-chart {
     min-height: 340px;
-    grid-column: span 2;
     border-radius: 24px !important;
 }
 
@@ -123,11 +139,8 @@
 }
 
 @media (max-width: 1024px) {
-    .dashboard-content-grid {
+    .dashboard-content-grid, .dashboard-content-grid.top-row {
         grid-template-columns: 1fr;
-    }
-    .occupancy-chart {
-        grid-column: span 1;
     }
 }
 
@@ -295,5 +308,82 @@
     color: var(--color-accent-blue);
     font-weight: 600;
     font-size: 0.9rem;
+}
+
+/* AI Logs specific styling */
+.ai-logs-container {
+    overflow-x: auto;
+}
+
+.ai-logs-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.85rem;
+}
+
+.ai-logs-table th {
+    text-align: left;
+    padding: 0.75rem 0.5rem;
+    color: var(--color-text-secondary);
+    font-weight: 600;
+    border-bottom: 1px solid #f1f5f9;
+    text-transform: uppercase;
+    font-size: 0.7rem;
+    letter-spacing: 0.5px;
+}
+
+.ai-logs-table td {
+    padding: 0.75rem 0.5rem;
+    border-bottom: 1px solid #f8fafc;
+    color: var(--color-text-primary);
+    vertical-align: top;
+}
+
+.ai-logs-table tr:last-child td {
+    border-bottom: none;
+}
+
+.log-date {
+    white-space: nowrap;
+    color: var(--color-text-secondary);
+    font-weight: 500;
+}
+
+.log-title {
+    font-weight: 700;
+    color: var(--color-accent-blue);
+    white-space: nowrap;
+}
+
+.log-message {
+    line-height: 1.4;
+    color: var(--color-text-secondary);
+}
+
+.ai-logs-preview {
+    min-height: 340px;
+}
+
+.agenda-preview, .alerts-preview {
+    padding-bottom: 1.5rem !important;
+}
+
+.appointment-list {
+    margin-top: 1rem;
+}
+
+@media (min-width: 1400px) {
+    .dashboard-content-grid.top-row {
+        grid-template-columns: 1.1fr 1.9fr;
+    }
+    .dashboard-content-grid:not(.top-row) {
+        grid-template-columns: 1fr 1fr;
+    }
+}
+
+/* Extra space for agenda items */
+.appointment-item {
+    padding: 1.25rem 1.5rem !important;
+    margin-bottom: 0.75rem !important;
 }
 

@@ -124,11 +124,9 @@ const AdminView: React.FC = () => {
 
         setIsDeletingUser(true);
         setUserError(null);
-        console.log('Initiating deleteUser for ID:', selectedUser.id);
 
         try {
             await deleteUser(selectedUser.id);
-            console.log('Delete successful in Auth/DB');
             
             await addAuditLog({
                 userId: user?.id || '',
@@ -215,7 +213,7 @@ const AdminView: React.FC = () => {
                 </div>
             </div>
 
-            <div className="admin-tabs" style={{ marginTop: '2rem' }}>
+            <div className="admin-tabs">
                 <button
                     className={`tab-btn ${activeTab === 'center' ? 'active' : ''}`}
                     onClick={() => setActiveTab('center')}
@@ -268,8 +266,9 @@ const AdminView: React.FC = () => {
                     <div className="admin-section">
                         <div className="flex justify-between items-center mb-6">
                             <h3 style={{ fontSize: '1.25rem', fontWeight: 600 }}>Análisis de Origen de Pacientes</h3>
-                            <button className="btn-secondary flex gap-2" onClick={() => fetchData()}>
-                                <TrendingUp size={16} /> Actualizar Datos
+                            <button className="calendar-btn-pill calendar-btn-secondary" onClick={() => fetchData()}>
+                                <TrendingUp size={16} /> 
+                                <span>Actualizar Datos</span>
                             </button>
                         </div>
 
@@ -328,7 +327,7 @@ const AdminView: React.FC = () => {
 
                 {activeTab === 'center' && settings && (
                     <div className="admin-section">
-                        <Card title="Ajustes Generales" action={<button className="btn-primary"><Save size={16} /> Guardar</button>}>
+                        <Card title="Ajustes Generales" action={<button className="calendar-btn-pill calendar-btn-primary"><Save size={16} /> Guardar</button>}>
                             <form className="settings-form">
                                 <div className="form-group">
                                     <label>Nombre del Centro</label>
@@ -359,8 +358,9 @@ const AdminView: React.FC = () => {
                     <div className="admin-section">
                         <div className="flex justify-between items-center mb-4">
                             <h3 style={{ fontSize: '1.25rem', fontWeight: 600 }}>Servicios y Precios</h3>
-                            <button className="btn-secondary flex gap-2" onClick={() => handleOpenServiceModal()}>
-                                <Plus size={16} /> Nuevo Servicio
+                            <button className="calendar-btn-pill calendar-btn-primary" onClick={() => handleOpenServiceModal()}>
+                                <Plus size={16} /> 
+                                <span>Nuevo Servicio</span>
                             </button>
                         </div>
                         <div className="billing-table-wrapper">
@@ -395,8 +395,9 @@ const AdminView: React.FC = () => {
                     <div className="admin-section">
                         <div className="flex justify-between items-center mb-4">
                             <h3 style={{ fontSize: '1.25rem', fontWeight: 600 }}>Cuentas de Acceso</h3>
-                            <button className="btn-secondary flex gap-2" onClick={() => handleOpenUserModal()}>
-                                <UserPlus size={16} /> Añadir Usuario
+                            <button className="calendar-btn-pill calendar-btn-primary" onClick={() => handleOpenUserModal()}>
+                                <UserPlus size={16} />
+                                <span>Añadir Usuario</span>
                             </button>
                         </div>
                         <div className="billing-table-wrapper">
@@ -464,7 +465,7 @@ const AdminView: React.FC = () => {
                                 <ShieldCheck size={20} className="text-secondary" />
                                 <h3>{selectedUser.id ? 'Gestionar Cuenta' : 'Nueva Cuenta de Acceso'}</h3>
                             </div>
-                            <button className="btn-icon-round" onClick={() => { setIsUserModalOpen(false); setShowDeleteConfirm(false); }}>
+                            <button className="btn-icon-round" title="Cerrar" onClick={() => { setIsUserModalOpen(false); setShowDeleteConfirm(false); }}>
                                 <X size={20} />
                             </button>
                         </div>
@@ -668,7 +669,7 @@ const AdminView: React.FC = () => {
                                 <Stethoscope size={20} className="text-secondary" />
                                 <h3>{selectedService.id ? 'Editar Servicio' : 'Nuevo Servicio'}</h3>
                             </div>
-                            <button className="btn-icon-round" onClick={() => setIsServiceModalOpen(false)}>
+                            <button className="btn-icon-round" title="Cerrar" onClick={() => setIsServiceModalOpen(false)}>
                                 <X size={20} />
                             </button>
                         </div>

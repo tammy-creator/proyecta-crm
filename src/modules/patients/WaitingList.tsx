@@ -1,8 +1,13 @@
 import React, { useState, useEffect } from 'react';
-import { getWaitingList, removeFromWaitingList, addToWaitingList, getPatients } from './service';
+import { getWaitingList, removeFromWaitingList, addToWaitingList, updateWaitingList, getPatients } from './service';
 import { type WaitingListEntry, type Patient } from './types';
-import { Clock, ClipboardList, Trash2, Calendar, Search, Plus, X as XIcon } from 'lucide-react';
+import { Plus, Trash2, Calendar, Clock, Edit2, Search, X as XIcon, Star, Timer, ClipboardList } from 'lucide-react';
 import Card from '../../components/ui/Card';
+import './WaitingList.css';
+import { toast } from 'react-hot-toast';
+
+const DAYS_ABBR = ['L', 'M', 'X', 'J', 'V', 'S'];
+const COMMON_HOURS = ['09:00', '10:00', '11:00', '12:00', '13:00', '16:00', '17:00', '18:00', '19:00', '20:00'];
 
 const WaitingList: React.FC = () => {
     const [entries, setEntries] = useState<WaitingListEntry[]>([]);
@@ -10,39 +15,130 @@ const WaitingList: React.FC = () => {
     const [loading, setLoading] = useState(true);
     const [filter, setFilter] = useState('');
     const [isModalOpen, setIsModalOpen] = useState(false);
+    const [editingEntry, setEditingEntry] = useState<WaitingListEntry | null>(null);
     const [newEntry, setNewEntry] = useState<Partial<WaitingListEntry>>({
         patientId: '',
         patientName: '',
         specialty: '',
         urgency: 'Media',
-        notes: ''
+        notes: '',
+        preferredDays: [],
+        preferredHours: []
     });
+    const [saving, setSaving] = useState(false);
 
     useEffect(() => {
-        Promise.all([getWaitingList(), getPatients()]).then(([waitingData, patientsData]) => {
-            setEntries(waitingData);
-            setPatients(patientsData);
-            setLoading(false);
-        });
+        fetchEntries();
     }, []);
 
-    const handleDelete = async (id: string) => {
+    const fetchEntries = async () => {
+        setLoading(true);
+        try {
+            const [waitingData, patientsData] = await Promise.all([getWaitingList(), getPatients()]);
+            setEntries(waitingData);
+            setPatients(patientsData);
+        } catch (error) {
+            console.error("Error fetching data:", error);
+            toast.error('Error al cargar la lista');
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const handleDelete = async (id: string, e: React.MouseEvent) => {
+        e.stopPropagation();
         if (window.confirm('¿Eliminar a este paciente de la lista de espera?')) {
-            const success = await removeFromWaitingList(id);
-            if (success) {
-                setEntries(entries.filter(e => e.id !== id));
+            try {
+                const success = await removeFromWaitingList(id);
+                if (success) {
+                    setEntries(entries.filter(e => e.id !== id));
+                    toast.success('Eliminado de la lista');
+                }
+            } catch (_error) {
+                toast.error('Error al eliminar');
             }
         }
     };
 
-    const handleSave = async (e: React.FormEvent) => {
-        e.preventDefault();
-        if (!newEntry.patientName || !newEntry.specialty) return;
+    const handleEdit = (entry: WaitingListEntry) => {
+        setEditingEntry(entry);
+        // If patientId is empty but name exists, it's likely a manual 'nuevo' entry
+        const pid = entry.patientId ? entry.patientId : 'nuevo';
+        setNewEntry({
+            patientId: pid,
+            patientName: entry.patientName,
+            specialty: entry.specialty,
+            urgency: entry.urgency,
+            notes: entry.notes || '',
+            preferredDays: entry.preferredDays || [],
+            preferredHours: entry.preferredHours || []
+        });
+        setIsModalOpen(true);
+    };
 
-        const entry = await addToWaitingList(newEntry as Omit<WaitingListEntry, 'id' | 'registrationDate'>);
-        setEntries([entry, ...entries]);
+    const handleSubmit = async (e: React.FormEvent) => {
+        e.preventDefault();
+        if (!newEntry.patientName || !newEntry.specialty) {
+            toast.error('Nombre y especialidad son campos obligatorios');
+            return;
+        }
+
+        setSaving(true);
+        try {
+            if (editingEntry) {
+                const updated = await updateWaitingList(editingEntry.id, newEntry as Omit<WaitingListEntry, 'id' | 'registrationDate'>);
+                setEntries(entries.map(e => e.id === updated.id ? updated : e));
+                toast.success('Registro actualizado');
+            } else {
+                const added = await addToWaitingList(newEntry as Omit<WaitingListEntry, 'id' | 'registrationDate'>);
+                setEntries([added, ...entries]);
+                toast.success('Añadido a la lista');
+            }
+            
+            closeModal();
+        } catch (error: any) {
+            console.error('Error saving entry:', error);
+            const msg = error.message || 'Error al guardar el registro';
+            toast.error(msg);
+            
+            if (msg.includes('column') || msg.includes('does not exist')) {
+                toast.error('Parece que faltan columnas en la base de datos. ¿Has ejecutado el SQL del último paso?', { duration: 6000 });
+            }
+        } finally {
+            setSaving(false);
+        }
+    };
+
+    const closeModal = () => {
         setIsModalOpen(false);
-        setNewEntry({ patientId: '', patientName: '', specialty: '', urgency: 'Media', notes: '' });
+        setEditingEntry(null);
+        setNewEntry({ 
+            patientId: '', 
+            patientName: '', 
+            specialty: '', 
+            urgency: 'Media', 
+            notes: '',
+            preferredDays: [],
+            preferredHours: []
+        });
+    };
+
+    const toggleDay = (dayIndex: number) => {
+        const current = newEntry.preferredDays || [];
+        if (current.includes(dayIndex)) {
+            setNewEntry({ ...newEntry, preferredDays: current.filter(d => d !== dayIndex) });
+        } else {
+            setNewEntry({ ...newEntry, preferredDays: [...current, dayIndex].sort() });
+        }
+    };
+
+    const toggleHour = (hour: string) => {
+        const current = newEntry.preferredHours || [];
+        if (current.includes(hour)) {
+            setNewEntry({ ...newEntry, preferredHours: current.filter(h => h !== hour) });
+        } else {
+            setNewEntry({ ...newEntry, preferredHours: [...current, hour].sort() });
+        }
     };
 
     const filteredEntries = entries.filter(e =>
@@ -50,175 +146,291 @@ const WaitingList: React.FC = () => {
         e.specialty.toLowerCase().includes(filter.toLowerCase())
     );
 
-    const getUrgencyClass = (level: string) => {
+    const getUrgencyBadge = (level: string) => {
         switch (level) {
-            case 'Alta': return 'text-danger bg-danger-light';
-            case 'Media': return 'text-warning bg-warning-light';
-            default: return 'text-secondary bg-gray-100';
+            case 'Alta': return { class: 'badge-alta', label: 'Alta Prioridad' };
+            case 'Media': return { class: 'badge-media', label: 'Prioridad Media' };
+            default: return { class: 'badge-normal', label: 'Normal' };
         }
     };
 
-    if (loading) return <div className="p-8 text-center text-secondary">Cargando lista de espera...</div>;
+    const getDayName = (idx: number) => ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb'][idx - 1];
+
+    if (loading) return (
+        <div className="loading-container">
+            <div className="spinner"></div>
+            <p>Sincronizando lista de espera...</p>
+        </div>
+    );
 
     return (
-        <div className="waiting-list-container p-4">
-            <div className="flex justify-between items-center mb-6">
-                <div>
-                    <h2 className="text-xl font-bold text-primary flex items-center gap-2">
-                        <Clock className="text-secondary" /> Lista de Espera
-                    </h2>
-                    <p className="text-sm text-secondary">Pacientes pendientes de asignación de hueco</p>
+        <div className="waiting-list-page animate-fade-in">
+            <header className="page-header">
+                <div className="header-info">
+                    <h1 className="page-title">
+                        <Timer className="title-icon" size={32} /> 
+                        Lista de Espera
+                    </h1>
+                    <p className="page-subtitle">Gestiona pacientes pendientes de asignación y sus preferencias horarias.</p>
                 </div>
-                <div className="flex gap-4">
-                    <div className="search-bar" style={{ maxWidth: '250px' }}>
-                        <Search size={16} />
+                
+                <div className="header-actions">
+                    <div className="search-pill">
+                        <Search size={18} />
                         <input
                             type="text"
-                            placeholder="Buscar por nombre o especialidad..."
+                            placeholder="Buscar paciente..."
                             value={filter}
                             onChange={e => setFilter(e.target.value)}
                         />
                     </div>
-                    <button className="btn-primary" onClick={() => setIsModalOpen(true)}>
+                    <button 
+                        className="calendar-btn-pill calendar-btn-primary"
+                        onClick={() => {
+                            setEditingEntry(null);
+                            setNewEntry({ 
+                                patientId: '', 
+                                patientName: '', 
+                                specialty: '', 
+                                urgency: 'Media', 
+                                notes: '',
+                                preferredDays: [],
+                                preferredHours: []
+                            });
+                            setIsModalOpen(true);
+                        }}
+                    >
                         <Plus size={18} />
-                        <span>Añadir a lista</span>
+                        <span>Añadir Registro</span>
                     </button>
                 </div>
-            </div>
+            </header>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            <div className="waiting-grid">
                 {filteredEntries.length === 0 ? (
-                    <div className="col-span-full py-12 text-center bg-gray-50 rounded-xl border border-dashed text-secondary">
-                        No hay pacientes que coincidan con la búsqueda.
+                    <div className="empty-list">
+                        <ClipboardList size={48} />
+                        <h3>Sin pacientes en espera</h3>
+                        <p>No se encontraron registros que coincidan con tu búsqueda.</p>
                     </div>
                 ) : (
-                    filteredEntries.map(entry => (
-                        <Card key={entry.id} className="waiting-card hover-lift">
-                            <div className="flex justify-between items-start mb-3">
-                                <div className="flex items-center gap-3">
-                                    <div className="avatar small bg-primary-light text-primary font-bold">
+                    filteredEntries.map(entry => {
+                        const badge = getUrgencyBadge(entry.urgency);
+                        return (
+                            <Card 
+                                key={entry.id} 
+                                className="waiting-card premium-card animate-fade-in"
+                                onClick={() => handleEdit(entry)}
+                            >
+                                <div className="waiting-card-header">
+                                    <div className="waiting-avatar">
                                         {entry.patientName.charAt(0)}
                                     </div>
-                                    <div>
-                                        <h4 className="font-bold text-gray-800">{entry.patientName}</h4>
-                                        <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${getUrgencyClass(entry.urgency)}`}>
-                                            Urgencia {entry.urgency}
+                                    <div className="waiting-info">
+                                        <h3 className="waiting-name">{entry.patientName}</h3>
+                                        <span className="waiting-specialty">{entry.specialty}</span>
+                                    </div>
+                                    <div className="waiting-actions">
+                                        <button 
+                                            className="btn-edit-discreet"
+                                            title="Editar registro"
+                                            onClick={(e) => {
+                                                e.stopPropagation();
+                                                handleEdit(entry);
+                                            }}
+                                        >
+                                            <Edit2 size={16} />
+                                        </button>
+                                        <button 
+                                            className="btn-delete-discreet"
+                                            title="Eliminar registro"
+                                            onClick={(e) => handleDelete(entry.id, e)}
+                                        >
+                                            <Trash2 size={16} />
+                                        </button>
+                                    </div>
+                                </div>
+
+                                <div className="waiting-card-body">
+                                    <div className="badge-row">
+                                        <span className={`urgency-badge ${badge.class}`}>{badge.label}</span>
+                                        <span className="date-badge">
+                                            <Calendar size={12} />
+                                            {new Date(entry.registrationDate).toLocaleDateString()}
                                         </span>
                                     </div>
-                                </div>
-                                <button className="btn-icon micro text-danger" onClick={() => handleDelete(entry.id)}>
-                                    <Trash2 size={14} />
-                                </button>
-                            </div>
 
-                            <div className="waiting-details space-y-2 text-sm">
-                                <div className="flex items-center gap-2 text-secondary">
-                                    <ClipboardList size={14} />
-                                    <span>{entry.specialty}</span>
-                                </div>
-                                <div className="flex items-center gap-2 text-secondary">
-                                    <Calendar size={14} />
-                                    <span>Registrado el {new Date(entry.registrationDate).toLocaleDateString()}</span>
-                                </div>
-                                {entry.notes && (
-                                    <div className="mt-3 p-2 bg-gray-50 rounded text-xs border-l-2 border-secondary italic">
-                                        "{entry.notes}"
+                                    <div className="preferences-section">
+                                        <p className="section-label">Disponibilidad:</p>
+                                        <div className="tag-cloud">
+                                            {(entry.preferredDays?.length || 0) > 0 ? (
+                                                entry.preferredDays?.map(d => (
+                                                    <span key={d} className="prefer-day-tag">{getDayName(d)}</span>
+                                                ))
+                                            ) : (
+                                                <span className="no-pref-tag">Cualquier día</span>
+                                            )}
+                                            
+                                            {(entry.preferredHours?.length || 0) > 0 ? (
+                                                entry.preferredHours?.map(h => (
+                                                    <span key={h} className="prefer-hour-tag">{h}</span>
+                                                ))
+                                            ) : (
+                                                <span className="no-pref-tag">Cualquier hora</span>
+                                            )}
+                                        </div>
                                     </div>
-                                )}
-                            </div>
-                        </Card>
-                    ))
+
+                                    {entry.notes && (
+                                        <div className="notes-box">
+                                            <Star size={12} className="star-icon" />
+                                            <p>{entry.notes}</p>
+                                        </div>
+                                    )}
+                                </div>
+                            </Card>
+                        );
+                    })
                 )}
             </div>
 
             {isModalOpen && (
                 <div className="modal-overlay">
-                    <div className="modal-content" style={{ maxWidth: '500px' }}>
-                        <div className="modal-header">
-                            <h3>Registrar en Lista de Espera</h3>
-                            <button className="btn-icon-round" onClick={() => setIsModalOpen(false)}><XIcon size={20} /></button>
-                        </div>
-                        <form onSubmit={handleSave} className="modal-form">
-                            <div className="form-group">
-                                <label>Paciente</label>
-                                <select
-                                    required
-                                    value={newEntry.patientId}
-                                    onChange={e => {
-                                        const p = patients.find(p => p.id === e.target.value);
-                                        setNewEntry({ ...newEntry, patientId: e.target.value, patientName: p ? `${p.firstName} ${p.lastName}` : '' });
-                                    }}
-                                >
-                                    <option value="">Seleccionar paciente...</option>
-                                    {patients.map(p => (
-                                        <option key={p.id} value={p.id}>{p.firstName} {p.lastName}</option>
-                                    ))}
-                                    <option value="nuevo">-- Paciente no registrado (Nuevo interno) --</option>
-                                </select>
+                    <div className="modal-inner animate-scale-up">
+                        <div className="modal-header-premium">
+                            <div className="header-titles">
+                                <h3>{editingEntry ? 'Editar Registro' : 'Nuevo Alta'}</h3>
+                                <p>{editingEntry ? 'Modifica los datos del paciente en espera' : 'Completa los datos del paciente en espera'}</p>
                             </div>
-
-                            {newEntry.patientId === 'nuevo' && (
-                                <div className="form-group animate-fade-in">
-                                    <label>Nombre del Candidato</label>
-                                    <input
-                                        type="text"
+                            <button className="btn-icon-round" onClick={closeModal} title="Cerrar">
+                                <XIcon size={20} />
+                            </button>
+                        </div>
+                        
+                        <form onSubmit={handleSubmit} className="modal-form-premium">
+                            <div className="form-sections-wrapper">
+                                <div className="form-group-p">
+                                    <label>Paciente</label>
+                                    <select
                                         required
-                                        placeholder="Ej: Hugo Torres (Tutor: Ana)"
-                                        value={newEntry.patientName}
-                                        onChange={e => setNewEntry({ ...newEntry, patientName: e.target.value })}
+                                        value={newEntry.patientId}
+                                        onChange={e => {
+                                            const p = patients.find(p => p.id === e.target.value);
+                                            setNewEntry({ ...newEntry, patientId: e.target.value, patientName: p ? `${p.firstName} ${p.lastName}` : '' });
+                                        }}
+                                    >
+                                        <option value="">Seleccionar paciente existente...</option>
+                                        {patients.map(p => (
+                                            <option key={p.id} value={p.id}>{p.firstName} {p.lastName}</option>
+                                        ))}
+                                        <option value="nuevo">-- Paciente no registrado --</option>
+                                    </select>
+                                </div>
+
+                                {newEntry.patientId === 'nuevo' && (
+                                    <div className="form-group-p animate-fade-in">
+                                        <label>Nombre del Candidato</label>
+                                        <input
+                                            type="text"
+                                            required
+                                            placeholder="Nombre completo..."
+                                            value={newEntry.patientName}
+                                            onChange={e => setNewEntry({ ...newEntry, patientName: e.target.value })}
+                                        />
+                                    </div>
+                                )}
+
+                                <div className="form-row-p">
+                                    <div className="form-group-p flex-1">
+                                        <label>Especialidad</label>
+                                        <select
+                                            required
+                                            value={newEntry.specialty}
+                                            onChange={e => setNewEntry({ ...newEntry, specialty: e.target.value })}
+                                        >
+                                            <option value="">Seleccionar...</option>
+                                            <option value="Psicología Infantil">Psicología Infantil</option>
+                                            <option value="Logopedia">Logopedia</option>
+                                            <option value="Neuropsicología">Neuropsicología</option>
+                                            <option value="Terapia Ocupacional">Terapia Ocupacional</option>
+                                            <option value="Atención Temprana">Atención Temprana</option>
+                                        </select>
+                                    </div>
+
+                                    <div className="form-group-p flex-1">
+                                        <label>Prioridad</label>
+                                        <div className="priority-switch">
+                                            {['Baja', 'Media', 'Alta'].map(level => (
+                                                <button 
+                                                    key={level}
+                                                    type="button"
+                                                    className={`priority-btn ${newEntry.urgency === level ? 'active' : ''}`}
+                                                    onClick={() => setNewEntry({ ...newEntry, urgency: level as any })}
+                                                >
+                                                    {level}
+                                                </button>
+                                            ))}
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div className="preferences-editor">
+                                    <label className="editor-label">
+                                        <Clock size={16} /> Preferencias del Paciente
+                                    </label>
+                                    
+                                    <div className="day-picker-row">
+                                        {DAYS_ABBR.map((day, i) => {
+                                            const dayIdx = i + 1;
+                                            const isSelected = newEntry.preferredDays?.includes(dayIdx);
+                                            return (
+                                                <button
+                                                    key={day}
+                                                    type="button"
+                                                    title={['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'][i]}
+                                                    onClick={() => toggleDay(dayIdx)}
+                                                    className={`day-selector-btn ${isSelected ? 'active' : ''}`}
+                                                >
+                                                    {day}
+                                                </button>
+                                            );
+                                        })}
+                                    </div>
+
+                                    <div className="hour-picker-grid">
+                                        {COMMON_HOURS.map(h => {
+                                            const isSelected = newEntry.preferredHours?.includes(h);
+                                            return (
+                                                <button
+                                                    key={h}
+                                                    type="button"
+                                                    onClick={() => toggleHour(h)}
+                                                    className={`hour-selector-btn ${isSelected ? 'active' : ''}`}
+                                                >
+                                                    {h}
+                                                </button>
+                                            );
+                                        })}
+                                    </div>
+                                </div>
+
+                                <div className="form-group-p">
+                                    <label>Observaciones</label>
+                                    <textarea
+                                        rows={2}
+                                        value={newEntry.notes}
+                                        placeholder="Alguna nota adicional..."
+                                        onChange={e => setNewEntry({ ...newEntry, notes: e.target.value })}
                                     />
                                 </div>
-                            )}
-
-                            <div className="form-group">
-                                <label>Especialidad / Servicio</label>
-                                <select
-                                    required
-                                    value={newEntry.specialty}
-                                    onChange={e => setNewEntry({ ...newEntry, specialty: e.target.value })}
-                                >
-                                    <option value="">Seleccionar especialidad...</option>
-                                    <option value="Psicología Infantil">Psicología Infantil</option>
-                                    <option value="Logopedia">Logopedia</option>
-                                    <option value="Neuropsicología">Neuropsicología</option>
-                                    <option value="Terapia Ocupacional">Terapia Ocupacional</option>
-                                    <option value="Atención Temprana">Atención Temprana</option>
-                                </select>
                             </div>
 
-                            <div className="form-group">
-                                <label>Nivel de Urgencia</label>
-                                <div className="flex gap-4 mt-2">
-                                    {['Baja', 'Media', 'Alta'].map(level => (
-                                        <label key={level} className="flex items-center gap-2 cursor-pointer">
-                                            <input
-                                                type="radio"
-                                                name="urgency"
-                                                value={level}
-                                                checked={newEntry.urgency === level}
-                                                onChange={() => setNewEntry({ ...newEntry, urgency: level as any })}
-                                            />
-                                            <span className="text-sm">{level}</span>
-                                        </label>
-                                    ))}
-                                </div>
-                            </div>
-
-                            <div className="form-group">
-                                <label>Observaciones / Disponibilidad</label>
-                                <textarea
-                                    rows={3}
-                                    value={newEntry.notes}
-                                    placeholder="Ej: Solo tardes a partir de las 17:00..."
-                                    onChange={e => setNewEntry({ ...newEntry, notes: e.target.value })}
-                                    style={{ width: '100%', padding: '0.75rem', borderRadius: '8px', border: '1px solid #ddd' }}
-                                />
-                            </div>
-
-                            <div className="modal-footer mt-6">
-                                <button type="button" className="btn-secondary" onClick={() => setIsModalOpen(false)}>Cancelar</button>
-                                <button type="submit" className="btn-primary">Añadir a lista</button>
-                            </div>
+                            <footer className="modal-footer-p">
+                                <button type="button" className="calendar-btn-pill calendar-btn-secondary" onClick={closeModal}>Cancelar</button>
+                                <button type="submit" disabled={saving} className="calendar-btn-pill calendar-btn-primary">
+                                    {saving ? 'Guardando...' : (editingEntry ? 'Guardar Cambios' : 'Guardar Registro')}
+                                </button>
+                            </footer>
                         </form>
                     </div>
                 </div>

@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../../context/AuthContext';
-import { clockIn, clockOut, getLiveWorkStats, getUpcomingAppointment } from './service';
+import { clockIn, clockOut, getLiveWorkStats, getUpcomingAppointment, checkScheduleAdherence } from './service';
 import type { WorkStatus } from './types';
 import { Play, Square, Clock, PenTool, AlertCircle } from 'lucide-react';
 import './WorkforceWidget.css';
@@ -71,9 +71,22 @@ const WorkforceWidget: React.FC = () => {
     };
 
     const handleClockIn = async () => {
-        if (!user) return;
+        if (!user || !user.therapistId) return;
         setLoading(true);
         try {
+            // Validation: Check if within schedule
+            const { isAdherent } = await checkScheduleAdherence(user.therapistId);
+            
+            if (!isAdherent) {
+                const proceed = window.confirm(
+                    "⚠️ Advertencia: No estás dentro de tu horario programado para hoy.\n\n¿Deseas iniciar la jornada de todas formas?"
+                );
+                if (!proceed) {
+                    setLoading(false);
+                    return;
+                }
+            }
+
             await clockIn(user.id, user.therapistId);
             await loadStatus();
             window.dispatchEvent(new CustomEvent('workforce-update'));

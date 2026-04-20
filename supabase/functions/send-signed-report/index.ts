@@ -17,7 +17,7 @@ Deno.serve(async (req) => {
   }
 
   try {
-    const { therapistName, month, totalHours, signatureImage, totalDays, pdfBase64 } = await req.json();
+    const { therapistName, month, totalHours, _signatureImage, totalDays, pdfBase64 } = await req.json();
     console.log(`Enviando reporte firmado para: ${therapistName}, mes: ${month}`);
 
     if (!pdfBase64) {
@@ -27,7 +27,7 @@ Deno.serve(async (req) => {
     // Extract base64 part if it contains the data URI prefix
     const pdfAttachmentBase64 = pdfBase64.includes(',') ? pdfBase64.split(',')[1] : pdfBase64;
 
-    // @ts-ignore
+    // @ts-expect-error dynamic import of npm package in Deno
     const nodemailer = await import('npm:nodemailer');
 
     const monthLabel = new Date(`${month}-15`).toLocaleDateString('es-ES', { month: 'long', year: 'numeric' });

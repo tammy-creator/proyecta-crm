@@ -18,6 +18,7 @@ const mapAppointment = (row: any): Appointment => ({
     isPaid: row.is_paid ?? false,
     cancellationReason: row.cancellation_reason,
     voiceNoteUrl: row.voice_note_url,
+    notificacionRecordatorioEnviada: row.notificacion_recordatorio_enviada,
     recurrence: row.recurrence,
 });
 
@@ -29,7 +30,7 @@ export const getAppointments = async (start: Date, end: Date, therapistId?: stri
         .gte('start_time', start.toISOString())
         .lte('start_time', end.toISOString());
     
-    if (therapistId) {
+    if (therapistId && therapistId !== 'all') {
         query = query.eq('therapist_id', therapistId);
     }
 
@@ -55,7 +56,7 @@ export const getUnpaidAppointments = async (therapistId?: string): Promise<Appoi
         .select('*, clinical_services(price)')
         .eq('is_paid', false);
     
-    if (therapistId) {
+    if (therapistId && therapistId !== 'all') {
         query = query.eq('therapist_id', therapistId);
     }
 
@@ -68,9 +69,9 @@ export const createAppointment = async (appointment: Omit<Appointment, 'id'>): P
     const { data, error } = await supabase
         .from('appointments')
         .insert({
-            patient_id: appointment.patientId,
+            patient_id: appointment.patientId || null,
             therapist_id: appointment.therapistId,
-            service_id: appointment.serviceId ?? null,
+            service_id: appointment.serviceId || null,
             patient_name: appointment.patientName,
             therapist_name: appointment.therapistName,
             start_time: appointment.start,
@@ -83,6 +84,7 @@ export const createAppointment = async (appointment: Omit<Appointment, 'id'>): P
             cancellation_reason: appointment.cancellationReason,
             voice_note_url: appointment.voiceNoteUrl,
             recurrence: appointment.recurrence ?? null,
+            notificacion_recordatorio_enviada: appointment.notificacionRecordatorioEnviada ?? false,
         })
         .select()
         .single();
@@ -94,9 +96,9 @@ export const updateAppointment = async (appointment: Appointment): Promise<Appoi
     const { data, error } = await supabase
         .from('appointments')
         .update({
-            patient_id: appointment.patientId,
+            patient_id: appointment.patientId || null,
             therapist_id: appointment.therapistId,
-            service_id: appointment.serviceId ?? null,
+            service_id: appointment.serviceId || null,
             patient_name: appointment.patientName,
             therapist_name: appointment.therapistName,
             start_time: appointment.start,
@@ -109,6 +111,7 @@ export const updateAppointment = async (appointment: Appointment): Promise<Appoi
             cancellation_reason: appointment.cancellationReason,
             voice_note_url: appointment.voiceNoteUrl,
             recurrence: appointment.recurrence ?? null,
+            notificacion_recordatorio_enviada: appointment.notificacionRecordatorioEnviada ?? false,
         })
         .eq('id', appointment.id)
         .select()

@@ -90,23 +90,8 @@
     display: block;
 }
 
-.close-panel-btn {
-    border: none;
-    background: transparent;
-    color: #94a3b8;
-    cursor: pointer;
-    padding: 0.5rem;
-    border-radius: 8px;
-    transition: all 0.2s;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-}
+/* Using global .btn-icon-round */
 
-.close-panel-btn:hover {
-    background-color: #f1f5f9;
-    color: #475569;
-}
 
 .mark-read-btn {
     position: absolute;

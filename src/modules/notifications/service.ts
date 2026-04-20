@@ -2,6 +2,7 @@ import { getAppointments } from '../calendar/service';
 import { getMonthlyReport, getSignature } from '../workforce/service';
 import { getTherapists } from '../therapists/service';
 import { subMonths } from 'date-fns';
+import { supabase } from '../../lib/supabase';
 import type { Notification } from './types';
 
 const DISMISSED_KEY = 'proyecta_dismissed_ids';
@@ -11,22 +12,58 @@ export const getDismissedIds = (): string[] => {
     return data ? JSON.parse(data) : [];
 };
 
-export const dismissNotification = (id: string) => {
+export const dismissNotification = async (id: string, isPersistent?: boolean) => {
     const ids = getDismissedIds();
     if (!ids.includes(id)) {
         ids.push(id);
         localStorage.setItem(DISMISSED_KEY, JSON.stringify(ids));
     }
+
+    if (isPersistent) {
+        // Instead of deleting, we mark as dismissed in the DB
+        try {
+            await supabase
+                .from('system_notifications')
+                .update({ is_dismissed: true })
+                .eq('id', id);
+        } catch (error) {
+            console.error('Error dismissing notification in DB:', error);
+        }
+    }
 };
 
 export const clearOldDismissedIds = () => {
-    // This is no longer needed as we want persistent dismissals, 
-    // but we can keep it for future cleanup of very old entries if needed.
-    // For now, let's just make it a no-op to fulfill user request.
+    // No-op for now
 };
 
 export const getNotifications = async (role: 'ADMIN' | 'THERAPIST', userId: string): Promise<Notification[]> => {
     const notifications: Notification[] = [];
+    
+    // 0. FETCH PERSISTENT NOTIFICATIONS FROM DB
+    try {
+        const { data: dbNotifications, error } = await supabase
+            .from('system_notifications')
+            .select('*')
+            .eq('is_dismissed', false) // Only active notifications
+            .order('created_at', { ascending: false });
+
+        if (!error && dbNotifications) {
+            dbNotifications.forEach(n => {
+                notifications.push({
+                    id: n.id,
+                    type: (n.type as any) || 'INFO',
+                    title: n.title,
+                    message: n.message,
+                    date: new Date(n.created_at),
+                    read: n.read || false,
+                    priority: 'HIGH',
+                });
+            });
+        }
+    } catch (error) {
+        console.error('Error fetching persistent notifications:', error);
+    }
+
     const now = new Date();
     const lastMonth = subMonths(now, 1);
     const lastMonthStr = lastMonth.toISOString().slice(0, 7); // YYYY-MM
@@ -125,4 +162,35 @@ export const getNotifications = async (role: 'ADMIN' | 'THERAPIST', userId: stri
     }
 
     return notifications.sort((a, b) => b.date.getTime() - a.date.getTime());
+};
+
+export const getAIActivity = async (days: number = 3): Promise<Notification[]> => {
+    const since = new Date();
+    since.setDate(since.getDate() - days);
+    since.setHours(0, 0, 0, 0); // From the beginning of the period
+
+    try {
+        // Super broad filter to debug: catch common bot variants and titles
+        const { data, error } = await supabase
+            .from('system_notifications')
+            .select('*')
+            .or('type.ilike.AI_LOG,type.ilike.WHATSAPP,type.ilike.BOT,title.ilike.%Cita%')
+            .order('created_at', { ascending: false })
+            .limit(20);
+
+        if (error) throw error;
+
+        return (data || []).map(n => ({
+            id: n.id,
+            type: 'AI_LOG',
+            title: n.title,
+            message: n.message,
+            date: new Date(n.created_at),
+            read: n.read || false,
+            priority: 'LOW',
+        }));
+    } catch (error) {
+        console.error('Error fetching AI activity:', error);
+        return [];
+    }
 };

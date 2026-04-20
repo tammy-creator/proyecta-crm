@@ -1,12 +1,21 @@
 .patient-list-container {
     animation: fadeIn 0.4s ease-out;
+    padding: 2rem 2rem 10rem 2rem; /* Generous bottom space */
+    max-width: 1400px;
+    margin: 0 auto;
+    background-color: var(--color-bg-primary);
+    min-height: 100%; /* Better than 100vh because of Layout Header */
 }
+
+/* Header */
+/* Header and search pills are now global */
+
 
 .patient-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
     gap: 1.5rem;
-    margin-top: 1.5rem;
+    margin-top: 2rem;
 }
 
 .patient-card {
@@ -17,10 +26,13 @@
     position: relative;
     cursor: pointer;
     border: 1px solid rgba(0, 0, 0, 0.05) !important;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .patient-card:hover {
-    border-color: var(--color-status-info) !important;
+    transform: translateY(-4px);
+    box-shadow: 0 12px 24px -10px rgba(99, 102, 241, 0.2);
+    border-color: rgba(99, 102, 241, 0.3) !important;
 }
 
 .patient-card-header {
@@ -204,6 +216,40 @@
     }
 }
 
+/* Premium buttons are now global */
+
+/* A4 Print Layout and Capture */
+.printable-document {
+    background: #f1f5f9;
+    padding: 2rem 0;
+}
+
+.doc-page {
+    width: 210mm;
+    min-height: 297mm;
+    padding: 20mm 15mm;
+    margin: 0 auto 2rem auto;
+    background: white;
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.05);
+    position: relative;
+    box-sizing: border-box;
+    overflow: hidden;
+}
+
+.doc-page::after {
+    display: none;
+}
+
+/* Fix for capture mode */
+.capturing .doc-page {
+    margin: 0 !important;
+    box-shadow: none !important;
+}
+
+.capturing .page-divider {
+    display: none !important;
+}
+
 /* Consent Form Styles */
 .consent-document {
     font-family: 'Inter', system-ui, -apple-system, sans-serif;
@@ -246,4 +292,107 @@
 
 .doc-header .center-info h1 {
     letter-spacing: -0.5px;
+}
+
+/* Editable gaps for Native Form Editing */
+.editable-line {
+    display: inline-block;
+    border-bottom: 1px dotted #94a3b8;
+    min-width: 50px;
+    outline: none;
+    padding: 0 4px;
+    font-style: italic;
+    color: #0f172a;
+    transition: all 0.2s;
+    line-height: 1.2;
+}
+.editable-line:empty::before {
+    content: attr(data-placeholder);
+    color: #94a3b8;
+    opacity: 0.6;
+}
+.editable-line:focus {
+    border-bottom: 2px solid #3b82f6;
+    background: #f8fafc;
+    color: #1e3a5f;
+}
+
+.editable-area {
+    display: block;
+    width: 100%;
+    border-bottom: 1px dotted #94a3b8;
+    outline: none;
+    padding: 8px 4px;
+    color: #0f172a;
+    line-height: 1.6;
+    transition: all 0.2s;
+}
+.editable-area:empty::before {
+    content: attr(data-placeholder);
+    color: #94a3b8;
+    opacity: 0.6;
+}
+.editable-area:focus {
+    border-bottom: 2px solid #3b82f6;
+    background: #f8fafc;
+    color: #1e3a5f;
+}
+
+@media print {
+    .consent-document {
+        max-width: none !important;
+        width: 100% !important;
+        margin: 0 !important;
+        padding: 0 !important;
+        box-shadow: none !important;
+    }
+    
+    .consent-document h4 {
+        color: #2980b9 !important;
+        -webkit-print-color-adjust: exact;
+        print-color-adjust: exact;
+    }
+
+    .signature-area {
+        background-color: transparent !important;
+        border: 1px solid #eee !important;
+    }
+
+    /* Multi-page break logic */
+    .doc-page {
+        page-break-after: always;
+        break-after: page;
+        width: 100% !important;
+        height: auto !important;
+        min-height: 100vh !important;
+        margin: 0 !important;
+        padding: 15mm !important;
+        box-shadow: none !important;
+        border: none !important;
+    }
+
+    .doc-page:last-child {
+        page-break-after: avoid;
+        break-after: auto;
+    }
+
+    .page-divider {
+        display: none !important;
+    }
+
+    .editable-line { 
+        border-bottom: 1px dotted #cbd5e1 !important; 
+        background: transparent !important; 
+        color: #0f172a !important;
+    }
+    .editable-line:empty::before { 
+        content: attr(data-placeholder);
+        color: transparent; 
+    }
+    
+    .editable-area { 
+        border: 1px solid #e2e8f0 !important; 
+        background: transparent !important;
+        color: #0f172a !important; 
+    }
 }

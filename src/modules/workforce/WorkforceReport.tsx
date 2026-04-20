@@ -8,7 +8,8 @@ import {
     endOfMonth, 
     isWeekend, 
     startOfDay, 
-    endOfDay
+    endOfDay,
+    set
 } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { useAuth } from '../../context/AuthContext';
@@ -26,26 +27,30 @@ import {
     Calendar,
     Clock,
     ShieldCheck,
-    Info
+    Info,
+    Printer,
+    X,
 } from 'lucide-react';
 import { 
     getAllAttendance, 
     addAttendance, 
-    updateAttendance, 
     deleteAttendance, 
     getAllSignatures, 
     getActiveTherapistsForMonth,
-    getTherapistVacations
+    getTherapistVacations,
+    checkScheduleAdherence
 } from './service';
 import { getTherapists } from '../therapists/service';
 import { getAppointments } from '../calendar/service';
 import { supabase } from '../../lib/supabase';
+import type { Therapist, WorkingHours } from '../therapists/types';
+import { DAYS_OF_WEEK } from '../therapists/types';
 import type { Attendance, MonthlyReportSignature } from './types';
-import type { Therapist } from '../therapists/types';
 import type { CenterSettings } from '../admin/types';
 import { getCenterSettings } from '../admin/service';
 import Modal from '../../components/ui/Modal';
-import { generateDetailedReportPDF } from '../../utils/pdfGenerator';
+import PrintPortal from '../../components/ui/PrintPortal';
+import WorkforcePrintDocument from './WorkforcePrintDocument';
 import { useToast } from '../../hooks/useToast';
 import './WorkforceReport.css';
 
@@ -67,7 +72,19 @@ const WorkforceReport: React.FC = () => {
     const [activeTab, setActiveTab] = useState<'daily' | 'absences' | 'signatures'>('daily');
     const [isEditModalOpen, setIsEditModalOpen] = useState(false);
     const [editingRecord, setEditingRecord] = useState<Partial<Attendance> | null>(null);
+    const [manualBlocks, setManualBlocks] = useState<WorkingHours[]>([
+        { start: '', end: '' }
+    ]);
+    const [isPrinting, setIsPrinting] = useState(false);
+    const [printData, setPrintData] = useState<{
+        month: string;
+        therapist: Therapist;
+        daysInMonth: Date[];
+        getDailyData: (day: Date) => any;
+        signature?: MonthlyReportSignature | null;
+    } | null>(null);
     const [isAbsenceModalOpen, setIsAbsenceModalOpen] = useState(false);
+    const [isAdherenceModalOpen, setIsAdherenceModalOpen] = useState(false);
     const [isVacationListModalOpen, setIsVacationListModalOpen] = useState(false);
     const [allVacations, setAllVacations] = useState<Attendance[]>([]);
     const [vacationLoading, setVacationLoading] = useState(false);
@@ -87,6 +104,16 @@ const WorkforceReport: React.FC = () => {
             getAllSignatures().then(setSignedReports).catch(console.error);
         }
     }, []);
+
+    // Manage body class for printing
+    useEffect(() => {
+        if (isPrinting) {
+            document.body.classList.add('print-active');
+        } else {
+            document.body.classList.remove('print-active');
+        }
+        return () => document.body.classList.remove('print-active');
+    }, [isPrinting]);
 
     useEffect(() => {
         fetchData();
@@ -116,13 +143,13 @@ const WorkforceReport: React.FC = () => {
                 : appts.filter(a => a.therapistId === selectedTherapistId && a.status !== 'Cancelada');
             
             setAppointments(filteredAppts);
-
+            
             // Populate allVacations for the history list
             if (selectedTherapistId === 'all') {
                 setAllVacations(attData.filter(a => a.type !== 'work'));
             } else {
                 const currentYear = format(new Date(), 'yyyy');
-                const { data: yearData } = await supabase
+                const { data: yearData, error: yearError } = await supabase
                     .from('attendance')
                     .select('*')
                     .eq('therapist_id', selectedTherapistId)
@@ -131,18 +158,24 @@ const WorkforceReport: React.FC = () => {
                     .lte('start_time', `${currentYear}-12-31T23:59:59Z`)
                     .order('start_time', { ascending: false });
                 
-                setAllVacations((yearData || []).map(d => ({
-                    id: d.id,
-                    userId: d.user_id,
-                    therapistId: d.therapist_id,
-                    startTime: d.start_time,
-                    endTime: d.end_time,
-                    type: d.type as 'work' | 'vacation' | 'sick_leave',
-                    notes: d.notes
-                })));
+                if (yearError) {
+                    console.error("Error fetching year data:", yearError);
+                } else {
+                    setAllVacations((yearData || []).map(d => ({
+                        id: d.id,
+                        userId: d.user_id,
+                        therapistId: d.therapist_id,
+                        startTime: d.start_time,
+                        endTime: d.end_time,
+                        type: d.type as 'work' | 'vacation' | 'sick_leave',
+                        notes: d.notes
+                    })));
+                }
             }
+            
         } catch (error) {
             console.error("Error fetching workforce data:", error);
+            showToast("Error al cargar los datos. Por favor, refresca la página.", "error");
         } finally {
             setLoading(false);
         }
@@ -198,13 +231,21 @@ const WorkforceReport: React.FC = () => {
     };
 
 
-    const handleSaveAttendance = async (e: React.FormEvent) => {
-        e.preventDefault();
+    const handleSaveAttendance = async (e?: React.FormEvent, skipAdherenceCheck: boolean = false) => {
+        if (e) e.preventDefault();
         if (!editingRecord || !selectedTherapistId) return;
+
+        // Determine the actual therapist for this record
+        const targetTherapistId = editingRecord.therapistId || (selectedTherapistId !== 'all' ? selectedTherapistId : null);
+        
+        if (!targetTherapistId) {
+            showToast("No se ha podido determinar el terapeuta para este registro.", "error");
+            return;
+        }
 
         // Validation for overlaps in absences
         if (editingRecord.type !== 'work') {
-            const existingAbsences = await getTherapistVacations(selectedTherapistId);
+            const existingAbsences = await getTherapistVacations(targetTherapistId);
             const newStart = parseISO(editingRecord.startTime!);
             const newEnd = editingRecord.endTime ? parseISO(editingRecord.endTime) : newStart;
             
@@ -223,48 +264,98 @@ const WorkforceReport: React.FC = () => {
             }
         }
 
+        // Validation for work shifts (schedule adherence)
+        if (editingRecord.type === 'work' && !skipAdherenceCheck) {
+            const { isAdherent } = await checkScheduleAdherence(targetTherapistId, parseISO(editingRecord.startTime!));
+            if (!isAdherent) {
+                setIsAdherenceModalOpen(true);
+                return;
+            }
+        }
+
         try {
+            // Determine if we are updating existing records or adding new ones
+            const isEditing = !!editingRecord.id;
+
+            // Try to find the user account linked to this therapist
+            // First by therapist_id, then by email (case-insensitive)
             let { data: userAccount } = await supabase
                 .from('user_accounts')
                 .select('id')
-                .eq('therapist_id', selectedTherapistId)
+                .eq('therapist_id', targetTherapistId)
                 .maybeSingle();
 
             if (!userAccount) {
-                const therapist = therapists.find(t => t.id === selectedTherapistId);
+                const therapist = therapists.find(t => t.id === targetTherapistId);
                 if (therapist?.email) {
                     const { data: byEmail } = await supabase
                         .from('user_accounts')
                         .select('id')
-                        .eq('email', therapist.email)
+                        .ilike('email', therapist.email)
                         .maybeSingle();
                     userAccount = byEmail;
                 }
             }
 
             if (!userAccount) {
-                showToast("Este terapeuta no tiene una cuenta de usuario activa. Créala en 'Equipo y Roles' antes de registrar asistencia.", "error");
+                const name = therapists.find(t => t.id === targetTherapistId)?.fullName || 'este terapeuta';
+                const email = therapists.find(t => t.id === targetTherapistId)?.email;
+                showToast(`No se ha encontrado una cuenta de usuario vinculada para ${name}.${email ? ` Buscado por email: ${email}` : ' No tiene email configurado.'} Revisa 'Equipo y Roles'.`, "error");
                 return;
             }
 
-            const payload = {
-                ...editingRecord,
-                userId: userAccount.id,
-                therapistId: selectedTherapistId
-            };
-
             const adminInfo = currentUser ? { id: currentUser.id, name: currentUser.name } : undefined;
 
-            if (editingRecord.id) {
-                await updateAttendance(editingRecord.id, payload as Attendance, adminInfo);
-            } else {
+            // If editing, we clear current daily records first to ensure a fresh set
+            if (isEditing) {
+                const day = parseISO(editingRecord.startTime!);
+                const dayStart = startOfDay(day).toISOString();
+                const dayEnd = endOfDay(day).toISOString();
+                
+                const { error: deleteError } = await supabase
+                    .from('attendance')
+                    .delete()
+                    .eq('therapist_id', targetTherapistId)
+                    .eq('type', 'work')
+                    .gte('start_time', dayStart)
+                    .lte('start_time', dayEnd);
+                
+                if (deleteError) throw deleteError;
+            }
+
+            // Multi-block support for both new and edit operations
+            const baseDate = parseISO(editingRecord.startTime!);
+            
+            for (const block of manualBlocks) {
+                if (!block.start || !block.end) continue;
+                
+                // If it's the placeholder '-', skip it
+                if (block.end === '—') continue;
+
+                const [sH, sM] = block.start.split(':').map(Number);
+                const [eH, eM] = block.end.split(':').map(Number);
+                
+                const blockStart = set(baseDate, { hours: sH, minutes: sM, seconds: 0, milliseconds: 0 });
+                const blockEnd = set(baseDate, { hours: eH, minutes: eM, seconds: 0, milliseconds: 0 });
+
+                const payload = {
+                    userId: userAccount.id,
+                    therapistId: targetTherapistId,
+                    startTime: blockStart.toISOString(),
+                    endTime: blockEnd.toISOString(),
+                    type: 'work',
+                    notes: editingRecord.notes
+                };
+                
                 await addAttendance(payload as any, adminInfo);
             }
             
             setIsEditModalOpen(false);
             setIsAbsenceModalOpen(false);
             setEditingRecord(null);
+            setManualBlocks([]);
             fetchData();
+            showToast(isEditing ? "Registros actualizados correctamente" : "Jornada registrada correctamente", "success");
         } catch (error) {
             console.error("Error saving attendance:", error);
             showToast("Error al guardar el registro.", "error");
@@ -288,16 +379,25 @@ const WorkforceReport: React.FC = () => {
         end: endOfMonth(parseISO(month + '-01'))
     });
 
-    const getDailyData = (day: Date) => {
+    const getDailyData = (day: Date, tId?: string) => {
+        const targetId = tId || selectedTherapistId;
         const dDate = startOfDay(day);
         
-        const dayAtts = attendances.filter(a => a.startTime && isSameDay(parseISO(a.startTime), day));
-        const dayAppts = appointments.filter(a => a.start && isSameDay(parseISO(a.start), day));
+        const dayAtts = attendances.filter(a => 
+            a.therapistId === targetId &&
+            a.startTime && isSameDay(parseISO(a.startTime), day)
+        );
+        const dayAppts = appointments.filter(a => 
+            a.therapistId === targetId &&
+            a.start && isSameDay(parseISO(a.start), day)
+        );
         
-        const workAtt = dayAtts.find(a => a.type === 'work');
+        const workAtts = dayAtts
+            .filter(a => a.type === 'work')
+            .sort((a, b) => a.startTime.localeCompare(b.startTime));
         
         const absenceAtt = attendances.find(a => {
-            if (a.type === 'work' || !a.startTime) return false;
+            if (a.type === 'work' || !a.startTime || (targetId && a.therapistId !== targetId)) return false;
             const sDate = startOfDay(parseISO(a.startTime));
             // If endTime exists, use it. Otherwise, assume it's a single day absence.
             const eDate = a.endTime ? endOfDay(parseISO(a.endTime)) : endOfDay(parseISO(a.startTime));
@@ -306,105 +406,108 @@ const WorkforceReport: React.FC = () => {
 
         return {
             attendances: dayAtts,
-            workAtt,
+            workAtts,
             absenceAtt,
             apptsCount: dayAppts.length,
-            hasMissingClockIn: dayAppts.length > 0 && !workAtt && !absenceAtt && !isWeekend(day)
+            hasMissingClockIn: dayAppts.length > 0 && workAtts.length === 0 && !absenceAtt && !isWeekend(day)
         };
     };
 
-    const handleDownloadSignedReport = async (report: MonthlyReportSignature & { therapistName?: string }) => {
+    const handleDownloadSignedReport = async (report: MonthlyReportSignature & { therapistName?: string; isPending?: boolean; isInProgress?: boolean }) => {
         try {
-            const reportTherapist = therapists.find(t => t.id === report.therapistId);
+            const reportTherapist = therapists.find(t => t.id === report.therapistId) || { 
+                id: report.therapistId, 
+                fullName: report.therapistName || 'Desconocido', 
+                email: '', 
+                phone: '', 
+                specialty: '' 
+            } as Therapist;
+
             const reportDays = eachDayOfInterval({
                 start: startOfMonth(parseISO(report.month + '-01')),
                 end: endOfMonth(parseISO(report.month + '-01'))
             });
 
-            // Fetch specific data for the report if it's different from the currently viewed
+            // Full data gathering for the print view
             const attData = await getAllAttendance(report.month, report.therapistId);
             const startDay = parseISO(`${report.month}-01`);
             const endDay = endOfMonth(startDay);
-            const appts = await getAppointments(startDay, endDay);
-            const filteredAppts = appts.filter(a => a.therapistId === report.therapistId && a.status !== 'Cancelada');
+            const freshAppts = await getAppointments(startDay, endDay);
+            const filteredAppts = freshAppts.filter(a => a.therapistId === report.therapistId && a.status !== 'Cancelada');
 
             const getReportDailyData = (day: Date) => {
-                const dDate = startOfDay(day);
                 const dayAtts = attData.filter(a => a.startTime && isSameDay(parseISO(a.startTime), day));
                 const dayAppts = filteredAppts.filter(a => a.start && isSameDay(parseISO(a.start), day));
-                const workAtt = dayAtts.find(a => a.type === 'work');
+                const workAtts = dayAtts
+                    .filter(a => a.type === 'work')
+                    .sort((a, b) => a.startTime.localeCompare(b.startTime));
                 const absenceAtt = attData.find(a => {
                     if (a.type === 'work' || !a.startTime) return false;
                     const sDate = startOfDay(parseISO(a.startTime));
                     const eDate = a.endTime ? endOfDay(parseISO(a.endTime)) : endOfDay(parseISO(a.startTime));
+                    const dDate = startOfDay(day);
                     return dDate >= sDate && dDate <= eDate;
                 });
-                return { workAtt, absenceAtt, apptsCount: dayAppts.length };
+                return { workAtts, absenceAtt, apptsCount: dayAppts.length };
             };
 
-            const blob = await generateDetailedReportPDF({
+            const signatureForPrint = (report.signedAt && !report.isPending && !report.isInProgress) ? report : null;
+
+            setPrintData({
                 month: report.month,
-                therapist: reportTherapist || { id: report.therapistId, fullName: report.therapistName || 'Desconocido', email: '', phone: '', specialty: '' } as Therapist,
+                therapist: reportTherapist,
                 daysInMonth: reportDays,
                 getDailyData: getReportDailyData,
-                centerSettings,
-                signature: report
+                signature: signatureForPrint
             });
-
-            const url = URL.createObjectURL(blob);
-            const link = document.createElement('a');
-            link.href = url;
-            link.download = `Reporte_${report.therapistName?.replace(/\s+/g, '_')}_${report.month}.pdf`;
-            link.click();
-            URL.revokeObjectURL(url);
+            setIsPrinting(true);
         } catch (err) {
-            console.error("Error generating local PDF:", err);
-            showToast("No se pudo generar el PDF.", "error");
+            console.error("Error setting up print preview:", err);
+            showToast("Error al preparar la vista de impresión.", "error");
         }
     };
 
-    const handlePrint = async () => {
-        try {
-            const therapist = therapists.find(t => t.id === selectedTherapistId);
-            if (!therapist) return;
-            const blob = await generateDetailedReportPDF({
-                month,
-                therapist,
-                daysInMonth,
-                getDailyData,
-                centerSettings
-            });
-            const url = URL.createObjectURL(blob);
-            const link = document.createElement('a');
-            link.href = url;
-            link.download = `Reporte_${therapist.fullName.replace(/\s+/g, '_')}_${month}.pdf`;
-            link.click();
-            URL.revokeObjectURL(url);
-        } catch (e) {
-            console.error("Error printing PDF", e);
-            showToast("No se pudo generar el PDF.", "error");
-        }
-    };
 
     // Removed currentSignedReport as header download button was removed
 
 
 
-    const totalHoursCurrentMonth = attendances
-        .filter(a => a.type === 'work' && a.startTime && a.endTime)
-        .reduce((acc, curr) => {
-            const start = new Date(curr.startTime).getTime();
-            const end = new Date(curr.endTime!).getTime();
-            return acc + (end - start) / (1000 * 60 * 60);
-        }, 0);
+    const addManualBlock = () => {
+        setManualBlocks([...manualBlocks, { start: '09:00', end: '14:00' }]);
+    };
+
+    const removeManualBlock = (index: number) => {
+        if (manualBlocks.length <= 1) return;
+        setManualBlocks(manualBlocks.filter((_, i) => i !== index));
+    };
+
+    const updateManualBlock = (index: number, field: 'start' | 'end', value: string) => {
+        const updated = [...manualBlocks];
+        updated[index] = { ...updated[index], [field]: value };
+        setManualBlocks(updated);
+    };
+
 
     const currentMonthStr = format(new Date(), 'yyyy-MM');
     // For signatures tab, we always care about the actual current month
     const effectiveMonth = activeTab === 'signatures' ? currentMonthStr : month;
     const isViewingCurrentMonth = effectiveMonth === currentMonthStr;
 
-    const currentPendingSignatures = therapists.filter(t => 
-        (activeTab === 'signatures' ? activeTherapistsCurrentMonth : activeTherapistsForMonth).includes(t.id) && 
+    // Derive active therapist sets directly from loaded data
+    const activeTherapistIdsFromAttendances = new Set(
+        attendances
+            .filter(a => a.therapistId)
+            .map(a => a.therapistId as string)
+    );
+
+    // PERSISTENCE: If attendances are empty (likely due to lock), 
+    // we fallback to therapists who ARE in signedReports or just all therapists if viewing current month
+    const fallbackActiveIds = activeTherapistIdsFromAttendances.size > 0 
+        ? activeTherapistIdsFromAttendances 
+        : new Set(therapists.map(t => t.id));
+
+    const currentPendingSignatures = therapists.filter(t =>
+        fallbackActiveIds.has(t.id) &&
         !signedReports.some(r => r.therapistId === t.id && r.month === effectiveMonth)
     );
 
@@ -416,12 +519,19 @@ const WorkforceReport: React.FC = () => {
     if (selectedTherapistId === 'all') {
         // Inject all pending signatures for the effective month
         currentPendingSignatures.forEach(t => {
+            const therapistHours = attendances
+                .filter(a => a.type === 'work' && a.startTime && a.endTime && a.therapistId === t.id)
+                .reduce((acc, curr) => {
+                    const s = parseISO(curr.startTime).getTime();
+                    const e = parseISO(curr.endTime!).getTime();
+                    return acc + Math.max(0, (e - s) / (1000 * 60 * 60));
+                }, 0);
             filteredSignedReports.unshift({
                 id: 'pending-' + t.id + '-' + effectiveMonth,
                 therapistId: t.id,
                 month: effectiveMonth,
                 signedAt: '',
-                totalHours: 0,
+                totalHours: Number(therapistHours.toFixed(1)),
                 signatureImage: '',
                 therapistName: t.fullName,
                 isPending: !isViewingCurrentMonth,
@@ -436,12 +546,19 @@ const WorkforceReport: React.FC = () => {
         );
 
         if (isSelectedTherapistPending) {
+            const therapistHours = attendances
+                .filter(a => a.type === 'work' && a.startTime && a.endTime && a.therapistId === selectedTherapistId)
+                .reduce((acc, curr) => {
+                    const s = parseISO(curr.startTime).getTime();
+                    const e = parseISO(curr.endTime!).getTime();
+                    return acc + Math.max(0, (e - s) / (1000 * 60 * 60));
+                }, 0);
             filteredSignedReports.unshift({
                 id: 'pending-' + effectiveMonth,
                 therapistId: selectedTherapistId,
                 month: effectiveMonth,
                 signedAt: '',
-                totalHours: Number(totalHoursCurrentMonth.toFixed(1)),
+                totalHours: Number(therapistHours.toFixed(1)),
                 signatureImage: '',
                 therapistName: therapists.find(t => t.id === selectedTherapistId)?.fullName,
                 isPending: !isViewingCurrentMonth,
@@ -457,7 +574,7 @@ const WorkforceReport: React.FC = () => {
         <div className="workforce-report">
             {/* ── Header ── */}
             {/* ── Sub-Header for Controls ── */}
-            <div className="workforce-header" style={{ marginBottom: '1.5rem' }}>
+            <div className="workforce-header">
                 <div className="workforce-header-controls">
                     {selectedTherapistId === 'all' && activeTab === 'daily' && (
                         <div className="wf-filter-date">
@@ -489,7 +606,7 @@ const WorkforceReport: React.FC = () => {
                     </select>
                 </div>
                 
-                <div className="admin-tabs" style={{ margin: 0, borderBottom: 'none' }}>
+                <div className="admin-tabs">
                     <button
                         className={`tab-btn ${activeTab === 'daily' ? 'active' : ''}`}
                         onClick={() => setActiveTab('daily')}
@@ -513,17 +630,13 @@ const WorkforceReport: React.FC = () => {
                 </div>
 
                 <div className="workforce-header-actions">
-                    <button 
-                        className="btn-absence"
+                    <button className="btn-absence"
                         onClick={() => {
                             setEditingRecord({ type: 'vacation', startTime: startOfDay(new Date()).toISOString(), endTime: endOfDay(new Date()).toISOString() });
                             setIsAbsenceModalOpen(true);
                         }}
                     >
                         <CalendarDays size={16} /> Registrar Ausencia
-                    </button>
-                    <button className="btn-export" onClick={handlePrint}>
-                        <Download size={16} /> Imprimir PDF
                     </button>
                 </div>
             </div>
@@ -581,33 +694,12 @@ const WorkforceReport: React.FC = () => {
                                             const day = isAll ? parseISO(filterDate) : (item as Date);
                                             const therapist = isAll ? (item as Therapist) : therapists.find(t => t.id === selectedTherapistId);
                                             
-                                            // Local day data filtering for 'all' view
-                                            const dDate = startOfDay(day);
-                                            const dayAtts = attendances.filter(a => 
-                                                a.therapistId === (isAll ? therapist?.id : selectedTherapistId) && 
-                                                a.startTime && isSameDay(parseISO(a.startTime), day)
-                                            );
-                                            const dayAppts = appointments.filter(a => 
-                                                a.therapistId === (isAll ? therapist?.id : selectedTherapistId) && 
-                                                a.start && isSameDay(parseISO(a.start), day)
-                                            );
+                                            const { workAtts, absenceAtt, apptsCount, hasMissingClockIn } = getDailyData(day, isAll ? therapist?.id : undefined);
                                             
-                                            const workAtt = dayAtts.find(a => a.type === 'work');
-                                            const absenceAtt = attendances.find(a => {
-                                                if (a.therapistId !== (isAll ? therapist?.id : selectedTherapistId)) return false;
-                                                if (a.type === 'work' || !a.startTime) return false;
-                                                const sDate = startOfDay(parseISO(a.startTime));
-                                                const eDate = a.endTime ? endOfDay(parseISO(a.endTime)) : endOfDay(parseISO(a.startTime));
-                                                return dDate >= sDate && dDate <= eDate;
-                                            });
-
-                                            const apptsCount = dayAppts.length;
-                                            const hasMissingClockIn = apptsCount > 0 && !workAtt && !absenceAtt && !isWeekend(day);
-
                                             const isToday = isSameDay(day, new Date());
                                             const weekend = isWeekend(day);
 
-                                            if (!isAll && !workAtt && !absenceAtt && !hasMissingClockIn && weekend) return null;
+                                            if (!isAll && workAtts.length === 0 && !absenceAtt && !hasMissingClockIn && weekend) return null;
 
                                             const rowClass = [
                                                 hasMissingClockIn ? 'wf-row-missing' : '',
@@ -631,9 +723,9 @@ const WorkforceReport: React.FC = () => {
                                                             <span className={`wf-badge ${absenceAtt.type === 'vacation' ? 'wf-badge-vacation' : 'wf-badge-sick'}`}>
                                                                 {absenceAtt.type === 'vacation' ? 'Vacaciones' : 'Baja'}
                                                             </span>
-                                                        ) : workAtt ? (
+                                                        ) : workAtts.length > 0 ? (
                                                             <span className="wf-badge wf-badge-ok">
-                                                                <CheckCircle2 size={10} /> Ok
+                                                                <CheckCircle2 size={10} /> {workAtts.length > 1 ? `${workAtts.length} Turnos` : 'Ok'}
                                                             </span>
                                                         ) : hasMissingClockIn ? (
                                                             <span className="wf-badge wf-badge-missing">
@@ -644,20 +736,26 @@ const WorkforceReport: React.FC = () => {
                                                         )}
                                                     </td>
                                                     <td>
-                                                        {workAtt ? (
-                                                            <span className="wf-time-entry">
-                                                                <ArrowDownRight size={14} className="wf-icon-in" />
-                                                                {format(parseISO(workAtt.startTime), 'HH:mm')}
-                                                            </span>
-                                                        ) : <span className="wf-time-dash">—</span>}
+                                                        <div className="wf-intervals-list">
+                                                            {workAtts.map((att, idx) => (
+                                                                <div key={att.id || idx} className="wf-time-entry">
+                                                                    <ArrowDownRight size={14} className="wf-icon-in" />
+                                                                    {format(parseISO(att.startTime), 'HH:mm')}
+                                                                </div>
+                                                            ))}
+                                                            {workAtts.length === 0 && <span className="wf-time-dash">—</span>}
+                                                        </div>
                                                     </td>
                                                     <td>
-                                                        {workAtt?.endTime ? (
-                                                            <span className="wf-time-entry">
-                                                                <ArrowUpRight size={14} className="wf-icon-out" />
-                                                                {format(parseISO(workAtt.endTime), 'HH:mm')}
-                                                            </span>
-                                                        ) : <span className="wf-time-dash">—</span>}
+                                                        <div className="wf-intervals-list">
+                                                            {workAtts.map((att, idx) => (
+                                                                <div key={att.id || idx} className="wf-time-entry">
+                                                                    <ArrowUpRight size={14} className="wf-icon-out" />
+                                                                    {att.endTime ? format(parseISO(att.endTime), 'HH:mm') : '—'}
+                                                                </div>
+                                                            ))}
+                                                            {workAtts.length === 0 && <span className="wf-time-dash">—</span>}
+                                                        </div>
                                                     </td>
                                                     <td>
                                                         {apptsCount > 0 ? (
@@ -668,22 +766,27 @@ const WorkforceReport: React.FC = () => {
                                                     </td>
                                                     <td>
                                                         <div className="wf-actions">
-                                                            {workAtt ? (
+                                                            {workAtts.length > 0 ? (
                                                                 <>
                                                                     <button 
                                                                         className="wf-action-btn wf-action-edit"
                                                                         onClick={() => {
-                                                                            setEditingRecord(workAtt);
+                                                                            const sortedShifts = [...workAtts].sort((a, b) => a.startTime.localeCompare(b.startTime));
+                                                                            setManualBlocks(sortedShifts.map(att => ({
+                                                                                start: format(parseISO(att.startTime), 'HH:mm'),
+                                                                                end: att.endTime ? format(parseISO(att.endTime), 'HH:mm') : '—'
+                                                                            })));
+                                                                            setEditingRecord(sortedShifts[0]);
                                                                             setIsEditModalOpen(true);
                                                                         }}
-                                                                        title="Editar"
+                                                                        title="Editar jornada (todos los tramos)"
                                                                     >
                                                                         <Edit2 size={15} />
                                                                     </button>
                                                                     <button 
                                                                         className="wf-action-btn wf-action-delete"
-                                                                        onClick={() => handleDelete(workAtt.id!)}
-                                                                        title="Eliminar"
+                                                                        onClick={() => handleDelete(workAtts[workAtts.length - 1].id!)}
+                                                                        title="Eliminar último registro"
                                                                     >
                                                                         <Trash2 size={15} />
                                                                     </button>
@@ -698,16 +801,36 @@ const WorkforceReport: React.FC = () => {
                                                                 </button>
                                                             ) : (
                                                                 <button 
-                                                                    className="wf-action-add"
-                                                                    onClick={() => {
-                                                                        const date = startOfDay(day);
-                                                                        setEditingRecord({ 
-                                                                            startTime: date.toISOString(), 
-                                                                            type: 'work' 
-                                                                        });
-                                                                        setIsEditModalOpen(true);
-                                                                    }}
-                                                                >
+                                                                      className="wf-action-add"
+                                                                      onClick={() => {
+                                                                          const date = startOfDay(day);
+                                                                          const dayIdx = day.getDay();
+                                                                          let initialBlocks: WorkingHours[] = [];
+
+                                                                          if (dayIdx !== 0 && therapist?.schedule) {
+                                                                              const dayName = DAYS_OF_WEEK[dayIdx - 1];
+                                                                              const daySched = therapist.schedule.find(s => 
+                                                                                  s.day?.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "") === 
+                                                                                  dayName.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "")
+                                                                              );
+                                                                              if (daySched?.enabled && daySched.blocks.length > 0) {
+                                                                                  initialBlocks = [...daySched.blocks];
+                                                                              }
+                                                                          }
+
+                                                                          if (initialBlocks.length === 0) {
+                                                                              initialBlocks = [{ start: '09:00', end: '14:00' }];
+                                                                          }
+
+                                                                          setManualBlocks(initialBlocks);
+                                                                          setEditingRecord({ 
+                                                                              startTime: date.toISOString(), 
+                                                                              type: 'work',
+                                                                              therapistId: therapist?.id
+                                                                          });
+                                                                          setIsEditModalOpen(true);
+                                                                      }}
+                                                                  >
                                                                     <Plus size={14} /> Fichar
                                                                 </button>
                                                             )}
@@ -931,7 +1054,7 @@ const WorkforceReport: React.FC = () => {
                                         <th>Horas</th>
                                         <th>Fecha Firma</th>
                                         <th>Firma</th>
-                                        <th>Acciones</th>
+                                        <th>Estado / Acciones</th>
                                     </tr>
                                 </thead>
                                 <tbody>
@@ -943,7 +1066,7 @@ const WorkforceReport: React.FC = () => {
                                         </tr>
                                     ) : (
                                         filteredSignedReports.map(report => (
-                                            <tr key={report.id} style={report.isPending || report.isInProgress ? { backgroundColor: report.isInProgress ? '#f0f9ff' : '#fffbeb' } : {}}>
+                                            <tr key={`${report.id}-${report.month}-${report.therapistId}`} style={report.isPending || report.isInProgress ? { backgroundColor: report.isInProgress ? '#f0f9ff' : '#fffbeb' } : {}}>
                                                 <td style={{ fontWeight: 600 }}>{report.therapistName}</td>
                                                 <td>{report.month}</td>
                                                 <td>{report.totalHours}h</td>
@@ -972,17 +1095,35 @@ const WorkforceReport: React.FC = () => {
                                                     )}
                                                 </td>
                                                 <td>
-                                                    {!report.isPending && !report.isInProgress ? (
+                                                    {report.isInProgress ? (
+                                                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                                            <span className="wf-badge" style={{ fontSize: '0.7rem', backgroundColor: '#e0f2fe', color: '#0369a1' }}>EN CURSO</span>
+                                                            <button
+                                                                className="btn-export"
+                                                                style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '0.8rem', padding: '4px 10px' }}
+                                                                onClick={() => handleDownloadSignedReport(report)}
+                                                            >
+                                                                <Download size={14} /> Imprimir PDF
+                                                            </button>
+                                                        </div>
+                                                    ) : report.isPending ? (
                                                         <button
-                                                            className="btn-secondary"
+                                                            className="btn-export"
                                                             style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '0.8rem', padding: '4px 10px' }}
                                                             onClick={() => handleDownloadSignedReport(report)}
                                                         >
-                                                            <Download size={14} /> Descargar PDF
+                                                            <Download size={14} /> Imprimir PDF
                                                         </button>
                                                     ) : (
-                                                        <div className={`text-xs italic ${report.isInProgress ? 'text-sky-700' : 'text-amber-700'}`}>
-                                                            {report.isInProgress ? 'Periodo actual' : 'Esperando firma...'}
+                                                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                                            <span className="wf-badge wf-badge-ok" style={{ fontSize: '0.7rem' }}>✓ Firmado</span>
+                                                            <button
+                                                                className="btn-secondary"
+                                                                style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '0.8rem', padding: '4px 10px' }}
+                                                                onClick={() => handleDownloadSignedReport(report)}
+                                                            >
+                                                                <Download size={14} /> Descargar
+                                                            </button>
                                                         </div>
                                                     )}
                                                 </td>
@@ -995,6 +1136,9 @@ const WorkforceReport: React.FC = () => {
                     </div>
                 )}
             </div>
+            
+            {/* Espaciador final para asegurar margen inferior visual */}
+            <div style={{ height: '250px', width: '100%', flexShrink: 0 }} aria-hidden="true" />
 
             {/* ── Edit Modal ── */}
             <Modal
@@ -1006,27 +1150,67 @@ const WorkforceReport: React.FC = () => {
                 title={editingRecord?.id ? "Editar Registro de Jornada" : "Fichaje Manual"}
             >
                 <form onSubmit={handleSaveAttendance} className="wf-form">
-                    <div className="wf-form-row">
-                        <div>
-                            <label className="wf-form-label">Hora Entrada</label>
-                            <input
-                                type="datetime-local"
-                                value={editingRecord?.startTime ? format(parseISO(editingRecord.startTime), "yyyy-MM-dd'T'HH:mm") : ''}
-                                onChange={e => setEditingRecord({ ...editingRecord, startTime: new Date(e.target.value).toISOString() })}
-                                className="wf-form-input"
-                                required
-                            />
+                    <div className="wf-manual-blocks">
+                        <div className="wf-form-row" style={{ marginBottom: '1rem' }}>
+                            <div>
+                                <label className="wf-form-label">Fecha</label>
+                                <input
+                                    type="date"
+                                    value={editingRecord?.startTime ? format(parseISO(editingRecord.startTime), "yyyy-MM-dd") : ''}
+                                    onChange={e => {
+                                        const newDate = new Date(e.target.value);
+                                        setEditingRecord({ ...editingRecord, startTime: newDate.toISOString() });
+                                    }}
+                                    className="wf-form-input"
+                                    required
+                                    disabled={!!editingRecord?.id} // Only allow date change for new entries
+                                />
+                            </div>
                         </div>
-                        <div>
-                            <label className="wf-form-label">Hora Salida</label>
-                            <input
-                                type="datetime-local"
-                                value={editingRecord?.endTime ? format(parseISO(editingRecord.endTime), "yyyy-MM-dd'T'HH:mm") : ''}
-                                onChange={e => setEditingRecord({ ...editingRecord, endTime: new Date(e.target.value).toISOString() })}
-                                className="wf-form-input"
-                            />
-                        </div>
+                        
+                        <label className="wf-form-label" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                            Tramos Horarios
+                            <button type="button" onClick={addManualBlock} className="wf-btn-add-row">
+                                <Plus size={14} /> Añadir Tramo
+                            </button>
+                        </label>
+
+                        {manualBlocks.map((block, idx) => (
+                            <div key={idx} className="wf-form-row wf-block-row" style={{ alignItems: 'flex-end', gap: '0.5rem', marginBottom: '0.75rem' }}>
+                                <div style={{ flex: 1 }}>
+                                    <label className="wf-form-label-small">Entrada</label>
+                                    <input
+                                        type="time"
+                                        value={block.start}
+                                        onChange={e => updateManualBlock(idx, 'start', e.target.value)}
+                                        className="wf-form-input"
+                                        required
+                                    />
+                                </div>
+                                <div style={{ flex: 1 }}>
+                                    <label className="wf-form-label-small">Salida</label>
+                                    <input
+                                        type="time"
+                                        value={block.end === '—' ? '' : block.end}
+                                        onChange={e => updateManualBlock(idx, 'end', e.target.value)}
+                                        className="wf-form-input"
+                                        required
+                                    />
+                                </div>
+                                {manualBlocks.length > 1 && (
+                                    <button 
+                                        type="button" 
+                                        onClick={() => removeManualBlock(idx)} 
+                                        className="wf-btn-remove-row"
+                                        style={{ padding: '0.5rem', color: '#ef4444', background: '#fef2f2', border: 'none', borderRadius: '6px', cursor: 'pointer' }}
+                                    >
+                                        <Trash2 size={16} />
+                                    </button>
+                                )}
+                            </div>
+                        ))}
                     </div>
+
                     <div>
                         <label className="wf-form-label">Notas y Observaciones</label>
                         <textarea
@@ -1038,7 +1222,7 @@ const WorkforceReport: React.FC = () => {
                     </div>
                     <div className="wf-form-footer">
                         <button type="button" className="wf-btn-cancel" onClick={() => setIsEditModalOpen(false)}>Cancelar</button>
-                        <button type="submit" className="wf-btn-save">Guardar Cambios</button>
+                        <button type="submit" className="wf-btn-save">{editingRecord?.id ? 'Guardar Cambios' : 'Registrar Jornada'}</button>
                     </div>
                 </form>
             </Modal>
@@ -1117,7 +1301,56 @@ const WorkforceReport: React.FC = () => {
                 </form>
             </Modal>
 
-        {/* ── Vacation History Modal ── */}
+            <Modal
+                isOpen={isAdherenceModalOpen}
+                onClose={() => setIsAdherenceModalOpen(false)}
+                title="Advertencia de Horario"
+            >
+                <div style={{ padding: '1rem 0', textAlign: 'center' }}>
+                    <div style={{ 
+                        margin: '0 auto 1.5rem',
+                        width: '64px',
+                        height: '64px',
+                        borderRadius: '50%',
+                        backgroundColor: '#fffbeb',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        color: '#f59e0b',
+                        border: '4px solid #fef3c7'
+                    }}>
+                        <AlertCircle size={32} />
+                    </div>
+                    <h3 style={{ fontSize: '1.1rem', fontWeight: 700, color: '#1A5F7A', marginBottom: '0.5rem' }}>Fuera de Horario</h3>
+                    <p style={{ color: '#64748b', fontSize: '0.9rem', lineHeight: '1.5', marginBottom: '1.5rem' }}>
+                        El horario de este fichaje no coincide con el horario programado del terapeuta.
+                        ¿Deseas guardar el registro de todas formas?
+                    </p>
+                    <div className="wf-form-footer" style={{ justifyContent: 'center', gap: '1rem' }}>
+                        <button 
+                            type="button" 
+                            className="wf-btn-cancel" 
+                            onClick={() => setIsAdherenceModalOpen(false)}
+                            style={{ padding: '0.75rem 1.5rem', borderRadius: '12px' }}
+                        >
+                            Cancelar
+                        </button>
+                        <button 
+                            type="button" 
+                            className="wf-btn-save" 
+                            onClick={() => {
+                                setIsAdherenceModalOpen(false);
+                                handleSaveAttendance(undefined, true);
+                            }}
+                            style={{ padding: '0.75rem 2rem', borderRadius: '12px' }}
+                        >
+                            Guardar de todas formas
+                        </button>
+                    </div>
+                </div>
+            </Modal>
+
+            {/* ── Vacation History Modal ── */}
         <Modal
             isOpen={isVacationListModalOpen}
             onClose={() => setIsVacationListModalOpen(false)}
@@ -1174,7 +1407,49 @@ const WorkforceReport: React.FC = () => {
         </Modal>
         </div>
         
-        {/* ── Removed PrintableWorkforceReport overlay since PDF is now generated directly via JS ── */}
+        {/* ── Print Preview Modal ── */}
+        {isPrinting && printData && (
+            <div className="modal-overlay" style={{ zIndex: 1100 }}>
+                <div className="modal-content flex-layout" style={{ maxWidth: '900px', padding: 0, height: '90vh', display: 'flex', flexDirection: 'column' }}>
+                    <div className="modal-header no-print" style={{ padding: '1rem 1.5rem', borderBottom: '1px solid #e2e8f0', flexShrink: 0 }}>
+                        <div className="flex items-center gap-2">
+                            <Printer size={20} className="text-secondary" />
+                            <h3 style={{ margin: 0 }}>Vista Previa de Impresión</h3>
+                        </div>
+                        <button className="btn-icon-round" onClick={() => setIsPrinting(false)}>
+                            <X size={20} />
+                        </button>
+                    </div>
+
+                    <div className="modal-body" style={{ flex: 1, overflowY: 'auto', backgroundColor: '#f1f5f9', padding: '2rem' }}>
+                        <div className="print-preview-container" style={{ 
+                            backgroundColor: 'white', 
+                            boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)', 
+                            margin: '0 auto',
+                            width: '210mm', /* A4 Width */
+                            minHeight: '297mm' /* A4 Height */
+                        }}>
+                            <WorkforcePrintDocument {...printData} centerSettings={centerSettings} />
+                        </div>
+                    </div>
+
+                    {/* Dedicated Print Portal (Only visible during window.print()) */}
+                    <PrintPortal>
+                        <div className="printable-document">
+                            <WorkforcePrintDocument {...printData} centerSettings={centerSettings} />
+                        </div>
+                    </PrintPortal>
+
+                    <div className="modal-footer no-print" style={{ padding: '1rem 1.5rem', borderTop: '1px solid #e2e8f0', justifyContent: 'flex-end' }}>
+                        <button className="btn-secondary" onClick={() => setIsPrinting(false)}>Cancelar</button>
+                        <button className="btn-primary flex items-center gap-2" onClick={() => window.print()}>
+                            <Printer size={18} />
+                            <span>Imprimir / Guardar PDF</span>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        )}
 
         </>
     );

@@ -1,5 +1,5 @@
 import React from 'react';
-import { format } from 'date-fns';
+import { format, isValid } from 'date-fns';
 import type { Invoice } from './types';
 import './InvoiceTemplate.css';
 
@@ -15,8 +15,13 @@ interface InvoiceDocumentProps {
 }
 
 const InvoiceDocument: React.FC<InvoiceDocumentProps> = ({ invoice, patientDetails }) => {
+    const formatDateSafe = (dateStr: string) => {
+        const date = new Date(dateStr);
+        return isValid(date) ? format(date, 'dd/MM/yyyy') : 'Fecha inválida';
+    };
+
     return (
-        <div className="invoice-print-area only-print">
+        <div className="invoice-print-area printable-document">
             {/* Header: Company Details & Logo */}
             <div className="invoice-header">
                 <div className="center-details">
@@ -33,7 +38,7 @@ const InvoiceDocument: React.FC<InvoiceDocumentProps> = ({ invoice, patientDetai
             {/* Blue Banner */}
             <div className="invoice-banner">
                 <div className="invoice-title">FACTURA {invoice.number}</div>
-                <div className="invoice-date">{format(new Date(invoice.date), 'dd/MM/yyyy')}</div>
+                <div className="invoice-date">{formatDateSafe(invoice.date)}</div>
             </div>
 
             {/* Bill To */}
@@ -103,7 +108,7 @@ const InvoiceDocument: React.FC<InvoiceDocumentProps> = ({ invoice, patientDetai
                                 <td className="total-value">0,00 €</td>
                             </tr>
                             <tr className="final-total-row">
-                                <td className="total-label">TOTAL A PAGAR EL {format(new Date(invoice.date), 'dd/MM/yyyy')}</td>
+                                <td className="total-label">TOTAL A PAGAR EL {formatDateSafe(invoice.date)}</td>
                                 <td className="total-value">{invoice.amount.toFixed(2).replace('.', ',')} €</td>
                             </tr>
                         </tbody>

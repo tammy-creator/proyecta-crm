@@ -18,6 +18,29 @@ body {
     line-height: 1.5;
 }
 
+/* FULLSCREEN CALENDAR PORTAL - GLOBAL OVERRIDE */
+body.calendar-fullscreen-mode {
+    background-color: white !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    overflow: hidden !important;
+}
+
+body.calendar-fullscreen-mode #root,
+body.calendar-fullscreen-mode .layout-container,
+body.calendar-fullscreen-mode .main-content,
+body.calendar-fullscreen-mode .content-scrollable,
+body.calendar-fullscreen-mode .calendar-page-layout {
+    margin: 0 !important;
+    padding: 0 !important;
+    width: 100vw !important;
+    height: 100vh !important;
+    border-radius: 0 !important;
+    box-shadow: none !important;
+    background-color: white !important;
+    max-width: none !important;
+}
+
 h1,
 h2,
 h3,
@@ -192,16 +215,17 @@ button {
     display: flex;
     align-items: center;
     justify-content: center;
-    z-index: 1000;
+    z-index: 10001;
     backdrop-filter: blur(4px);
     animation: fadeIn 0.2s ease-out;
 }
 
 .modal-content {
     background: white;
-    padding: 2rem;
+    padding: 1.5rem; /* Reduced from 2rem */
     border-radius: 20px;
     width: 95%;
+    max-width: 600px; /* Added default max-width */
     max-height: 90vh;
     overflow-y: auto;
     box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
@@ -257,3 +281,183 @@ button {
         transform: translateY(0);
     }
 }
+
+/* HIGH-VISIBILITY ICON BUTTONS (Standardized) */
+.btn-icon-round {
+    width: 40px;
+    height: 40px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 999px;
+    border: 1px solid rgba(0, 0, 0, 0.08);
+    background-color: #f8fafc;
+    color: var(--color-text-primary);
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+    cursor: pointer;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.04);
+}
+
+.btn-icon-round:hover {
+    background-color: var(--color-primary);
+    color: white;
+    border-color: var(--color-primary);
+    box-shadow: 0 4px 8px rgba(26, 95, 122, 0.2);
+    transform: scale(1.05);
+}
+
+.btn-icon-round:active {
+    transform: scale(0.95);
+}
+
+/* Modal Headers must use btn-icon-round for close buttons */
+.modal-header .btn-icon-round {
+    color: #475569;
+}
+
+.modal-header .btn-icon-round:hover {
+    color: white;
+}
+
+.relative {
+    position: relative;
+}
+
+/* PREMIUM ACTION PILLS (Shared across modules) */
+.calendar-btn-pill {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.65rem;
+    padding: 0 1.5rem;
+    height: 48px;
+    border-radius: 9999px;
+    font-weight: 700;
+    font-size: 0.95rem;
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+    border: none;
+    cursor: pointer;
+    font-family: inherit;
+}
+
+.calendar-btn-primary {
+    background: #818cf8;
+    color: white;
+    box-shadow: 0 4px 14px rgba(129, 140, 248, 0.3);
+}
+
+.calendar-btn-primary:hover {
+    background: #6366f1;
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgba(129, 140, 248, 0.4);
+}
+
+.calendar-btn-secondary {
+    background: #f1f5f9;
+    color: #475569;
+}
+
+.calendar-btn-secondary:hover {
+    background: #e2e8f0;
+    color: #1e293b;
+}
+
+/* SEARCH PILLS (Shared across modules) */
+.search-pill {
+    position: relative;
+    display: flex;
+    align-items: center;
+    background: white;
+    border: 1px solid var(--color-border);
+    border-radius: 9999px;
+    padding: 0 1.25rem;
+    width: 300px;
+    height: 48px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.02);
+    transition: all 0.2s;
+}
+
+.search-pill:focus-within {
+    border-color: var(--color-primary);
+    box-shadow: 0 4px 12px rgba(99, 102, 241, 0.1);
+}
+
+.search-pill svg {
+    color: var(--color-text-secondary);
+    margin-right: 0.75rem;
+}
+
+.search-pill input {
+    border: none;
+    outline: none;
+    width: 100%;
+    font-size: 0.95rem;
+    background: transparent;
+}
+
+/* CARD SYSTEM (Refined) */
+.premium-card {
+    background-color: white;
+    border-radius: 1.5rem;
+    border: 1px solid rgba(0, 0, 0, 0.05);
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    overflow: hidden;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+}
+
+.premium-card:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 12px 24px -10px rgba(99, 102, 241, 0.2);
+    border-color: rgba(99, 102, 241, 0.3);
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(10px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+.animate-fade-in {
+    animation: fadeIn 0.4s ease-out forwards;
+}
+
+/* PAGE HEADERS (Standardized) */
+.page-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 3rem;
+    gap: 3rem;
+}
+
+.header-info {
+    display: flex;
+    flex-direction: column;
+}
+
+.page-title {
+    font-size: 2.25rem !important;
+    font-weight: 800 !important;
+    color: var(--color-text-primary);
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    margin: 0 !important;
+}
+
+.title-icon {
+    color: var(--color-primary);
+}
+
+.page-subtitle {
+    color: var(--color-text-secondary);
+    margin-top: 0.5rem;
+    font-size: 1rem;
+}
+
+.header-actions {
+    display: flex;
+    gap: 1.5rem; /* More space to avoid crowding */
+    align-items: center;
+}

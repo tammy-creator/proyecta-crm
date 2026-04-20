@@ -7,7 +7,19 @@ import type { Attendance, MonthlyReportSignature } from '../modules/workforce/ty
 import type { CenterSettings } from '../modules/admin/types';
 import logoUrl from '../assets/logo.jpg';
 
-// Helper to load image as base64 for jsPDF
+// Helper for safe date formatting
+const safeFormat = (dateStr: string | undefined | null, formatStr: string): string => {
+    if (!dateStr) return '';
+    try {
+        const parsed = parseISO(dateStr);
+        if (isNaN(parsed.getTime())) return '';
+        return format(parsed, formatStr, { locale: es });
+    } catch (e) {
+        console.warn("Error formatting date in PDF [v1.8]:", dateStr, e);
+        return '';
+    }
+};
+
 const getBase64ImageFromUrl = async (imageUrl: string): Promise<string> => {
     return new Promise((resolve, reject) => {
         const img = new Image();
@@ -31,11 +43,11 @@ const getBase64ImageFromUrl = async (imageUrl: string): Promise<string> => {
 };
 
 interface GeneratePDFParams {
-    month: string; // YYYY-MM
+    month: string; 
     therapist: Therapist;
     daysInMonth: Date[];
     getDailyData: (day: Date) => {
-        workAtt: Attendance | undefined;
+        workAtts: Attendance[];
         absenceAtt: Attendance | undefined;
         apptsCount: number;
     };
@@ -43,10 +55,11 @@ interface GeneratePDFParams {
     signature?: MonthlyReportSignature | null;
 }
 
-export const generateDetailedReportPDF = async (params: GeneratePDFParams): Promise<Blob> => {
+export const generateDetailedReportPDF = async (params: GeneratePDFParams): Promise<jsPDF> => {
     const { month, therapist, daysInMonth, getDailyData, centerSettings, signature } = params;
+    console.log("Generating FULL PDF [v1.8] for:", therapist.fullName, month);
 
-    const doc = new jsPDF('p', 'pt', 'a4'); // 'p'ortrait, 'pt' points, 'A4'
+    const doc = new jsPDF('p', 'pt', 'a4'); 
     const pageWidth = doc.internal.pageSize.getWidth();
 
     // 1. Load Logo
@@ -54,22 +67,20 @@ export const generateDetailedReportPDF = async (params: GeneratePDFParams): Prom
     try {
         logoBase64 = await getBase64ImageFromUrl(logoUrl);
     } catch (e) {
-        console.warn("Could not load logo for PDF", e);
+        console.warn("Could not load logo for PDF [v1.8]", e);
     }
 
     // Colors
     const primaryColor = '#333333';
     const secondaryColor = '#666666';
 
-    // Current Y position
     let yPos = 40;
 
     // --- Header ---
     if (logoBase64) {
-        doc.addImage(logoBase64, 'JPEG', 40, yPos, 120, 40); // width 120, height 40 proportional
+        doc.addImage(logoBase64, 'JPEG', 40, yPos, 120, 40);
     }
     
-    // Clinic Info
     const clinicName = centerSettings?.name || 'Centro Proyecta';
     const clinicCif = centerSettings?.cif || '';
     const clinicAddress = centerSettings?.address || '';
@@ -85,19 +96,16 @@ export const generateDetailedReportPDF = async (params: GeneratePDFParams): Prom
     if (clinicCif) doc.text(`CIF/NIF: ${clinicCif}`, 40, yPos + 75);
     if (clinicAddress) doc.text(`Dirección: ${clinicAddress}`, 40, yPos + 90);
 
-    // Title (Right Aligned)
     doc.setFontSize(22);
     doc.setFont('helvetica', 'bold');
     doc.setTextColor(primaryColor);
     doc.text('REGISTRO DE JORNADA', pageWidth - 40, yPos + 20, { align: 'right' });
     
-    // Month Subtitle
     doc.setFontSize(14);
     const parsedMonth = parseISO(`${month}-01`);
-    const monthText = format(parsedMonth, "MMMM 'de' yyyy", { locale: es }).toUpperCase();
+    const monthText = isNaN(parsedMonth.getTime()) ? month.toUpperCase() : format(parsedMonth, "MMMM 'de' yyyy", { locale: es }).toUpperCase();
     doc.text(monthText, pageWidth - 40, yPos + 40, { align: 'right' });
     
-    // Line separator
     yPos += 110;
     doc.setDrawColor(200, 200, 200);
     doc.line(40, yPos, pageWidth - 40, yPos);
@@ -112,42 +120,52 @@ export const generateDetailedReportPDF = async (params: GeneratePDFParams): Prom
     doc.text(`DNI/NIE: ${therapist.dni || 'No especificado'}`, 40, yPos + 30);
     doc.text(`Puesto: ${therapist.specialty || 'Especialista'}`, 40, yPos + 45);
 
-    // Totals Calculation
     let totalWorkedMinutes = 0;
     let totalAppointments = 0;
     
     const tableData: any[][] = [];
     
     daysInMonth.forEach((day) => {
-        const { workAtt, absenceAtt, apptsCount } = getDailyData(day);
-        
+        const { workAtts, absenceAtt, apptsCount } = getDailyData(day);
         totalAppointments += apptsCount;
         
-        let status = workAtt ? 'Trabajado' : '---';
+        let status = workAtts.length > 0 ? 'Trabajado' : '---';
         if (absenceAtt) {
             status = absenceAtt.type === 'vacation' ? 'Vacaciones' : 'Baja Médica';
         }
 
-        const start = workAtt?.startTime ? format(parseISO(workAtt.startTime), 'HH:mm') : '-';
-        const end = workAtt?.endTime ? format(parseISO(workAtt.endTime), 'HH:mm') : '-';
+        const entries = workAtts.map(att => safeFormat(att.startTime, 'HH:mm')).filter(Boolean).join('\n');
+        const exits = workAtts.map(att => att.endTime ? safeFormat(att.endTime, 'HH:mm') : '-').filter(Boolean).join('\n');
+
+        let dailyTotalMinutes = 0;
+        workAtts.forEach(att => {
+            if (att.startTime && att.endTime) {
+                try {
+                    const diff = differenceInMinutes(parseISO(att.endTime), parseISO(att.startTime));
+                    dailyTotalMinutes += Math.max(0, diff);
+                } catch (_e) {
+                    // ignore formatting errors
+                }
+            }
+        });
         
-        let dailyTotal = '-';
-        if (workAtt?.startTime && workAtt?.endTime) {
-            const mins = differenceInMinutes(parseISO(workAtt.endTime), parseISO(workAtt.startTime));
-            totalWorkedMinutes += mins;
-            const h = Math.floor(mins / 60);
-            const m = mins % 60;
-            dailyTotal = `${h}:${m.toString().padStart(2, '0')}`;
+        totalWorkedMinutes += dailyTotalMinutes;
+        
+        let dailyTotalStr = '-';
+        if (dailyTotalMinutes > 0) {
+            const h = Math.floor(dailyTotalMinutes / 60);
+            const m = dailyTotalMinutes % 60;
+            dailyTotalStr = `${h}:${m.toString().padStart(2, '0')}`;
         }
 
         tableData.push([
             format(day, 'dd/MM/yyyy'),
             status,
-            start,
-            end,
-            dailyTotal,
+            entries || '-',
+            exits || '-',
+            dailyTotalStr,
             apptsCount > 0 ? apptsCount.toString() : '-',
-            workAtt?.notes || ''
+            workAtts.map(a => a.notes).filter(Boolean).join('; ') || ''
         ]);
     });
 
@@ -155,14 +173,13 @@ export const generateDetailedReportPDF = async (params: GeneratePDFParams): Prom
     const totalRemainingMins = totalWorkedMinutes % 60;
     const totalWorkedString = `${totalHours}h ${totalRemainingMins > 0 ? `${totalRemainingMins}m` : ''}`;
 
-    // Totals Box (Right Aligned)
     doc.setFillColor(245, 245, 245);
     doc.roundedRect(pageWidth - 200, yPos - 10, 160, 65, 4, 4, 'F');
     doc.setFontSize(10);
     doc.text('Resumen del Mes', pageWidth - 120, yPos + 5, { align: 'center' });
     doc.setFontSize(14);
     doc.setFont('helvetica', 'bold');
-    doc.setTextColor(26, 95, 122); // primary CRM color approx
+    doc.setTextColor(26, 95, 122);
     doc.text(totalWorkedString, pageWidth - 120, yPos + 25, { align: 'center' });
     doc.setFontSize(10);
     doc.setFont('helvetica', 'normal');
@@ -171,14 +188,13 @@ export const generateDetailedReportPDF = async (params: GeneratePDFParams): Prom
 
     yPos += 70;
 
-    // --- Table ---
     autoTable(doc, {
         startY: yPos,
         head: [['Fecha', 'Estado', 'Entrada', 'Salida', 'Total', 'Citas', 'Notas']],
         body: tableData,
         theme: 'grid',
         headStyles: { fillColor: [26, 95, 122], fontSize: 9 },
-        bodyStyles: { fontSize: 8 },
+        bodyStyles: { fontSize: 8, textColor: [31, 41, 55] },
         columnStyles: {
             0: { cellWidth: 55 },
             1: { cellWidth: 65 },
@@ -189,7 +205,6 @@ export const generateDetailedReportPDF = async (params: GeneratePDFParams): Prom
             6: { cellWidth: 'auto' }
         },
         willDrawCell: function(data) {
-            // Apply subtle shading to weekends
             if (data.row.section === 'body') {
                 const rawData = data.row.raw as any[];
                 const dateParts = rawData[0].split('/');
@@ -201,24 +216,22 @@ export const generateDetailedReportPDF = async (params: GeneratePDFParams): Prom
                 }
                 const status = rawData[1];
                 if (status === 'Vacaciones') {
-                    doc.setFillColor(255, 243, 205); // yellow-ish
+                    doc.setFillColor(255, 243, 205);
                 } else if (status === 'Baja Médica') {
-                    doc.setFillColor(248, 215, 218); // red-ish
+                    doc.setFillColor(248, 215, 218);
                 }
             }
         }
     });
 
-    // @ts-ignore
-    yPos = doc.lastAutoTable.finalY + 30;
+    // @ts-expect-error the jspdf-autotable plugin adds this property
+    yPos = (doc.lastAutoTable?.finalY || 400) + 30;
 
-    // Check if we need a new page for signatures
     if (yPos > 650) {
         doc.addPage();
         yPos = 40;
     }
 
-    // --- Declaration ---
     doc.setFontSize(8);
     doc.setTextColor(secondaryColor);
     const declText = signature?.declaration || "El trabajador y la empresa dan su conformidad al presente registro diario de jornada a efectos de lo previsto en el Art. 34.9 del Estatuto de los Trabajadores. Mediante su firma, ambas partes reconocen y validan la veracidad de los datos contenidos en este documento respecto a las horas de inicio y finalización de la jornada laboral durante el mes referenciado.";
@@ -229,10 +242,7 @@ export const generateDetailedReportPDF = async (params: GeneratePDFParams): Prom
 
     yPos += 50;
 
-    // --- Signatures ---
     const sigBoxesY = yPos;
-    
-    // Therapist
     doc.setDrawColor(0);
     doc.line(80, sigBoxesY + 50, 250, sigBoxesY + 50);
     doc.setFontSize(10);
@@ -245,16 +255,18 @@ export const generateDetailedReportPDF = async (params: GeneratePDFParams): Prom
 
     if (signature && signature.signatureImage) {
         try {
+            const sigDate = safeFormat(signature.signedAt, 'dd/MM/yyyy HH:mm');
             doc.addImage(signature.signatureImage, 'PNG', 115, sigBoxesY - 10, 100, 50);
-            doc.setFontSize(6);
-            doc.setTextColor(0, 128, 0);
-            doc.text(`Firmado digitalmente: ${format(parseISO(signature.signedAt), 'dd/MM/yyyy HH:mm')}`, 165, sigBoxesY + 85, { align: 'center' });
+            if (sigDate) {
+                doc.setFontSize(6);
+                doc.setTextColor(0, 128, 0);
+                doc.text(`Firmado digitalmente: ${sigDate}`, 165, sigBoxesY + 85, { align: 'center' });
+            }
         } catch (e) {
             console.error("Error drawing signature image in PDF:", e);
         }
     }
 
-    // Company
     doc.setDrawColor(0);
     doc.line(pageWidth - 250, sigBoxesY + 50, pageWidth - 80, sigBoxesY + 50);
     doc.setFontSize(10);
@@ -265,10 +277,6 @@ export const generateDetailedReportPDF = async (params: GeneratePDFParams): Prom
     doc.setFont('helvetica', 'normal');
     doc.text(clinicName, pageWidth - 165, sigBoxesY + 75, { align: 'center' });
 
-    // Footer
-    doc.setFontSize(7);
-    doc.setTextColor(150, 150, 150);
-    doc.text(`Documento generado por Proyecta CRM - Ref: RPT-${month}-${Date.now().toString(36).toUpperCase()}`, 40, 800);
-
-    return doc.output('blob');
+    console.log("PDF generated successfully [v1.8]");
+    return doc;
 };

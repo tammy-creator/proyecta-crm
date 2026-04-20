@@ -27,6 +27,8 @@ const mapPatient = (row: any): Patient => {
         consentLopd: row.consent_lopd,
         consentMarketing: row.consent_marketing,
         consentDate: row.consent_date,
+        therapistId: row.therapist_id,
+        resenaClic: row.resena_clic,
         createdAt: row.created_at?.split('T')[0] ?? '',
         tutor1: t1Row
             ? {
@@ -107,6 +109,8 @@ export const createPatient = async (patient: Omit<Patient, 'id' | 'createdAt'>):
             consent_lopd: patient.consentLopd || false,
             consent_marketing: patient.consentMarketing || false,
             consent_date: patient.consentDate || null,
+            therapist_id: patient.therapistId || null,
+            resena_clic: patient.resenaClic || false,
         })
         .select()
         .single();
@@ -145,6 +149,19 @@ export const createPatient = async (patient: Omit<Patient, 'id' | 'createdAt'>):
     return (await getPatientById(patientRow.id))!;
 };
 
+const markReviewClicked = async (patientId: string): Promise<void> => {
+    const { error } = await supabase
+        .from('patients')
+        .update({ resena_clic: true })
+        .eq('id', patientId);
+    if (error) {
+        console.error(`[Persistence] Error marking review clicked for ${patientId}:`, error);
+        throw error;
+    }
+};
+
+export { markReviewClicked };
+
 export const updatePatient = async (patient: Patient): Promise<Patient> => {
     console.log(`[Persistence] Updating patient ${patient.id}...`);
 
@@ -169,6 +186,8 @@ export const updatePatient = async (patient: Patient): Promise<Patient> => {
             consent_lopd: patient.consentLopd,
             consent_marketing: patient.consentMarketing,
             consent_date: patient.consentDate,
+            therapist_id: patient.therapistId || null,
+            resena_clic: patient.resenaClic,
         })
         .eq('id', patient.id);
 
@@ -267,6 +286,14 @@ export const uploadPatientFile = async (patientId: string, file: Omit<PatientFil
     return { id: data.id, name: data.name, type: data.type, size: data.size, uploadDate: data.upload_date };
 };
 
+export const deletePatientFile = async (fileId: string): Promise<void> => {
+    const { error } = await supabase
+        .from('patient_files')
+        .delete()
+        .eq('id', fileId);
+    if (error) throw error;
+};
+
 export const getPatientsWithPoorAttendance = async (): Promise<Patient[]> => {
     // En el futuro: query con conteo de ausencias. Por ahora devuelve vacío.
     return [];
@@ -281,6 +308,8 @@ const mapWaiting = (row: any): WaitingListEntry => ({
     urgency: row.urgency,
     registrationDate: row.registration_date,
     notes: row.notes,
+    preferredDays: row.preferred_days || [],
+    preferredHours: row.preferred_hours || [],
 });
 
 export const getWaitingList = async (): Promise<WaitingListEntry[]> => {
@@ -296,11 +325,13 @@ export const addToWaitingList = async (entry: Omit<WaitingListEntry, 'id' | 'reg
     const { data, error } = await supabase
         .from('waiting_list')
         .insert({
-            patient_id: entry.patientId || null,
+            patient_id: entry.patientId && entry.patientId !== 'nuevo' ? entry.patientId : null,
             patient_name: entry.patientName,
             specialty: entry.specialty,
             urgency: entry.urgency,
             notes: entry.notes,
+            preferred_days: entry.preferredDays || [],
+            preferred_hours: entry.preferredHours || [],
         })
         .select()
         .single();
@@ -312,4 +343,23 @@ export const removeFromWaitingList = async (id: string): Promise<boolean> => {
     const { error } = await supabase.from('waiting_list').delete().eq('id', id);
     if (error) throw error;
     return true;
+};
+
+export const updateWaitingList = async (id: string, entry: Omit<WaitingListEntry, 'id' | 'registrationDate'>): Promise<WaitingListEntry> => {
+    const { data, error } = await supabase
+        .from('waiting_list')
+        .update({
+            patient_id: (entry.patientId && entry.patientId !== 'nuevo') ? entry.patientId : null,
+            patient_name: entry.patientName,
+            specialty: entry.specialty,
+            urgency: entry.urgency,
+            notes: entry.notes,
+            preferred_days: entry.preferredDays || [],
+            preferred_hours: entry.preferredHours || [],
+        })
+        .eq('id', id)
+        .select()
+        .single();
+    if (error) throw error;
+    return mapWaiting(data);
 };

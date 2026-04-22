@@ -68,6 +68,7 @@
 
 .notification-content {
     flex: 1;
+    padding-right: 2rem; /* Espacio reservado para los botones de la derecha */
 }
 
 .notification-title {
@@ -132,14 +133,16 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    opacity: 0;
+    opacity: 0.8;
     transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
-    transform: scale(0.8);
+    background-color: rgba(0, 0, 0, 0.04); /* Fondo sutil para que se vea siempre */
+    color: #64748b; /* slate-500 un poco más oscuro */
 }
 
 .notification-item:hover .dismiss-btn {
     opacity: 1;
-    transform: scale(1);
+    background-color: #fee2e2;
+    color: #ef4444;
 }
 
 .dismiss-btn:hover {

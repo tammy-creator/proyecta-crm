@@ -144,8 +144,15 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     const login = async (email: string, password: string): Promise<User> => {
         const { data, error } = await supabase.auth.signInWithPassword({ email, password });
         if (error) throw error;
+        
         const mappedUser = mapUser(data.user);
-        setUser(mappedUser); // Pre-set user for immediate use
+        setUser(mappedUser);
+        
+        // Ensure synchronization happens immediately after login
+        if (mappedUser.role === 'THERAPIST' && !mappedUser.therapistId) {
+            await syncTherapistId(mappedUser.id);
+        }
+        
         return mappedUser;
     };
 
@@ -156,7 +163,11 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     const refreshUser = async () => {
         const { data: { user: supabaseUser } } = await supabase.auth.getUser();
         if (supabaseUser) {
-            setUser(mapUser(supabaseUser));
+            const upUser = mapUser(supabaseUser);
+            setUser(upUser);
+            if (upUser.role === 'THERAPIST' && !upUser.therapistId) {
+                await syncTherapistId(upUser.id);
+            }
         }
     };
 

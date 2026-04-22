@@ -27,3 +27,15 @@ dist-ssr
 temp.html
 .gemini/
 supabase/.temp/
+.env
+.env.*
+!.env.example
+*.pdf
+*.docx
+lint-results.*
+check_eslint.js
+extract-lint.cjs
+debug_data.*
+scratch_*
+*.cjs
+*.ts.temp

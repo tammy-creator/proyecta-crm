@@ -73,10 +73,23 @@ export const changePassword = async (_userId: string, _currentPassword: string, 
 };
 
 export const adminResetPassword = async (therapistId: string, newPassword: string): Promise<void> => {
-    // Update password for the auth user whose ID matches the therapist's id
-    const { error } = await supabase.functions.invoke('admin-reset-password', {
-        body: { userId: therapistId, newPassword }
-    });
-    if (error) throw new Error(error.message || 'Error al cambiar la contraseña');
+    try {
+        const { data, error } = await supabase.functions.invoke('admin-reset-password', {
+            body: { userId: therapistId, newPassword }
+        });
+
+        if (error) {
+            console.error('Edge Function Invoke Error:', error);
+            throw error; 
+        }
+
+        if (data?.error) {
+            console.error('Edge Function Business Error:', data.error);
+            throw new Error(data.error);
+        }
+    } catch (err: any) {
+        console.error('adminResetPassword catch:', err);
+        throw err;
+    }
 };
 

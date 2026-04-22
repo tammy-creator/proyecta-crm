@@ -5,9 +5,11 @@ import type { WorkStatus } from './types';
 import { Play, Square, Clock, PenTool, AlertCircle } from 'lucide-react';
 import './WorkforceWidget.css';
 import SigningModal from './SigningModal';
+import { useToast } from '../../hooks/useToast';
 
 const WorkforceWidget: React.FC = () => {
     const { user } = useAuth();
+    const { showToast } = useToast();
     const [status, setStatus] = useState<WorkStatus>('offline');
     const [loading, setLoading] = useState(true);
     const [elapsed, setElapsed] = useState(0); 
@@ -77,21 +79,22 @@ const WorkforceWidget: React.FC = () => {
             // Validation: Check if within schedule
             const { isAdherent } = await checkScheduleAdherence(user.therapistId);
             
-            if (!isAdherent) {
-                const proceed = window.confirm(
-                    "⚠️ Advertencia: No estás dentro de tu horario programado para hoy.\n\n¿Deseas iniciar la jornada de todas formas?"
+            if (!isAdherent && user.role === 'THERAPIST') {
+                showToast(
+                    "No puedes iniciar jornada fuera de tu horario programado. Consulta tu agenda o contacta con administración.",
+                    "error"
                 );
-                if (!proceed) {
-                    setLoading(false);
-                    return;
-                }
+                setLoading(false);
+                return;
             }
 
             await clockIn(user.id, user.therapistId);
             await loadStatus();
             window.dispatchEvent(new CustomEvent('workforce-update'));
+            showToast("Jornada iniciada correctamente", "success");
         } catch (error) {
             console.error("Error clocking in:", error);
+            showToast("Error al iniciar jornada", "error");
         } finally {
             setLoading(false);
         }

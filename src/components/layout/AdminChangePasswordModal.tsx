@@ -37,7 +37,21 @@ const AdminChangePasswordModal: React.FC<AdminChangePasswordModalProps> = ({ the
             setSuccess(`Contraseña de ${therapistName} actualizada correctamente.`);
             setTimeout(() => onClose(), 1500);
         } catch (err: any) {
-            setError(err.message || 'Error al cambiar la contraseña.');
+            console.error('Password change error:', err);
+            
+            // Extract status from different possible formats in Supabase SDK errors
+            const status = err.status || (err as any).context?.status || (err as any).statusCode;
+            const message = err.message || 'Error al cambiar la contraseña.';
+
+            if (status === 401 || message.includes('401')) {
+                setError('Error 401: Sesión no autorizada o expirada. Intenta cerrar sesión y volver a entrar.');
+            } else if (status === 403 || message.includes('403')) {
+                setError('Error 403: No tienes permisos de administrador para realizar esta acción.');
+            } else if (status === 404 || message.includes('404')) {
+                setError('Error 404: La función no se encuentra en el servidor. Verifica el despliegue.');
+            } else {
+                setError(message);
+            }
         } finally {
             setLoading(false);
         }

@@ -61,18 +61,16 @@ const NotificationPanel: React.FC<NotificationPanelProps> = ({ notifications, on
                                     <div className="w-2 h-2 rounded-full bg-blue-500"></div>
                                 </button>
                             )}
-                            {!n.id.startsWith('sign-') && (
-                                <button
-                                    className="dismiss-btn"
-                                    title="Descartar"
-                                    onClick={(e) => {
-                                        e.stopPropagation();
-                                        onDismiss(n.id);
-                                    }}
-                                >
-                                    <X size={14} />
-                                </button>
-                            )}
+                            <button
+                                className="dismiss-btn"
+                                title="Descartar"
+                                onClick={(e) => {
+                                    e.stopPropagation();
+                                    onDismiss(n.id);
+                                }}
+                            >
+                                <X size={14} />
+                            </button>
                         </div>
                     ))
                 )}

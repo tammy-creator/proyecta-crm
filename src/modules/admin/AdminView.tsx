@@ -604,9 +604,12 @@ const AdminView: React.FC = () => {
                                         className="btn-secondary flex items-center gap-2"
                                         style={{ marginRight: 'auto' }}
                                         onClick={() => {
-                                            const t = therapists.find(th => th.fullName === selectedUser.fullName);
-                                            if (t) { setPasswordTherapistId(t.id); setIsPasswordModalOpen(true); }
-                                            else showToast('No se encontró el terapeuta asociado.', 'error');
+                                            if (selectedUser.id) {
+                                                setPasswordTherapistId(selectedUser.id);
+                                                setIsPasswordModalOpen(true);
+                                            } else {
+                                                showToast('No se encontró el ID de la cuenta.', 'error');
+                                            }
                                         }}
                                     >
                                         <Lock size={14} /> Cambiar Contraseña

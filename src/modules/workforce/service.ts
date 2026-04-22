@@ -412,11 +412,16 @@ export const checkScheduleAdherence = async (therapistId: string, checkDate?: Da
             return { isAdherent: false };
         }
 
+        const BUFFER_MINUTES = 10;
+
         const activeBlock = daySched.blocks.find(block => {
             const [startH, startM] = block.start.split(':').map(Number);
             const [endH, endM] = block.end.split(':').map(Number);
             
-            const startDate = set(now, { hours: startH, minutes: startM, seconds: 0, milliseconds: 0 });
+            // Allow 10 minutes BEFORE the start time
+            let startDate = set(now, { hours: startH, minutes: startM, seconds: 0, milliseconds: 0 });
+            startDate = new Date(startDate.getTime() - (BUFFER_MINUTES * 60 * 1000));
+            
             const endDate = set(now, { hours: endH, minutes: endM, seconds: 0, milliseconds: 0 });
             
             return isWithinInterval(now, { start: startDate, end: endDate });

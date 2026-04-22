@@ -161,7 +161,11 @@ export const getNotifications = async (role: 'ADMIN' | 'THERAPIST', userId: stri
         });
     }
 
-    return notifications.sort((a, b) => b.date.getTime() - a.date.getTime());
+    // 3. FINAL FILTERING (Dismissed IDs)
+    const dismissedIds = getDismissedIds();
+    return notifications
+        .filter(n => !dismissedIds.includes(n.id))
+        .sort((a, b) => b.date.getTime() - a.date.getTime());
 };
 
 export const getAIActivity = async (days: number = 3): Promise<Notification[]> => {

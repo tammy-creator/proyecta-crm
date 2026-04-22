@@ -27,6 +27,7 @@ const Header: React.FC = () => {
     const [unreadCount, setUnreadCount] = useState(0);
 
     const [showClockInReminder, setShowClockInReminder] = useState(false);
+    const [showClockOutReminder, setShowClockOutReminder] = useState(false);
 
     // Fetch notifications
     useEffect(() => {
@@ -46,10 +47,18 @@ const Header: React.FC = () => {
         const handleNotificationRefresh = () => {
             loadNotifications();
         };
+
+        // Periodic check for reminders (every 5 minutes)
+        const reminderInterval = setInterval(() => {
+            if (user?.role === 'THERAPIST') {
+                checkClockInStatus();
+            }
+        }, 5 * 60 * 1000);
         
         window.addEventListener('workforce-update', handleWorkforceUpdate);
         window.addEventListener('notification-refresh', handleNotificationRefresh);
         return () => {
+            clearInterval(reminderInterval);
             window.removeEventListener('workforce-update', handleWorkforceUpdate);
             window.removeEventListener('notification-refresh', handleNotificationRefresh);
         };
@@ -63,10 +72,18 @@ const Header: React.FC = () => {
             checkScheduleAdherence(user.therapistId)
         ]);
 
+        // Entrada: offline pero en horario (o margen 10 min)
         if (stats.status === 'offline' && adherence.isAdherent) {
             setShowClockInReminder(true);
         } else {
             setShowClockInReminder(false);
+        }
+
+        // Salida: working pero fuera de horario (estricto)
+        if (stats.status === 'working' && !adherence.isAdherent) {
+            setShowClockOutReminder(true);
+        } else {
+            setShowClockOutReminder(false);
         }
     };
 
@@ -165,7 +182,47 @@ const Header: React.FC = () => {
                             onClick={() => {
                                 setIsWorkforceOpen(true);
                             }}>
-                            Fichar Ahora
+                            Fichar Entrada
+                        </button>
+                    </div>
+                </div>
+            )}
+
+            {showClockOutReminder && (
+                <div className="clock-in-reminder-banner" style={{ background: 'linear-gradient(to right, #fef2f2, #fee2e2)', color: '#991b1b', borderBottomColor: '#fecaca' }}>
+                    <div className="flex items-center gap-2">
+                        <Clock size={16} />
+                        <span>Tu jornada laboral ha terminado. No olvides fichar la salida.</span>
+                    </div>
+                    <div className="flex items-center gap-4">
+                        <button 
+                            style={{
+                                backgroundColor: '#991b1b',
+                                color: '#ffffff',
+                                padding: '0.4rem 1.25rem',
+                                borderRadius: '999px',
+                                border: 'none',
+                                fontWeight: '700',
+                                fontSize: '0.875rem',
+                                cursor: 'pointer',
+                                boxShadow: '0 2px 5px rgba(153, 27, 27, 0.2)',
+                                transition: 'all 0.2s ease',
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '0.5rem'
+                            }}
+                            onMouseEnter={(e) => {
+                                e.currentTarget.style.backgroundColor = '#7f1d1d';
+                                e.currentTarget.style.transform = 'translateY(-1px)';
+                            }}
+                            onMouseLeave={(e) => {
+                                e.currentTarget.style.backgroundColor = '#991b1b';
+                                e.currentTarget.style.transform = 'none';
+                            }}
+                            onClick={() => {
+                                setIsWorkforceOpen(true);
+                            }}>
+                            Fichar Salida
                         </button>
                     </div>
                 </div>

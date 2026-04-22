@@ -87,7 +87,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({ mode: initialMode, therapis
     const [selectedTherapistIds, setSelectedTherapistIds] = useState<string[]>([]);
     const [therapistSearch, setTherapistSearch] = useState('');
     const [draggedApptId, setDraggedApptId] = useState<string | null>(null);
-    const [viewMode, setViewMode] = useState<'day' | 'week'>(initialMode === 'WEEKLY_SINGLE' ? 'week' : (isRole('ADMIN') ? 'day' : 'week'));
+    const [viewMode, setViewMode] = useState<'day' | 'week'>(initialMode === 'WEEKLY_SINGLE' ? 'week' : 'week');
 
     // Si no se pasa modo, se controla con viewMode
     const effectiveMode = initialMode || (viewMode === 'day' ? 'TODAY_MULTI' : 'WEEKLY_SINGLE');

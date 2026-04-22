@@ -298,7 +298,7 @@ const PatientList: React.FC = () => {
             setIsSending(false);
         }
     };
-    const generateAndSendPDF = async (updatedPatient: Patient, tutorSig: string | undefined, therapistSig: string | undefined, _extraFields: any) => {
+    const generateAndSendPDF = async (updatedPatient: Patient, _extraFields: any) => {
         const modalBody = document.querySelector('.consent-form-modal .modal-body');
         const container = document.querySelector('.consent-document');
         if (!modalBody || !container) return;
@@ -404,7 +404,7 @@ const PatientList: React.FC = () => {
                 await updatePatient(updatedPatientData);
 
                 // Generar PDF de Alta Fidelidad y enviar
-                const result = await generateAndSendPDF(updatedPatientData, tutorSignature, therapistSignature, extraFields);
+                const result = await generateAndSendPDF(updatedPatientData, extraFields);
                 
                 if (result?.invokeError) {
                     console.error("Error invoking Edge Function:", result.invokeError);
@@ -516,18 +516,20 @@ const PatientList: React.FC = () => {
         }
     };
 
-    const printConsentDocument = (patient?: Partial<Patient>) => {
+    const printConsentDocument = (patientData?: Partial<Patient>) => {
+        if (!patientData) return;
+        const p = patientData as any;
         window.print();
         return;
         // Dead code below, preserved to avoid massive deletion heuristics
-        const signatureUrl = patient?.consentSignature || '';
-        const tutor1 = patient?.tutor1;
-        const tutor2 = patient?.tutor2;
-        const consentDate = patient?.consentDate
-            ? new Date(patient.consentDate).toLocaleDateString('es-ES', { day: 'numeric', month: 'long', year: 'numeric' })
+        const signatureUrl = p.consentSignature || '';
+        const tutor1 = p.tutor1;
+        const tutor2 = p.tutor2;
+        const consentDate = p.consentDate
+            ? new Date(p.consentDate).toLocaleDateString('es-ES', { day: 'numeric', month: 'long', year: 'numeric' })
             : new Date().toLocaleDateString('es-ES', { day: 'numeric', month: 'long', year: 'numeric' });
 
-        const fullName = `${patient?.firstName || ''} ${patient?.lastName || ''}`.trim();
+        const fullName = `${p.firstName || ''} ${p.lastName || ''}`.trim();
 
         const html = `<!DOCTYPE html>
 <html lang="es">
@@ -773,23 +775,23 @@ const PatientList: React.FC = () => {
         <div class="data-grid">
           <div class="data-item">
             <span class="data-label">Nombre</span>
-            <span class="data-value">${patient.firstName || '---'}</span>
+            <span class="data-value">${p.firstName || '---'}</span>
           </div>
           <div class="data-item">
             <span class="data-label">Apellidos</span>
-            <span class="data-value">${patient.lastName || '---'}</span>
+            <span class="data-value">${p.lastName || '---'}</span>
           </div>
           <div class="data-item">
             <span class="data-label">Fecha de Nacimiento</span>
-            <span class="data-value">${patient.birthDate || '---'}</span>
+            <span class="data-value">${p.birthDate || '---'}</span>
           </div>
           <div class="data-item">
             <span class="data-label">Etapa de Escolarizaci\u00f3n</span>
-            <span class="data-value">${patient.schooling || '---'}</span>
+            <span class="data-value">${p.schooling || '---'}</span>
           </div>
           <div class="data-item full">
             <span class="data-label">Direcci\u00f3n</span>
-            <span class="data-value">${patient.address || '---'}</span>
+            <span class="data-value">${p.address || '---'}</span>
           </div>
         </div>
       </div>
@@ -806,23 +808,23 @@ const PatientList: React.FC = () => {
           <div class="data-grid">
             <div class="data-item">
               <span class="data-label">Nombre completo</span>
-              <span class="data-value">${tutor1.firstName || ''} ${tutor1.lastName || ''}</span>
+              <span class="data-value">${(tutor1 as any).firstName || ''} ${(tutor1 as any).lastName || ''}</span>
             </div>
             <div class="data-item">
               <span class="data-label">DNI / NIE</span>
-              <span class="data-value">${tutor1.dni || '---'}</span>
+              <span class="data-value">${(tutor1 as any).dni || '---'}</span>
             </div>
             <div class="data-item">
               <span class="data-label">Profesi\u00f3n</span>
-              <span class="data-value">${tutor1.job || '---'}</span>
+              <span class="data-value">${(tutor1 as any).job || '---'}</span>
             </div>
             <div class="data-item">
               <span class="data-label">Tel\u00e9fono</span>
-              <span class="data-value">${tutor1.phone || '---'}</span>
+              <span class="data-value">${(tutor1 as any).phone || '---'}</span>
             </div>
           </div>
         </div>` : ''}
-        ${tutor2?.firstName ? `
+        ${tutor2 && tutor2.firstName ? `
         <div class="tutor-card">
           <span class="tutor-badge">Tutor 2</span>
           <div class="data-grid">
@@ -855,11 +857,11 @@ const PatientList: React.FC = () => {
         <div class="data-grid">
           <div class="data-item">
             <span class="data-label">Alergias o intolerancias</span>
-            <span class="data-value">${patient.allergies || 'No consta'}</span>
+            <span class="data-value">${p.allergies || 'No consta'}</span>
           </div>
           <div class="data-item">
             <span class="data-label">\u00bfC\u00f3mo nos conociste?</span>
-            <span class="data-value">${patient.referralSource || '---'}</span>
+            <span class="data-value">${p.referralSource || '---'}</span>
           </div>
         </div>
       </div>
@@ -891,7 +893,7 @@ const PatientList: React.FC = () => {
           <div class="sig-box-label">Declaraci\u00f3n de consentimiento</div>
           <p class="sig-legal">
             D./D\u00aa <strong>${tutor1 ? `${tutor1.firstName || ''} ${tutor1.lastName || ''}` : '_______________'}</strong>, con DNI/NIE
-            <strong>${tutor1?.dni || '_______________'}</strong>, en calidad de tutor/a legal
+            <strong>${tutor1 ? tutor1.dni || '_______________' : '_______________'}</strong>, en calidad de tutor/a legal
             de <strong>${fullName}</strong>, declara haber le\u00eddo y aceptado la presente ficha de
             inscripci\u00f3n y las cl\u00e1usulas de protecci\u00f3n de datos (RGPD),
             autoriza el uso de los datos facilitados para la prestaci\u00f3n de los
@@ -910,15 +912,15 @@ const PatientList: React.FC = () => {
 </body>
 </html>`;
 
-        const printWindow = window.open('', '_blank', 'width=920,height=780');
-        if (!printWindow) {
+        const pw = window.open('', '_blank', 'width=920,height=780') as any;
+        if (!pw) {
             showToast('El navegador bloque\u00f3 la ventana emergente. Permite las ventanas emergentes para este sitio.', 'error');
             return;
         }
-        printWindow.document.open();
-        printWindow.document.write(html);
-        printWindow.document.close();
-        printWindow.focus();
+        pw.document.open();
+        pw.document.write(html);
+        pw.document.close();
+        pw.focus();
     };
 
 

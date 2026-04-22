@@ -360,6 +360,56 @@ const PatientList: React.FC = () => {
             container.classList.remove('capturing');
         }
     };
+    
+    const handleDownloadPDF = async () => {
+        if (!selectedPatient) return;
+        setIsSending(true);
+        try {
+            const modalBody = document.querySelector('.modal-body');
+            const container = document.querySelector('.consent-document');
+            if (!modalBody) {
+                showToast("No se pudo encontrar el contenido del documento", "error");
+                return;
+            }
+
+            showToast("Generando PDF de alta calidad. Espere por favor...", "info");
+            
+            const pages = modalBody.querySelectorAll('.doc-page');
+            if (pages.length === 0) {
+                // Fallback si no hay .doc-page (por ejemplo en el visor simple)
+                window.print();
+                return;
+            }
+
+            const pdf = new jsPDF('p', 'mm', 'a4');
+            const pdfWidth = pdf.internal.pageSize.getWidth();
+            const pdfHeight = pdf.internal.pageSize.getHeight();
+
+            if (container) container.classList.add('capturing');
+
+            for (let i = 0; i < pages.length; i++) {
+                const canvas = await html2canvas(pages[i] as HTMLElement, {
+                    scale: 2,
+                    useCORS: true,
+                    logging: false,
+                    backgroundColor: '#ffffff'
+                });
+                const imgData = canvas.toDataURL('image/jpeg', 0.95);
+                if (i > 0) pdf.addPage();
+                pdf.addImage(imgData, 'JPEG', 0, 0, pdfWidth, pdfHeight, undefined, 'FAST');
+            }
+            
+            if (container) container.classList.remove('capturing');
+            
+            pdf.save(`Documentacion_${selectedPatient.lastName || 'Paciente'}_${selectedPatient.firstName || ''}.pdf`);
+            showToast("PDF descargado correctamente", "success");
+        } catch (error) {
+            console.error("Error generating download:", error);
+            showToast("Error al generar el PDF", "error");
+        } finally {
+            setIsSending(false);
+        }
+    };
 
     const handleSaveAndSendConsent = async (options: { isSilentResend?: boolean } = {}) => {
         if (!selectedPatient?.id) return;
@@ -512,415 +562,7 @@ const PatientList: React.FC = () => {
             setIsConsentModalOpen(true);
             setIsSigned(true);
         } else {
-            showToast(`Visualizando archivo: ${file.name}`, "info");
         }
-    };
-
-    const printConsentDocument = (patientData?: Partial<Patient>) => {
-        if (!patientData) return;
-        const p = patientData as any;
-        window.print();
-        return;
-        // Dead code below, preserved to avoid massive deletion heuristics
-        const signatureUrl = p.consentSignature || '';
-        const tutor1 = p.tutor1;
-        const tutor2 = p.tutor2;
-        const consentDate = p.consentDate
-            ? new Date(p.consentDate).toLocaleDateString('es-ES', { day: 'numeric', month: 'long', year: 'numeric' })
-            : new Date().toLocaleDateString('es-ES', { day: 'numeric', month: 'long', year: 'numeric' });
-
-        const fullName = `${p.firstName || ''} ${p.lastName || ''}`.trim();
-
-        const html = `<!DOCTYPE html>
-<html lang="es">
-<head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Ficha de Inscripci\u00f3n \u2014 ${fullName}</title>
-  <style>
-    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
-    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-    body {
-      font-family: 'Inter', 'Helvetica Neue', Arial, sans-serif;
-      color: #1e293b;
-      font-size: 13px;
-      line-height: 1.65;
-      background: #f1f5f9;
-    }
-    /* Print toolbar */
-    .toolbar {
-      position: sticky;
-      top: 0;
-      z-index: 100;
-      background: #1e3a5f;
-      color: white;
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      padding: 0.75rem 2rem;
-      box-shadow: 0 2px 8px rgba(0,0,0,0.2);
-    }
-    .toolbar-title { font-size: 0.9rem; font-weight: 600; opacity: 0.9; }
-    .toolbar-patient { font-size: 0.85rem; opacity: 0.6; margin-left: 0.5rem; }
-    .btn-print {
-      background: #3b82f6;
-      color: white;
-      border: none;
-      border-radius: 8px;
-      padding: 0.5rem 1.25rem;
-      font-size: 0.9rem;
-      font-weight: 600;
-      cursor: pointer;
-      display: flex;
-      align-items: center;
-      gap: 0.5rem;
-      transition: background 0.2s;
-    }
-    .btn-print:hover { background: #2563eb; }
-    /* Page */
-    .page {
-      max-width: 800px;
-      margin: 2rem auto;
-      background: white;
-      border-radius: 12px;
-      overflow: hidden;
-      box-shadow: 0 4px 24px rgba(0,0,0,0.1);
-    }
-    /* Document Header */
-    .doc-header {
-      background: linear-gradient(135deg, #1e3a5f 0%, #2563eb 100%);
-      color: white;
-      padding: 2.5rem 2.5rem 1.5rem;
-      display: flex;
-      justify-content: space-between;
-      align-items: flex-start;
-    }
-    .clinic-brand { display: flex; flex-direction: column; gap: 0.25rem; }
-    .clinic-name { font-size: 1.3rem; font-weight: 800; letter-spacing: -0.02em; }
-    .clinic-sub { font-size: 0.8rem; opacity: 0.7; font-weight: 500; }
-    .doc-title-block { text-align: right; }
-    .doc-title { font-size: 1.5rem; font-weight: 800; letter-spacing: -0.03em; }
-    .doc-number { font-size: 0.75rem; opacity: 0.6; margin-top: 0.25rem; }
-    /* Accent bar */
-    .accent-bar { height: 4px; background: linear-gradient(90deg, #3b82f6, #06b6d4); }
-    /* Body */
-    .doc-body { padding: 2rem 2.5rem; }
-    /* Section */
-    .section { margin-bottom: 1.75rem; }
-    .section-header {
-      display: flex;
-      align-items: center;
-      gap: 0.6rem;
-      margin-bottom: 1rem;
-      padding-bottom: 0.4rem;
-      border-bottom: 2px solid #e2e8f0;
-    }
-    .section-dot {
-      width: 10px; height: 10px;
-      border-radius: 50%;
-      background: #3b82f6;
-      flex-shrink: 0;
-    }
-    .section-title {
-      font-size: 0.75rem;
-      font-weight: 700;
-      text-transform: uppercase;
-      letter-spacing: 0.08em;
-      color: #334155;
-    }
-    /* Data grid */
-    .data-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0.6rem 2.5rem; }
-    .data-item { display: flex; flex-direction: column; }
-    .data-label { font-size: 0.7rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.06em; color: #94a3b8; margin-bottom: 0.1rem; }
-    .data-value { font-size: 0.9rem; font-weight: 500; color: #1e293b; }
-    .data-item.full { grid-column: span 2; }
-    /* Tutor card */
-    .tutor-card {
-      background: #f8fafc;
-      border: 1px solid #e2e8f0;
-      border-radius: 10px;
-      padding: 1rem 1.25rem;
-      margin-bottom: 0.75rem;
-    }
-    .tutor-badge {
-      display: inline-block;
-      background: #dbeafe;
-      color: #1d4ed8;
-      font-size: 0.65rem;
-      font-weight: 700;
-      text-transform: uppercase;
-      letter-spacing: 0.08em;
-      padding: 0.15rem 0.5rem;
-      border-radius: 20px;
-      margin-bottom: 0.75rem;
-    }
-    /* RGPD */
-    .rgpd-box {
-      background: #f8fafc;
-      border: 1px solid #e2e8f0;
-      border-left: 3px solid #3b82f6;
-      border-radius: 8px;
-      padding: 1.25rem;
-    }
-    .rgpd-title {
-      font-size: 0.7rem;
-      font-weight: 700;
-      text-transform: uppercase;
-      letter-spacing: 0.08em;
-      color: #334155;
-      margin-bottom: 0.75rem;
-    }
-    .rgpd-text {
-      font-size: 0.72rem;
-      color: #64748b;
-      line-height: 1.6;
-      margin-bottom: 0.5rem;
-    }
-    .rgpd-footer {
-      font-size: 0.7rem;
-      font-weight: 600;
-      color: #475569;
-      text-align: center;
-      margin-top: 0.75rem;
-      padding-top: 0.75rem;
-      border-top: 1px solid #e2e8f0;
-    }
-    /* Signature */
-    .sig-section {
-      margin-top: 1.75rem;
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 1.5rem;
-      align-items: start;
-    }
-    .sig-box {
-      border: 1px solid #e2e8f0;
-      border-radius: 10px;
-      padding: 1rem;
-      background: #f8fafc;
-    }
-    .sig-box-label { font-size: 0.7rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; color: #94a3b8; margin-bottom: 0.75rem; }
-    .sig-img-container {
-      height: 110px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      background: white;
-      border: 1px dashed #cbd5e1;
-      border-radius: 6px;
-      margin-bottom: 0.75rem;
-    }
-    .sig-img-container img { max-height: 100px; max-width: 100%; object-fit: contain; }
-    .sig-no-sig { color: #cbd5e1; font-size: 0.8rem; }
-    .sig-date-label { font-size: 0.7rem; color: #94a3b8; font-weight: 500; }
-    .sig-date-value { font-size: 0.85rem; font-weight: 600; color: #334155; }
-    .sig-legal { font-size: 0.72rem; color: #64748b; line-height: 1.6; padding-top: 0.5rem; }
-    /* Footer */
-    .doc-footer {
-      background: #f8fafc;
-      border-top: 1px solid #e2e8f0;
-      padding: 1rem 2.5rem;
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-    }
-    .footer-left { font-size: 0.7rem; color: #94a3b8; }
-    .footer-right { font-size: 0.7rem; color: #94a3b8; text-align: right; }
-    /* Print overrides */
-    @media print {
-      body { background: white !important; }
-      .toolbar { display: none !important; }
-      .page { margin: 0 !important; border-radius: 0 !important; box-shadow: none !important; }
-      * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
-    }
-  </style>
-</head>
-<body>
-  <!-- Toolbar (screen only) -->
-  <div class="toolbar">
-    <div style="display:flex;align-items:center; gap:0.5rem">
-      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
-      <span class="toolbar-title">Ficha de Inscripci\u00f3n</span>
-      <span class="toolbar-patient">\u2014 ${fullName}</span>
-    </div>
-    <button class="btn-print" onclick="window.print()">
-      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>
-      Imprimir / Guardar PDF
-    </button>
-  </div>
-
-  <!-- Document -->
-  <div class="page">
-    <!-- Header -->
-    <div class="doc-header">
-      <div class="clinic-brand">
-        <div class="clinic-name">Centro Infantil Proyecta</div>
-        <div class="clinic-sub">C/ Alonso Ojeda, 14, Bajo Izq. \u2014 33208 Gij\u00f3n, Asturias</div>
-        <div class="clinic-sub">CIF: B01758515 \u2022 Tel: 647 257 447</div>
-      </div>
-      <div class="doc-title-block">
-        <div class="doc-title">FICHA DE INSCRIPCI\u00d3N</div>
-        <div class="doc-number">Generado el ${new Date().toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit', year: 'numeric' })}</div>
-      </div>
-    </div>
-    <div class="accent-bar"></div>
-
-    <div class="doc-body">
-      <!-- Datos del alumno -->
-      <div class="section">
-        <div class="section-header">
-          <div class="section-dot"></div>
-          <span class="section-title">Datos del Alumno/A</span>
-        </div>
-        <div class="data-grid">
-          <div class="data-item">
-            <span class="data-label">Nombre</span>
-            <span class="data-value">${p.firstName || '---'}</span>
-          </div>
-          <div class="data-item">
-            <span class="data-label">Apellidos</span>
-            <span class="data-value">${p.lastName || '---'}</span>
-          </div>
-          <div class="data-item">
-            <span class="data-label">Fecha de Nacimiento</span>
-            <span class="data-value">${p.birthDate || '---'}</span>
-          </div>
-          <div class="data-item">
-            <span class="data-label">Etapa de Escolarizaci\u00f3n</span>
-            <span class="data-value">${p.schooling || '---'}</span>
-          </div>
-          <div class="data-item full">
-            <span class="data-label">Direcci\u00f3n</span>
-            <span class="data-value">${p.address || '---'}</span>
-          </div>
-        </div>
-      </div>
-
-      <!-- Datos familiares -->
-      <div class="section">
-        <div class="section-header">
-          <div class="section-dot"></div>
-          <span class="section-title">Datos Familiares</span>
-        </div>
-        ${tutor1 ? `
-        <div class="tutor-card">
-          <span class="tutor-badge">Tutor 1 / Representante Legal</span>
-          <div class="data-grid">
-            <div class="data-item">
-              <span class="data-label">Nombre completo</span>
-              <span class="data-value">${(tutor1 as any).firstName || ''} ${(tutor1 as any).lastName || ''}</span>
-            </div>
-            <div class="data-item">
-              <span class="data-label">DNI / NIE</span>
-              <span class="data-value">${(tutor1 as any).dni || '---'}</span>
-            </div>
-            <div class="data-item">
-              <span class="data-label">Profesi\u00f3n</span>
-              <span class="data-value">${(tutor1 as any).job || '---'}</span>
-            </div>
-            <div class="data-item">
-              <span class="data-label">Tel\u00e9fono</span>
-              <span class="data-value">${(tutor1 as any).phone || '---'}</span>
-            </div>
-          </div>
-        </div>` : ''}
-        ${tutor2 && tutor2.firstName ? `
-        <div class="tutor-card">
-          <span class="tutor-badge">Tutor 2</span>
-          <div class="data-grid">
-            <div class="data-item">
-              <span class="data-label">Nombre completo</span>
-              <span class="data-value">${tutor2.firstName} ${tutor2.lastName || ''}</span>
-            </div>
-            <div class="data-item">
-              <span class="data-label">DNI / NIE</span>
-              <span class="data-value">${tutor2.dni || '---'}</span>
-            </div>
-            <div class="data-item">
-              <span class="data-label">Profesi\u00f3n</span>
-              <span class="data-value">${tutor2.job || '---'}</span>
-            </div>
-            <div class="data-item">
-              <span class="data-label">Tel\u00e9fono</span>
-              <span class="data-value">${tutor2.phone || '---'}</span>
-            </div>
-          </div>
-        </div>` : ''}
-      </div>
-
-      <!-- Datos de interés -->
-      <div class="section">
-        <div class="section-header">
-          <div class="section-dot"></div>
-          <span class="section-title">Datos de Inter\u00e9s</span>
-        </div>
-        <div class="data-grid">
-          <div class="data-item">
-            <span class="data-label">Alergias o intolerancias</span>
-            <span class="data-value">${p.allergies || 'No consta'}</span>
-          </div>
-          <div class="data-item">
-            <span class="data-label">\u00bfC\u00f3mo nos conociste?</span>
-            <span class="data-value">${p.referralSource || '---'}</span>
-          </div>
-        </div>
-      </div>
-
-      <!-- RGPD -->
-      <div class="section">
-        <div class="rgpd-box">
-          <div class="rgpd-title">Cl\u00e1usulas de Protecci\u00f3n de Datos (RGPD)</div>
-          <p class="rgpd-text">En cumplimiento de lo establecido en el Reglamento General de Protecci\u00f3n de Datos (RGPD) (UE) 2016/679 y a la Ley Org\u00e1nica 3/2018, de 5 de diciembre, de Protecci\u00f3n de Datos de Car\u00e1cter Personal y Garant\u00eda de los Derechos Digitales, le informamos de que los datos facilitados por usted, as\u00ed como los que se generen durante su relaci\u00f3n con nuestra entidad, ser\u00e1n objeto de tratamiento con la finalidad de prestarle el servicio solicitado, realizar la gesti\u00f3n administrativa derivada de nuestra relaci\u00f3n contractual, as\u00ed como enviarle comunicaciones comerciales sobre nuestros servicios.</p>
-          <p class="rgpd-text">La legitimaci\u00f3n del tratamiento ser\u00e1 en base al v\u00ednculo contractual existente, consentimiento, o bien por inter\u00e9s leg\u00edtimo u obligaci\u00f3n legal. Los datos se conservar\u00e1n mientras se mantenga la relaci\u00f3n contractual o durante el tiempo necesario para cumplir con las obligaciones legales. No se ceder\u00e1n sus datos a terceros, salvo obligaci\u00f3n legal o necesidad para el servicio.</p>
-          <p class="rgpd-text">El interesado puede ejercer sus derechos de acceso, rectificaci\u00f3n, supresi\u00f3n, limitaci\u00f3n, oposici\u00f3n, portabilidad y retirada del consentimiento enviando un email a: <strong>dpdcentroproyecta@gmail.com</strong>, adjuntando copia de su DNI.</p>
-          <div class="rgpd-footer">Centro Infantil Proyecta, S.L. \u2022 CIF: B01758515 \u2022 C/ Alonso Ojeda, 14, Bajo Izq. \u2014 33208 Gij\u00f3n, Asturias \u2022 647 257 447</div>
-        </div>
-      </div>
-
-      <!-- Firma -->
-      <div class="sig-section">
-        <div class="sig-box">
-          <div class="sig-box-label">Firma del Tutor Legal</div>
-          <div class="sig-img-container">
-            ${signatureUrl
-              ? `<img src="${signatureUrl}" alt="Firma electr\u00f3nica" />`
-              : `<span class="sig-no-sig">Sin firma registrada</span>`}
-          </div>
-          <div class="sig-date-label">Fecha de firma</div>
-          <div class="sig-date-value">${consentDate}</div>
-        </div>
-        <div class="sig-box">
-          <div class="sig-box-label">Declaraci\u00f3n de consentimiento</div>
-          <p class="sig-legal">
-            D./D\u00aa <strong>${tutor1 ? `${tutor1.firstName || ''} ${tutor1.lastName || ''}` : '_______________'}</strong>, con DNI/NIE
-            <strong>${tutor1 ? tutor1.dni || '_______________' : '_______________'}</strong>, en calidad de tutor/a legal
-            de <strong>${fullName}</strong>, declara haber le\u00eddo y aceptado la presente ficha de
-            inscripci\u00f3n y las cl\u00e1usulas de protecci\u00f3n de datos (RGPD),
-            autoriza el uso de los datos facilitados para la prestaci\u00f3n de los
-            servicios del Centro Infantil Proyecta, S.L.
-          </p>
-        </div>
-      </div>
-    </div><!-- /doc-body -->
-
-    <!-- Footer -->
-    <div class="doc-footer">
-      <div class="footer-left">Documento generado electr\u00f3nicamente \u2022 Centro Infantil Proyecta, S.L.</div>
-      <div class="footer-right">P\u00e1gina 1 de 1</div>
-    </div>
-  </div><!-- /page -->
-</body>
-</html>`;
-
-        const pw = window.open('', '_blank', 'width=920,height=780') as any;
-        if (!pw) {
-            showToast('El navegador bloque\u00f3 la ventana emergente. Permite las ventanas emergentes para este sitio.', 'error');
-            return;
-        }
-        pw.document.open();
-        pw.document.write(html);
-        pw.document.close();
-        pw.focus();
     };
 
 
@@ -1492,9 +1134,11 @@ const PatientList: React.FC = () => {
                                     <button
                                         type="button"
                                         className="btn-primary flex items-center gap-2"
-                                        onClick={() => printConsentDocument()}
+                                        onClick={handleDownloadPDF}
+                                        disabled={isSending}
+                                        style={{ backgroundColor: '#a5f3fc', color: '#0891b2', border: 'none' }}
                                     >
-                                        <Download size={16} /> Descargar PDF
+                                        <Download size={16} /> {isSending ? 'Generando...' : 'Descargar PDF'}
                                     </button>
                                 </>
                             )}

@@ -114,12 +114,13 @@ const BillingView: React.FC = () => {
             setTransactions(txData);
             setPatients(pData);
             setInvoices(invData);
-            // Solo citas no canceladas del día seleccionado
-            setTodayAppointments(apptData.filter(a => a.status !== 'Cancelada'));
-            // Todas las citas no pagadas hasta hoy (evitar contar citas futuras como deuda)
+            // Solo citas no canceladas ni bloqueos del día seleccionado
+            setTodayAppointments(apptData.filter(a => a.status !== 'Cancelada' && a.status !== 'Bloqueada'));
+            // Todas las citas no pagadas hasta hoy (evitar contar citas futuras como deuda), excluyendo bloqueos
             const now = new Date();
             setHistoricalUnpaidAppointments(unpaidAppts.filter(a =>
                 a.status !== 'Cancelada' &&
+                a.status !== 'Bloqueada' &&
                 new Date(a.start) <= now &&
                 isSameMonth(new Date(a.start), now)
             ));

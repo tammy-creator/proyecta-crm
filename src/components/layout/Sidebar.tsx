@@ -21,6 +21,7 @@ const Sidebar: React.FC = () => {
             title: 'Gestión Clínica',
             items: [
                 { path: '/patients', icon: <Users size={20} />, label: 'Pacientes', roles: ['ADMIN', 'THERAPIST'] },
+                { path: '/appointments', icon: <FileText size={20} />, label: 'Registro de Citas', roles: ['ADMIN', 'THERAPIST'] },
                 { path: '/waiting-list', icon: <Clock size={20} />, label: 'Lista de Espera', roles: ['ADMIN', 'THERAPIST'] },
             ]
         },

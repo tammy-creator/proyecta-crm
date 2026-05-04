@@ -43,6 +43,26 @@ async function reimportAppointments() {
         console.error("❌ Error cargando terapeutas:", tErr);
         return;
     }
+    const { data: services, error: sErr } = await supabase.from('clinical_services').select('id, name');
+    if (sErr) {
+        console.error("❌ Error cargando servicios:", sErr);
+        return;
+    }
+
+    // Mapeo de servicios clínicos (normalizado)
+    const serviceMap = (services || []).reduce((acc, s) => {
+        acc[normalizeString(s.name)] = s.id;
+        return acc;
+    }, {});
+
+    // Mapeos manuales específicos para Doctoralia
+    const doctoraliaServiceOverrides = {
+        'sesion individual logopedia': serviceMap[normalizeString('Sesión Logopedia')],
+        'sesion individual psicologia': serviceMap[normalizeString('Sesión Psicología ')],
+        'sesion individual': serviceMap[normalizeString('Sesión Individual')],
+        'sesion psicologia': serviceMap[normalizeString('Sesión Psicología ')],
+        'entrevista inicial': serviceMap[normalizeString('Valoración/Entrevista Inicial')]
+    };
 
     const manualOverrides = {
         "carmen laura": "jorge abol",
@@ -264,6 +284,10 @@ async function reimportAppointments() {
         const therapistId = tMatch ? tMatch.id : null;
         const therapistName = therapistRaw;
 
+        // Determinar ID de servicio
+        const normService = normalizeString(serviceRaw);
+        let serviceId = doctoraliaServiceOverrides[normService] || serviceMap[normService] || null;
+
         // Insertar
         const { error: iError } = await supabase
             .from('appointments')
@@ -272,6 +296,7 @@ async function reimportAppointments() {
                 patient_name: patientName,
                 therapist_id: therapistId,
                 therapist_name: therapistName,
+                service_id: serviceId,
                 start_time: startTime,
                 end_time: endTime,
                 status: status,

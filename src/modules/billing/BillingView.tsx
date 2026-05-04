@@ -3,7 +3,7 @@ import { getTransactions, recordPayment, updateTransaction, createTransaction, t
 import { type Transaction, type PaymentMethod } from './types';
 import Card from '../../components/ui/Card';
 import { DollarSign, Clock, CheckCircle, CreditCard, Wallet, Send, Download, Calendar as CalendarIcon, Edit2, X, FileText, Receipt, Filter, TrendingUp, AlertTriangle, Banknote, User } from 'lucide-react';
-import { format, parseISO, startOfDay, endOfDay, isValid } from 'date-fns';
+import { format, parseISO, startOfDay, endOfDay, isValid, isSameMonth } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { getPatients } from '../patients/service';
 import { type Patient } from '../patients/types';
@@ -120,7 +120,8 @@ const BillingView: React.FC = () => {
             const now = new Date();
             setHistoricalUnpaidAppointments(unpaidAppts.filter(a =>
                 a.status !== 'Cancelada' &&
-                new Date(a.start) <= now
+                new Date(a.start) <= now &&
+                isSameMonth(new Date(a.start), now)
             ));
         } catch (error) {
             console.error("Error fetching billing data:", error);
@@ -321,7 +322,7 @@ const BillingView: React.FC = () => {
 
     // Transacciones con estado Pendiente
     const pendingTransactionsAmount = transactions
-        .filter(t => t.status === 'Pendiente')
+        .filter(t => t.status === 'Pendiente' && isSameMonth(parseISO(t.date), new Date()))
         .reduce((acc, t) => acc + Number(t.amount || 0), 0);
 
     // Citas que no están pagadas Y no tienen transacción asociada
@@ -467,7 +468,7 @@ const BillingView: React.FC = () => {
                             <AlertTriangle size={22} />
                         </div>
                         <div className="overview-info">
-                            <span className="overview-label">Pendiente</span>
+                            <span className="overview-label">Pendiente (Mes)</span>
                             <span className="overview-value" style={{ color: '#d97706' }}>{pendingAmount.toFixed(2)}€</span>
                         </div>
                     </Card>

@@ -237,17 +237,28 @@ const CalendarView: React.FC<CalendarViewProps> = ({ mode: initialMode, therapis
         };
     }, [isEmbedded, dynamicHours]);
 
+    // Handle navigation from Dashboard or Registry
+    useEffect(() => {
+        const state = location.state as { date?: string; openAppointmentId?: string } | null;
+        if (state?.date) {
+            const targetDate = parseISO(state.date);
+            if (isValid(targetDate) && !isSameDay(targetDate, currentDate)) {
+                setCurrentDate(targetDate);
+            }
+        }
+    }, [location.state]);
+
     useEffect(() => {
         const state = location.state as { openAppointmentId?: string } | null;
         if (state?.openAppointmentId && appointments.length > 0) {
             const appt = appointments.find(a => a.id === state.openAppointmentId);
             if (appt) {
                 handleOpenModal(appt);
-                // Clear state to prevent reopening on re-renders (this is a bit tricky with history, but acceptable for now)
-                window.history.replaceState({}, document.title);
+                // Clear state to prevent reopening
+                navigate(location.pathname, { replace: true, state: {} });
             }
         }
-    }, [appointments, location]);
+    }, [appointments, location.state]);
 
     const nextPeriod = () => {
         if (effectiveMode === 'TODAY_MULTI') setCurrentDate(addDays(currentDate, 1));
@@ -842,6 +853,9 @@ const CalendarView: React.FC<CalendarViewProps> = ({ mode: initialMode, therapis
         const distinct = Array.from(unique.values());
 
         return distinct.filter(appt => {
+            // Hide canceled appointments from the visual calendar
+            if (appt.status === 'Cancelada') return false;
+
             // Si hay un terapeuta específico forzado (por filtro o por rol), mostrar solo ese
             if (effectiveTherapistId) {
                 return String(appt.therapistId) === String(effectiveTherapistId);

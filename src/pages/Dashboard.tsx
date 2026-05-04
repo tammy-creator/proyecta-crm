@@ -4,7 +4,7 @@ import { useAuth } from '../context/AuthContext';
 import Card from '../components/ui/Card';
 import AppointmentDetailModal from '../components/ui/AppointmentDetailModal';
 import { Users, Calendar, DollarSign, AlertTriangle, FileText, Clock, BarChart3, ShieldCheck } from 'lucide-react';
-import { startOfDay, endOfDay, format, subDays, eachDayOfInterval, isSameDay } from 'date-fns';
+import { startOfDay, endOfDay, format, subDays, eachDayOfInterval, isSameDay, isSameMonth, startOfMonth, endOfMonth } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { 
     BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer 
@@ -135,16 +135,21 @@ const Dashboard: React.FC = () => {
                 .filter((t: Transaction) => t.status === 'Pagado')
                 .reduce((sum: number, t: Transaction) => sum + Number(t.amount || 0), 0);
 
-            // Pendiente del día: Transacciones Pendientes de hoy + Citas sin transacción de hoy
+            // Pendiente del Mes: Transacciones Pendientes del mes + Citas sin transacción del mes (hasta ahora)
             const allTxApptIds = new Set(transactions.map(t => t.appointmentId).filter(Boolean));
+            const now = new Date();
+            const monthStart = startOfMonth(now);
+            const monthEnd = endOfMonth(now);
 
-            const pendingTransactionsAmount = todayTrans
-                .filter(t => t.status === 'Pendiente')
+            // Fetch all appointments for the current month for the pending calculation
+            const monthAppts = await getAppointments(monthStart, monthEnd, effectiveTherapistId);
+
+            const pendingTransactionsAmount = transactions
+                .filter(t => t.status === 'Pendiente' && isSameMonth(new Date(t.date), now))
                 .reduce((sum, t) => sum + Number(t.amount || 0), 0);
 
-            const now = new Date();
-            const unchargedAppointmentsAmount = todayAppts
-                .filter(a => !allTxApptIds.has(a.id) && !a.isPaid && new Date(a.start) <= now)
+            const unchargedAppointmentsAmount = monthAppts
+                .filter(a => !allTxApptIds.has(a.id) && !a.isPaid && a.status !== 'Cancelada' && new Date(a.start) <= now)
                 .reduce((sum, a) => sum + Number(a.price || 0), 0);
 
             const pendingRevenue = pendingTransactionsAmount + unchargedAppointmentsAmount;
@@ -207,7 +212,7 @@ const Dashboard: React.FC = () => {
             title: 'Ingresos Hoy',
             value: loading ? '...' : `${stats.todayRevenue.toFixed(0)}€`,
             icon: <DollarSign strokeWidth={1.5} />,
-            trend: stats.pendingRevenue > 0 ? `${stats.pendingRevenue.toFixed(0)}€ pendiente` : 'Todo al día',
+            trend: stats.pendingRevenue > 0 ? `${stats.pendingRevenue.toFixed(0)}€ pendiente mes` : 'Todo al día',
             path: '/billing',
             type: 'revenue'
         },
@@ -384,7 +389,7 @@ const Dashboard: React.FC = () => {
                     </div>
                 </Card>
 
-                <Card title="Resumen de Cobros" className="alerts-preview" subtitle="Transacciones pendientes de hoy">
+                <Card title="Resumen de Cobros" className="alerts-preview" subtitle="Pendiente acumulado del mes">
                     <div className="space-y-3">
                         {loading ? (
                             <div className="text-secondary text-sm p-4 text-center">Cargando...</div>

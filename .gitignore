@@ -39,3 +39,14 @@ debug_data.*
 scratch_*
 *.cjs
 *.ts.temp
+*.csv
+*.json
+scratch/
+scripts/manual_*.mjs
+*.mjs
+!scripts/reimport_appointments.mjs
+!scripts/import_history.mjs
+!scripts/fix_duplicate_patients.mjs
+!scripts/sync_patients.mjs
+!vite.config.mjs
+!next.config.mjs

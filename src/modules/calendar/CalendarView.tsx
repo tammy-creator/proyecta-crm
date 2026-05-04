@@ -8,6 +8,7 @@ import {
     eachDayOfInterval,
     isSameDay,
     parseISO,
+    isValid,
     formatISO,
     setHours,
     setMinutes,

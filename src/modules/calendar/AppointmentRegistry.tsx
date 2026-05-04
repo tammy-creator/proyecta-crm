@@ -5,8 +5,7 @@ import {
     parseISO, 
     startOfMonth, 
     endOfMonth, 
-    isValid, 
-    isSameDay
+    isValid
 } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { 
@@ -16,14 +15,12 @@ import {
     User, 
     Clock, 
     AlertTriangle, 
-    CheckCircle, 
     X, 
     Eye, 
     ExternalLink,
     Lock,
     Stethoscope,
-    FileText,
-    ArrowUpDown
+    FileText
 } from 'lucide-react';
 import { getAppointments } from './service';
 import { type Appointment, type AppointmentStatus } from './types';

@@ -146,3 +146,19 @@ export const setAppointmentPaidStatus = async (appointmentId: string, isPaid: bo
         .eq('id', appointmentId);
     if (error) throw error;
 };
+
+export const getPendingRegistrationAppointments = async (): Promise<Appointment[]> => {
+    const { data, error } = await supabase
+        .from('appointments')
+        .select('*')
+        .eq('status', 'Finalizada')
+        .is('session_diary', null)
+        .order('start_time', { ascending: false });
+    
+    if (error) throw error;
+    
+    // Also filter out empty strings in JS just in case, or use a more complex query
+    return (data ?? [])
+        .map(mapAppointment)
+        .filter(a => !a.sessionDiary || a.sessionDiary.trim() === '');
+};

@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import Card from '../components/ui/Card';
 import AppointmentDetailModal from '../components/ui/AppointmentDetailModal';
-import { Users, Calendar, DollarSign, AlertTriangle, FileText, Clock, BarChart3 } from 'lucide-react';
+import { Users, Calendar, DollarSign, AlertTriangle, FileText, Clock, BarChart3, ShieldCheck } from 'lucide-react';
 import { startOfDay, endOfDay, format, subDays, eachDayOfInterval, isSameDay } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { 
@@ -12,6 +12,7 @@ import {
 import { getAppointments } from '../modules/calendar/service';
 import { getTransactions } from '../modules/billing/service';
 import { getWaitingList } from '../modules/patients/service';
+import { getPendingRegistrationAppointments } from '../modules/calendar/service';
 import { supabase } from '../lib/supabase';
 import { type Appointment } from '../modules/calendar/types';
 import { type Transaction } from '../modules/billing/types';
@@ -43,6 +44,7 @@ const Dashboard: React.FC = () => {
         waitingListCount: 0,
         weeklyOccupancy: [],
     });
+    const [pendingAudit, setPendingAudit] = useState<Appointment[]>([]);
     const [loading, setLoading] = useState(true);
 
     const getStatusClass = (status: string) => {
@@ -172,6 +174,11 @@ const Dashboard: React.FC = () => {
                 waitingListCount: waitingList.length,
                 weeklyOccupancy,
             });
+
+            // 5. Auditoría de registros pendientes
+            const pendingData = await getPendingRegistrationAppointments();
+            const filteredPending = isRole('ADMIN') ? pendingData : pendingData.filter(a => a.therapistId === user.therapistId);
+            setPendingAudit(filteredPending);
         } catch (err) {
             console.error('Error cargando dashboard:', err);
         } finally {
@@ -401,7 +408,67 @@ const Dashboard: React.FC = () => {
                         )}
                     </div>
                 </Card>
+            </div>
 
+            {/* Nueva Sección de Auditoría Global */}
+            <div className="mt-8">
+                <Card 
+                    title="Auditoría Clínica: Diarios Pendientes de Registro" 
+                    subtitle={isRole('ADMIN') ? "Vista global del centro" : "Mis sesiones pendientes"}
+                    icon={<FileText size={20} className="text-red-500" />}
+                >
+                    {pendingAudit.length === 0 ? (
+                        <div className="py-8 text-center text-secondary italic">
+                            <ShieldCheck size={40} className="mx-auto mb-2 opacity-20 text-emerald-500" />
+                            <p>No tienes sesiones pendientes de registro clínico. ¡Buen trabajo!</p>
+                        </div>
+                    ) : (
+                        <div className="overflow-x-auto">
+                            <table className="w-full text-left text-sm">
+                                <thead className="bg-slate-50 text-slate-500 uppercase text-[10px] font-bold letter-spacing-wider">
+                                    <tr>
+                                        <th className="px-4 py-3">Paciente</th>
+                                        <th className="px-4 py-3">Fecha</th>
+                                        {isRole('ADMIN') && <th className="px-4 py-3">Terapeuta</th>}
+                                        <th className="px-4 py-3">Servicio</th>
+                                        <th className="px-4 py-3 text-right">Acción</th>
+                                    </tr>
+                                </thead>
+                                <tbody className="divide-y divide-slate-100">
+                                    {pendingAudit.map(appt => (
+                                        <tr key={appt.id} className="hover:bg-slate-50 transition-colors">
+                                            <td className="px-4 py-4 font-bold text-slate-700">{appt.patientName}</td>
+                                            <td className="px-4 py-4 text-slate-500">
+                                                {new Date(appt.start).toLocaleDateString('es-ES', { day: '2-digit', month: 'short' })}
+                                            </td>
+                                            {isRole('ADMIN') && (
+                                                <td className="px-4 py-4">
+                                                    <span className="px-2 py-1 bg-blue-50 text-blue-700 rounded-md text-[11px] font-medium">
+                                                        {appt.therapistName}
+                                                    </span>
+                                                </td>
+                                            )}
+                                            <td className="px-4 py-4 text-slate-500 italic">{appt.type}</td>
+                                            <td className="px-4 py-4 text-right">
+                                                <button 
+                                                    className="text-primary hover:underline font-bold"
+                                                    onClick={() => navigate(`/patients?id=${appt.patientId}&tab=history`)}
+                                                >
+                                                    Completar Registro
+                                                </button>
+                                            </td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                            {pendingAudit.length > 5 && (
+                                <p className="text-[10px] text-center mt-4 text-slate-400 italic">
+                                    Mostrando las últimas sesiones pendientes...
+                                </p>
+                            )}
+                        </div>
+                    )}
+                </Card>
             </div>
         </div>
     );

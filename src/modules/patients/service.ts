@@ -11,7 +11,7 @@ const mapPatient = (row: any): Patient => {
         id: row.id,
         firstName: row.first_name,
         lastName: row.last_name,
-        birthDate: row.birth_date,
+        birthDate: row.birth_date === '1900-01-01' ? '' : row.birth_date,
         schooling: row.schooling,
         address: row.address,
         dni: row.dni,
@@ -64,7 +64,7 @@ const mapPatient = (row: any): Patient => {
 export const getPatients = async (): Promise<Patient[]> => {
     const { data, error } = await supabase
         .from('patients')
-        .select('*, patient_tutors(*), patient_files(*)')
+        .select('*, patient_tutors(*)')
         .order('created_at', { ascending: false });
 
     if (error) {
@@ -95,7 +95,7 @@ export const createPatient = async (patient: Omit<Patient, 'id' | 'createdAt'>):
         .insert({
             first_name: patient.firstName,
             last_name: patient.lastName,
-            birth_date: patient.birthDate,
+            birth_date: patient.birthDate || '1900-01-01',
             schooling: patient.schooling,
             address: patient.address,
             dni: patient.dni,
@@ -171,7 +171,7 @@ export const updatePatient = async (patient: Patient): Promise<Patient> => {
         .update({
             first_name: patient.firstName,
             last_name: patient.lastName,
-            birth_date: patient.birthDate,
+            birth_date: patient.birthDate || '1900-01-01',
             schooling: patient.schooling,
             address: patient.address,
             dni: patient.dni,
@@ -271,6 +271,47 @@ export const updatePatient = async (patient: Patient): Promise<Patient> => {
     return final;
 };
 
+export const deletePatient = async (id: string): Promise<void> => {
+    console.log(`[Persistence] Deleting patient ${id}...`);
+    const { error } = await supabase.from('patients').delete().eq('id', id);
+    if (error) {
+        console.error("[Persistence] Delete failed:", error);
+        throw error;
+    }
+};
+
+export const uploadPatientFileContent = async (patientId: string, fileName: string, fileContent: Blob | ArrayBuffer, type: string): Promise<PatientFile> => {
+    // 1. Saneamos el nombre para el almacenamiento
+    const sanitizePath = (str: string) => str.normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/\s+/g, '_').replace(/[^a-zA-Z0-9._-]/g, '');
+    const cleanFileName = sanitizePath(fileName);
+    const filePath = `${patientId}/${cleanFileName}`;
+
+    // 2. Subimos al Storage
+    const { error: storageError } = await supabase.storage
+        .from('patient-docs')
+        .upload(filePath, fileContent, {
+            contentType: type,
+            upsert: true
+        });
+
+    if (storageError) throw storageError;
+
+    // 3. Registramos en la base de datos
+    const { data, error: dbError } = await supabase
+        .from('patient_files')
+        .insert({
+            patient_id: patientId,
+            name: fileName,
+            type: type,
+            size: `${((fileContent instanceof Blob ? fileContent.size : (fileContent as ArrayBuffer).byteLength) / (1024 * 1024)).toFixed(2)} MB`
+        })
+        .select()
+        .single();
+
+    if (dbError) throw dbError;
+    return { id: data.id, name: data.name, type: data.type, size: data.size, uploadDate: data.upload_date };
+};
+
 export const uploadPatientFile = async (patientId: string, file: Omit<PatientFile, 'id' | 'uploadDate'>): Promise<PatientFile> => {
     const { data, error } = await supabase
         .from('patient_files')
@@ -286,12 +327,41 @@ export const uploadPatientFile = async (patientId: string, file: Omit<PatientFil
     return { id: data.id, name: data.name, type: data.type, size: data.size, uploadDate: data.upload_date };
 };
 
-export const deletePatientFile = async (fileId: string): Promise<void> => {
-    const { error } = await supabase
+export const getPatientFileUrl = async (patientId: string, fileName: string): Promise<string> => {
+    // Sanitize path like we did in import
+    const sanitizePath = (str: string) => str.normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/\s+/g, '_').replace(/[^a-zA-Z0-9._-]/g, '');
+    const cleanFileName = sanitizePath(fileName);
+    const filePath = `${patientId}/${cleanFileName}`;
+    
+    const { data } = supabase.storage
+        .from('patient-docs')
+        .getPublicUrl(filePath);
+    
+    return data.publicUrl;
+};
+
+export const deletePatientFile = async (fileId: string, patientId?: string, fileName?: string): Promise<void> => {
+    // 1. Borrar de la base de datos
+    const { error: dbError } = await supabase
         .from('patient_files')
         .delete()
         .eq('id', fileId);
-    if (error) throw error;
+    if (dbError) throw dbError;
+
+    // 2. Si tenemos info para el Storage, borrar también de forma silenciosa
+    if (patientId && fileName) {
+        const sanitizePath = (str: string) => str.normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/\s+/g, '_').replace(/[^a-zA-Z0-9._-]/g, '');
+        const cleanFileName = sanitizePath(fileName);
+        const filePath = `${patientId}/${cleanFileName}`;
+
+        const { error: storageError } = await supabase.storage
+            .from('patient-docs')
+            .remove([filePath]);
+        
+        if (storageError) {
+            console.warn(`[Persistence] Could not delete file ${filePath} from storage:`, storageError);
+        }
+    }
 };
 
 export const getPatientsWithPoorAttendance = async (): Promise<Patient[]> => {

@@ -93,6 +93,12 @@ const SignatureBox: React.FC<{
                         data-role={role}
                         onMouseDown={startDrawing} onMouseMove={draw} onMouseUp={stopDrawing} onMouseLeave={stopDrawing}
                         onTouchStart={startDrawing} onTouchMove={draw} onTouchEnd={stopDrawing}
+                        ref={(el) => {
+                            if (el) {
+                                // Optimizamos el contexto para lecturas frecuentes (necesario para el PDF)
+                                el.getContext('2d', { willReadFrequently: true });
+                            }
+                        }}
                     />
                 ) : null}
                 

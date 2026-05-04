@@ -99,6 +99,33 @@ Deno.serve(async (req) => {
             const { error } = await supabaseService.from('attendance').delete().eq('id', id);
             if (error) throw error;
             result = { success: true };
+        } else if (action === 'insert-global-holiday') {
+            const { startTime, endTime, notes } = record;
+            
+            // Fetch all therapists with linked user accounts
+            const { data: therapists, error: tError } = await supabaseService
+                .from('user_accounts')
+                .select('id, therapist_id')
+                .not('therapist_id', 'is', null);
+            
+            if (tError) throw tError;
+            
+            const recordsToInsert = therapists.map(t => ({
+                user_id: t.id,
+                therapist_id: t.therapist_id,
+                start_time: startTime,
+                end_time: endTime,
+                type: 'holiday',
+                notes: notes ? `(FESTIVO GLOBAL) ${notes}` : 'FESTIVO GLOBAL'
+            }));
+            
+            const { data, error: insError } = await supabaseService
+                .from('attendance')
+                .insert(recordsToInsert)
+                .select();
+                
+            if (insError) throw insError;
+            result = data;
         } else if (action === 'cleanup') {
             if (!therapist_id) throw new Error('Therapist ID required for cleanup');
             

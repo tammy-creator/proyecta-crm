@@ -90,3 +90,8 @@ body {
 body.print-active #root {
   /* No longer hiding root to prevent flickering */
 }
+
+/* Global Fix for Icons inside Buttons */
+button svg {
+  pointer-events: none;
+}

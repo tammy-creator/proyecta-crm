@@ -93,3 +93,29 @@ export const adminResetPassword = async (therapistId: string, newPassword: strin
     }
 };
 
+export const uploadTherapistAvatar = async (therapistId: string, file: File): Promise<string> => {
+    // Saneamos el nombre para el almacenamiento
+    const fileExt = file.name.split('.').pop();
+    const fileName = `${therapistId}_${Date.now()}.${fileExt}`;
+    const filePath = `${fileName}`; // Ya estamos en un bucket específico
+
+    // Subimos al Storage usando el bucket dedicado 'therapist-avatars'
+    const { error: uploadError } = await supabase.storage
+        .from('therapist-avatars') 
+        .upload(filePath, file, {
+            upsert: true,
+            contentType: file.type
+        });
+
+    if (uploadError) {
+        console.error("Error uploading avatar:", uploadError);
+        throw uploadError;
+    }
+
+    const { data } = supabase.storage
+        .from('therapist-avatars')
+        .getPublicUrl(filePath);
+
+    return data.publicUrl;
+};
+

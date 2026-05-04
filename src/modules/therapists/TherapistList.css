@@ -76,45 +76,64 @@
     object-fit: cover;
 }
 
-.avatar-selector-grid {
-    display: grid;
-    grid-template-columns: repeat(6, 1fr);
-    gap: 0.75rem;
-    margin-top: 0.5rem;
-    padding: 0.5rem;
+.avatar-upload-section {
+    display: flex;
+    gap: 2rem;
+    align-items: center;
+    padding: 1.25rem;
     background: #f8fafc;
-    border-radius: 12px;
-    border: 1px dashed #cbd5e1;
+    border-radius: 16px;
+    border: 1px solid #e2e8f0;
 }
 
-.avatar-option {
-    aspect-ratio: 1;
-    border-radius: 12px;
-    padding: 2px;
+.avatar-current-preview {
+    position: relative;
+    width: 100px;
+    height: 100px;
+    border-radius: 50%;
+    overflow: hidden;
+    border: 3px solid white;
+    box-shadow: 0 4px 15px rgba(0,0,0,0.08);
+    background: #fff;
+    flex-shrink: 0;
     cursor: pointer;
-    transition: all 0.2s ease;
-    border: 2px solid transparent;
-    background: white;
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.avatar-current-preview:hover {
+    transform: scale(1.05);
+    box-shadow: 0 6px 20px rgba(0,0,0,0.12);
+}
+
+.avatar-current-preview img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.btn-upload-overlay {
+    position: absolute;
+    inset: 0;
+    background: rgba(30, 41, 59, 0.5);
+    color: white;
     display: flex;
     align-items: center;
     justify-content: center;
+    opacity: 0;
+    transition: opacity 0.3s ease;
+    border: none;
+    cursor: pointer;
 }
 
-.avatar-option img {
-    width: 100%;
-    height: 100%;
-    border-radius: 10px;
+.avatar-current-preview:hover .btn-upload-overlay {
+    opacity: 1;
 }
 
-.avatar-option:hover {
-    transform: scale(1.1);
-    background: #e2e8f0;
-}
-
-.avatar-option.selected {
-    border-color: var(--color-accent-blue);
-    background: #ecfeff;
-    box-shadow: 0 0 0 4px rgba(188, 228, 234, 0.3);
+.avatar-options-container {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
 }
 
 .therapist-info {

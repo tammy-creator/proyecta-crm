@@ -1,6 +1,6 @@
 export type WorkStatus = 'offline' | 'working' | 'break';
 
-export type AttendanceType = 'work' | 'vacation' | 'sick_leave';
+export type AttendanceType = 'work' | 'vacation' | 'sick_leave' | 'holiday';
 
 export interface Attendance {
     id?: string;

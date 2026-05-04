@@ -1,30 +1,15 @@
-import React, { useEffect, useState } from 'react';
-import { getTherapists, createTherapist, updateTherapist } from './service';
+import React, { useEffect, useState, useRef } from 'react';
+import { getTherapists, createTherapist, updateTherapist, uploadTherapistAvatar } from './service';
 import { type Therapist, type DaySchedule, SPECIALTIES, DAYS_OF_WEEK } from './types';
 import { getIllustrativeAvatar } from './utils';
 import Card from '../../components/ui/Card';
-import { Mail, Phone, Calendar as CalendarIcon, Edit2, Plus, X, Trash2, Clock } from 'lucide-react';
+import { Mail, Phone, Calendar as CalendarIcon, Edit2, Plus, X, Trash2, Clock, Upload } from 'lucide-react';
 import './TherapistList.css';
 
 import { useAuth } from '../../context/AuthContext';
 import CalendarView from '../calendar/CalendarView';
 
-const AVATAR_OPTIONS = [
-    'https://api.dicebear.com/7.x/avataaars/svg?seed=Avery&mouth=smile&eyes=default&eyebrows=default&backgroundColor=transparent',
-    'https://api.dicebear.com/7.x/avataaars/svg?seed=Borden&mouth=smile&eyes=happy&eyebrows=default&backgroundColor=transparent',
-    'https://api.dicebear.com/7.x/avataaars/svg?seed=Caleb&mouth=smile&eyes=default&eyebrows=default&backgroundColor=transparent',
-    'https://api.dicebear.com/7.x/avataaars/svg?seed=Dalia&mouth=smile&eyes=happy&eyebrows=default&backgroundColor=transparent',
-    'https://api.dicebear.com/7.x/avataaars/svg?seed=Eden&mouth=smile&eyes=default&eyebrows=default&backgroundColor=transparent',
-    'https://api.dicebear.com/7.x/avataaars/svg?seed=Flossie&mouth=smile&eyes=happy&eyebrows=default&backgroundColor=transparent',
-    'https://api.dicebear.com/7.x/avataaars/svg?seed=George&mouth=smile&eyes=default&eyebrows=default&backgroundColor=transparent',
-    'https://api.dicebear.com/7.x/avataaars/svg?seed=Hadley&mouth=smile&eyes=happy&eyebrows=default&backgroundColor=transparent',
-    'https://api.dicebear.com/7.x/avataaars/svg?seed=Ira&mouth=smile&eyes=default&eyebrows=default&backgroundColor=transparent',
-    'https://api.dicebear.com/7.x/avataaars/svg?seed=Jocelyn&mouth=smile&eyes=happy&eyebrows=default&backgroundColor=transparent',
-    'https://api.dicebear.com/7.x/avataaars/svg?seed=Kaya&mouth=smile&eyes=default&eyebrows=default&backgroundColor=transparent',
-    'https://api.dicebear.com/7.x/avataaars/svg?seed=Lyle&mouth=smile&eyes=happy&eyebrows=default&backgroundColor=transparent'
-];
-
-const DEFAULT_AVATAR = AVATAR_OPTIONS[0];
+const DEFAULT_AVATAR = '';
 
 const TherapistList: React.FC = () => {
     const { isRole } = useAuth();
@@ -34,6 +19,9 @@ const TherapistList: React.FC = () => {
     const [isAgendaOpen, setIsAgendaOpen] = useState(false);
     const [selectedTherapist, setSelectedTherapist] = useState<Partial<Therapist> | null>(null);
     const [activeScheduleDay, setActiveScheduleDay] = useState(0); // 0 = Lunes
+    const [avatarFile, setAvatarFile] = useState<File | null>(null);
+    const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+    const fileInputRef = useRef<HTMLInputElement>(null);
 
     const fetchData = () => {
         setLoading(true);
@@ -61,7 +49,20 @@ const TherapistList: React.FC = () => {
             schedule: []
         });
         setActiveScheduleDay(0);
+        setAvatarFile(null);
+        setPreviewUrl(null);
         setIsModalOpen(true);
+    };
+
+    const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (file) {
+            setAvatarFile(file);
+            const url = URL.createObjectURL(file);
+            setPreviewUrl(url);
+            // Clear predefined selection if we're uploading a new one
+            setSelectedTherapist(prev => prev ? { ...prev, avatarUrl: '' } : null);
+        }
     };
 
     const handleOpenAgenda = (therapist: Therapist) => {
@@ -72,13 +73,31 @@ const TherapistList: React.FC = () => {
     const handleSave = async (e: React.FormEvent) => {
         e.preventDefault();
         if (!selectedTherapist) return;
-        if (selectedTherapist.id) {
-            await updateTherapist(selectedTherapist as Therapist);
-        } else {
-            await createTherapist(selectedTherapist as Omit<Therapist, 'id'>);
+        
+        try {
+            let avatarUrl = selectedTherapist.avatarUrl;
+
+            // If we have a file, upload it first
+            if (avatarFile) {
+                // We need a temp ID for new therapists if we want to use it in path, 
+                // but service.ts uses Date.now() so it's fine.
+                const tempId = selectedTherapist.id || 'new_therapist';
+                avatarUrl = await uploadTherapistAvatar(tempId, avatarFile);
+            }
+
+            const therapistToSave = { ...selectedTherapist, avatarUrl } as Therapist;
+
+            if (selectedTherapist.id) {
+                await updateTherapist(therapistToSave);
+            } else {
+                await createTherapist(therapistToSave as Omit<Therapist, 'id'>);
+            }
+            setIsModalOpen(false);
+            fetchData();
+        } catch (error) {
+            console.error("Error saving therapist:", error);
+            // toast error? We don't have it here but we can add it or use alert
         }
-        setIsModalOpen(false);
-        fetchData();
     };
 
     const getSchedule = (): DaySchedule[] => {
@@ -244,7 +263,6 @@ const TherapistList: React.FC = () => {
                                     <label>DNI</label>
                                     <input
                                         type="text"
-                                        required
                                         value={selectedTherapist.dni}
                                         onChange={e => setSelectedTherapist({ ...selectedTherapist, dni: e.target.value })}
                                     />
@@ -277,17 +295,32 @@ const TherapistList: React.FC = () => {
                                     </select>
                                 </div>
                                 <div className="form-group">
-                                    <label>Seleccionar Avatar</label>
-                                    <div className="avatar-selector-grid">
-                                        {AVATAR_OPTIONS.map((url) => (
-                                            <div
-                                                key={url}
-                                                className={`avatar-option ${selectedTherapist.avatarUrl === url ? 'selected' : ''}`}
-                                                onClick={() => setSelectedTherapist({ ...selectedTherapist, avatarUrl: url })}
+                                    <label>Avatar del Profesional</label>
+                                    <div className="avatar-upload-section">
+                                        <div className="avatar-current-preview" onClick={() => fileInputRef.current?.click()}>
+                                            <img 
+                                                src={previewUrl || selectedTherapist.avatarUrl || getIllustrativeAvatar(selectedTherapist)} 
+                                                alt="Preview" 
+                                            />
+                                            <button 
+                                                type="button" 
+                                                className="btn-upload-overlay"
+                                                title="Cambiar imagen"
                                             >
-                                                <img src={url} alt="Avatar" />
-                                            </div>
-                                        ))}
+                                                <Upload size={18} />
+                                            </button>
+                                        </div>
+                                        
+                                        <div className="avatar-options-container">
+                                            <input 
+                                                type="file" 
+                                                ref={fileInputRef} 
+                                                style={{ display: 'none' }} 
+                                                accept="image/*"
+                                                onChange={handleFileChange}
+                                            />
+                                            <p className="text-xs text-secondary mt-2 opacity-70 italic">Haz click en la imagen para cambiarla</p>
+                                        </div>
                                     </div>
                                 </div>
                             </div>

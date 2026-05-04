@@ -29,6 +29,7 @@ import {
     ShieldCheck,
     Info,
     Printer,
+    Sun,
     X,
 } from 'lucide-react';
 import { 
@@ -71,7 +72,7 @@ const WorkforceReport: React.FC = () => {
     // Modal state
     const [activeTab, setActiveTab] = useState<'daily' | 'absences' | 'signatures'>('daily');
     const [isEditModalOpen, setIsEditModalOpen] = useState(false);
-    const [editingRecord, setEditingRecord] = useState<Partial<Attendance> | null>(null);
+    const [editingRecord, setEditingRecord] = useState<Partial<Attendance & { isGlobal?: boolean }> | null>(null);
     const [manualBlocks, setManualBlocks] = useState<WorkingHours[]>([
         { start: '', end: '' }
     ]);
@@ -235,6 +236,71 @@ const WorkforceReport: React.FC = () => {
         if (e) e.preventDefault();
         if (!editingRecord || !selectedTherapistId) return;
 
+        const adminInfo = currentUser ? { id: currentUser.id, name: currentUser.name } : undefined;
+
+        // NEW: Special handling for Global Holidays
+        if (editingRecord.type === 'holiday' && editingRecord.isGlobal) {
+            try {
+                // Fetch all user accounts to match therapists
+                const { data: userAccounts, error: uaError } = await supabase
+                    .from('user_accounts')
+                    .select('id, therapist_id, email, full_name');
+                
+                if (uaError) throw uaError;
+
+                const therapistsToRecord = therapists.filter(t => t.id !== 'all');
+                
+                if (therapistsToRecord.length === 0) {
+                    showToast("No se han encontrado terapeutas en la lista para asignar el festivo.", "warning");
+                    return;
+                }
+
+                let successCount = 0;
+                let failCount = 0;
+                let noAccountCount = 0;
+
+                for (const t of therapistsToRecord) {
+                    // Try to match by therapist_id first, then by email (case-insensitive)
+                    const tUserAccount = userAccounts?.find(ua => ua.therapist_id === t.id) || 
+                                       (t.email ? userAccounts?.find(ua => ua.email?.toLowerCase() === t.email?.toLowerCase()) : null);
+                    
+                    if (tUserAccount) {
+                        try {
+                            await addAttendance({
+                                userId: tUserAccount.id,
+                                therapistId: t.id,
+                                startTime: editingRecord.startTime,
+                                endTime: editingRecord.endTime,
+                                type: 'holiday',
+                                notes: editingRecord.notes ? `(FESTIVO GLOBAL) ${editingRecord.notes}` : 'FESTIVO GLOBAL'
+                            }, adminInfo);
+                            successCount++;
+                        } catch (err) {
+                            console.error(`Error saving holiday for ${t.fullName}:`, err);
+                            failCount++;
+                        }
+                    } else {
+                        noAccountCount++;
+                    }
+                }
+
+                setIsAbsenceModalOpen(false);
+                setEditingRecord(null);
+                fetchData();
+                
+                if (successCount > 0) {
+                    showToast(`Festivo global registrado para ${successCount} terapeutas.${failCount > 0 ? ` (${failCount} fallos)` : ''}${noAccountCount > 0 ? `. ${noAccountCount} terapeutas no tienen cuenta vinculada.` : ''}`, "success");
+                } else {
+                    showToast(`No se ha podido registrar nada. ${noAccountCount} terapeutas sin cuenta vinculada. Total cuentas encontradas: ${userAccounts?.length || 0}`, "error");
+                }
+                return;
+            } catch (err: any) {
+                console.error("Error saving global holiday:", err);
+                showToast(`Error crítico al registrar festivo global: ${err.message || 'Error desconocido'}`, "error");
+                return;
+            }
+        }
+
         // Determine the actual therapist for this record
         const targetTherapistId = editingRecord.therapistId || (selectedTherapistId !== 'all' ? selectedTherapistId : null);
         
@@ -278,7 +344,6 @@ const WorkforceReport: React.FC = () => {
             const isEditing = !!editingRecord.id;
 
             // Try to find the user account linked to this therapist
-            // First by therapist_id, then by email (case-insensitive)
             let { data: userAccount } = await supabase
                 .from('user_accounts')
                 .select('id')
@@ -303,8 +368,6 @@ const WorkforceReport: React.FC = () => {
                 showToast(`No se ha encontrado una cuenta de usuario vinculada para ${name}.${email ? ` Buscado por email: ${email}` : ' No tiene email configurado.'} Revisa 'Equipo y Roles'.`, "error");
                 return;
             }
-
-            const adminInfo = currentUser ? { id: currentUser.id, name: currentUser.name } : undefined;
 
             // If editing, we clear current daily records first to ensure a fresh set
             if (isEditing) {
@@ -659,7 +722,7 @@ const WorkforceReport: React.FC = () => {
                                 style={{ cursor: 'pointer' }}
                                 onClick={() => setActiveTab('absences')}
                             >
-                                <div className="summary-card-label">Vacaciones/Bajas</div>
+                                <div className="summary-card-label">Vacaciones / Festivos / Bajas</div>
                                 <div className="summary-card-value">{attendances.filter(a => a.type !== 'work').length}</div>
                                 <div style={{ fontSize: '0.65rem', color: '#78350f', marginTop: '4px', opacity: 0.8 }}>Haga clic para ver historial</div>
                             </div>
@@ -720,8 +783,8 @@ const WorkforceReport: React.FC = () => {
                                                     </td>
                                                     <td>
                                                         {absenceAtt ? (
-                                                            <span className={`wf-badge ${absenceAtt.type === 'vacation' ? 'wf-badge-vacation' : 'wf-badge-sick'}`}>
-                                                                {absenceAtt.type === 'vacation' ? 'Vacaciones' : 'Baja'}
+                                                            <span className={`wf-badge ${absenceAtt.type === 'vacation' ? 'wf-badge-vacation' : absenceAtt.type === 'holiday' ? 'wf-badge-holiday' : 'wf-badge-sick'}`}>
+                                                                {absenceAtt.type === 'vacation' ? 'Vacaciones' : absenceAtt.type === 'holiday' ? 'Festivo' : 'Baja'}
                                                             </span>
                                                         ) : workAtts.length > 0 ? (
                                                             <span className="wf-badge wf-badge-ok">
@@ -881,12 +944,14 @@ const WorkforceReport: React.FC = () => {
                                         });
 
                                         const isVacation = dayAbsences.some(a => a.type === 'vacation');
+                                        const isHoliday = dayAbsences.some(a => a.type === 'holiday');
                                         const isSick = dayAbsences.some(a => a.type === 'sick_leave');
                                         const isToday = isSameDay(day, new Date());
 
                                         const dayClass = [
                                             'holiday-day',
                                             isVacation ? 'holiday-day-vacation' : '',
+                                            isHoliday ? 'holiday-day-holiday' : '',
                                             isSick ? 'holiday-day-sick' : '',
                                             dayAbsences.length === 0 && isWeekend(day) ? 'holiday-day-weekend' : '',
                                             isToday && dayAbsences.length === 0 ? 'holiday-day-today' : ''
@@ -922,6 +987,10 @@ const WorkforceReport: React.FC = () => {
                                         <span className="legend-label">Vacaciones</span>
                                     </div>
                                     <div className="legend-item">
+                                        <div className="legend-dot legend-dot-holiday" />
+                                        <span className="legend-label">Festivo</span>
+                                    </div>
+                                    <div className="legend-item">
                                         <div className="legend-dot legend-dot-sick" />
                                         <span className="legend-label">Baja Médica</span>
                                     </div>
@@ -950,7 +1019,9 @@ const WorkforceReport: React.FC = () => {
                                                         <div className={`detail-indicator`} style={{ width: '8px', height: '8px', borderRadius: '50%', backgroundColor: abs.type === 'vacation' ? '#0ea5e9' : '#ef4444' }} />
                                                         <div className="detail-info">
                                                             <div className="detail-name" style={{ fontWeight: 500, fontSize: '0.9rem' }}>{abs.therapistName}</div>
-                                                            <div className="detail-type" style={{ fontSize: '0.75rem', color: '#64748b' }}>{abs.type === 'vacation' ? 'Vacaciones' : 'Baja médica'}</div>
+                                                            <div className="detail-type" style={{ fontSize: '0.75rem', color: '#64748b' }}>
+                                                                {abs.type === 'vacation' ? 'Vacaciones' : abs.type === 'holiday' ? 'Festivo' : 'Baja médica'}
+                                                            </div>
                                                         </div>
                                                     </div>
                                                 ))}
@@ -999,8 +1070,8 @@ const WorkforceReport: React.FC = () => {
                                                             {v.startTime ? format(parseISO(v.startTime), 'dd/MM/yyyy') : '—'}
                                                         </td>
                                                         <td>
-                                                            <span className={`wf-badge ${v.type === 'vacation' ? 'wf-badge-vacation' : 'wf-badge-sick'}`} style={{ fontSize: '0.65rem', padding: '0px 4px' }}>
-                                                                {v.type === 'vacation' ? 'VAC' : 'BAJA'}
+                                                            <span className={`wf-badge ${v.type === 'vacation' ? 'wf-badge-vacation' : v.type === 'holiday' ? 'wf-badge-holiday' : 'wf-badge-sick'}`} style={{ fontSize: '0.65rem', padding: '0px 4px' }}>
+                                                                {v.type === 'vacation' ? 'VAC' : v.type === 'holiday' ? 'FEST' : 'BAJA'}
                                                             </span>
                                                         </td>
                                                     </tr>
@@ -1242,20 +1313,60 @@ const WorkforceReport: React.FC = () => {
                         <div className="wf-type-selector">
                             <button 
                                 type="button"
-                                onClick={() => setEditingRecord({ ...editingRecord, type: 'vacation' })}
+                                onClick={() => setEditingRecord({ ...editingRecord, type: 'vacation', isGlobal: false })}
                                 className={`wf-type-btn ${editingRecord?.type === 'vacation' ? 'active-vacation' : ''}`}
                             >
                                 <Calendar size={18} /> Vacaciones
                             </button>
                             <button 
                                 type="button"
-                                onClick={() => setEditingRecord({ ...editingRecord, type: 'sick_leave' })}
+                                onClick={() => setEditingRecord({ ...editingRecord, type: 'holiday', isGlobal: selectedTherapistId === 'all' })}
+                                className={`wf-type-btn ${editingRecord?.type === 'holiday' ? 'active-holiday' : ''}`}
+                            >
+                                <Sun size={18} /> Festivo
+                            </button>
+                            <button 
+                                type="button"
+                                onClick={() => setEditingRecord({ ...editingRecord, type: 'sick_leave', isGlobal: false })}
                                 className={`wf-type-btn ${editingRecord?.type === 'sick_leave' ? 'active-sick' : ''}`}
                             >
                                 <AlertCircle size={18} /> Baja Médica
                             </button>
                         </div>
                     </div>
+
+                    {selectedTherapistId === 'all' && !editingRecord?.isGlobal && (
+                        <div style={{ marginBottom: '1.25rem' }}>
+                            <label className="wf-form-label">Terapeuta</label>
+                            <select 
+                                className="wf-form-input"
+                                value={editingRecord?.therapistId || ''}
+                                onChange={e => setEditingRecord({ ...editingRecord, therapistId: e.target.value })}
+                                required
+                            >
+                                <option value="">Seleccionar terapeuta...</option>
+                                {therapists.map(t => (
+                                    <option key={t.id} value={t.id}>{t.fullName}</option>
+                                ))}
+                            </select>
+                        </div>
+                    )}
+                    {editingRecord?.type === 'holiday' && (
+                        <div style={{ marginBottom: '1.25rem', padding: '0 0.5rem' }}>
+                            <label className="flex items-center gap-3 cursor-pointer p-4 bg-amber-50 rounded-xl border border-amber-200 shadow-sm transition-all hover:bg-amber-100">
+                                <input 
+                                    type="checkbox" 
+                                    className="w-5 h-5 text-amber-600 rounded border-amber-300"
+                                    checked={editingRecord?.isGlobal || false}
+                                    onChange={e => setEditingRecord({ ...editingRecord, isGlobal: e.target.checked })}
+                                />
+                                <div>
+                                    <span className="font-bold text-amber-900 text-sm">Festivo Global</span>
+                                    <p className="text-xs text-amber-700">Registrar para todas las terapeutas del equipo</p>
+                                </div>
+                            </label>
+                        </div>
+                    )}
                     <div className="wf-form-row">
                         <div>
                             <label className="wf-form-label">Fecha Inicio</label>

@@ -17,8 +17,6 @@ import {
 import { type CenterSettings, type AuditLog, type UserAccount, type ClinicalService } from './types';
 import { getTherapists } from '../therapists/service';
 import { type Therapist } from '../therapists/types';
-import { getPendingRegistrationAppointments } from '../calendar/service';
-import { type Appointment } from '../calendar/types';
 import Card from '../../components/ui/Card';
 import {
     Settings,
@@ -52,14 +50,13 @@ import { useToast } from '../../hooks/useToast';
 const AdminView: React.FC = () => {
     const { user } = useAuth();
     const { showToast } = useToast();
-    const [activeTab, setActiveTab] = useState<'center' | 'users' | 'services' | 'security' | 'reports' | 'analytics' | 'audit'>('center');
+    const [activeTab, setActiveTab] = useState<'center' | 'users' | 'services' | 'security' | 'reports' | 'analytics'>('center');
     // ...
     const [settings, setSettings] = useState<CenterSettings | null>(null);
     const [users, setUsers] = useState<UserAccount[]>([]);
     const [services, setServices] = useState<ClinicalService[]>([]);
     const [referralStats, setReferralStats] = useState<{ source: string, count: number, percentage: number }[]>([]);
     const [logs, setLogs] = useState<AuditLog[]>([]);
-    const [pendingAppointments, setPendingAppointments] = useState<Appointment[]>([]);
     const [loading, setLoading] = useState(true);
 
     // User Modal state
@@ -86,14 +83,13 @@ const AdminView: React.FC = () => {
 
     const fetchData = async () => {
         setLoading(true);
-        const [settingsData, usersData, logsData, servicesData, statsData, therapistsData, pendingData] = await Promise.all([
+        const [settingsData, usersData, logsData, servicesData, statsData, therapistsData] = await Promise.all([
             getCenterSettings(),
             getUsers(),
             getAuditLogs(),
             getServices(),
             getReferralSourceStats(),
-            getTherapists(),
-            getPendingRegistrationAppointments()
+            getTherapists()
         ]);
         setSettings(settingsData);
         setUsers(usersData);
@@ -101,7 +97,6 @@ const AdminView: React.FC = () => {
         setServices(servicesData);
         setReferralStats(statsData);
         setTherapists(therapistsData);
-        setPendingAppointments(pendingData);
         setLoading(false);
     };
 
@@ -299,13 +294,6 @@ const AdminView: React.FC = () => {
                     <BarChart3 size={18} style={{ marginRight: 8, verticalAlign: 'middle' }} />
                     Marketing
                 </button>
-                <button
-                    className={`tab-btn ${activeTab === 'audit' ? 'active' : ''}`}
-                    onClick={() => setActiveTab('audit')}
-                >
-                    <ShieldAlert size={18} style={{ marginRight: 8, verticalAlign: 'middle' }} />
-                    Control de Registros
-                </button>
             </div>
 
             <div className="admin-content">
@@ -313,7 +301,7 @@ const AdminView: React.FC = () => {
 
 
                 {activeTab === 'reports' && (
-                    <div className="admin-section animate-fade-in">
+                    <div className="admin-section">
                         <div className="flex justify-between items-center mb-6">
                             <h3 style={{ fontSize: '1.25rem', fontWeight: 600 }}>Análisis de Origen de Pacientes</h3>
                             <button className="calendar-btn-pill calendar-btn-secondary" onClick={() => fetchData()}>
@@ -376,7 +364,7 @@ const AdminView: React.FC = () => {
                 )}
 
                 {activeTab === 'center' && settings && (
-                    <div className="admin-section animate-fade-in">
+                    <div className="admin-section">
                         <Card 
                             title="Ajustes Generales" 
                             action={
@@ -432,7 +420,7 @@ const AdminView: React.FC = () => {
                 )}
 
                 {activeTab === 'services' && (
-                    <div className="admin-section animate-fade-in">
+                    <div className="admin-section">
                         <div className="flex justify-between items-center mb-4">
                             <h3 style={{ fontSize: '1.25rem', fontWeight: 600 }}>Servicios y Precios</h3>
                             <button className="calendar-btn-pill calendar-btn-primary" onClick={() => handleOpenServiceModal()}>
@@ -475,7 +463,7 @@ const AdminView: React.FC = () => {
                 )}
 
                 {activeTab === 'users' && (
-                    <div className="admin-section animate-fade-in">
+                    <div className="admin-section">
                         <div className="flex justify-between items-center mb-4">
                             <h3 style={{ fontSize: '1.25rem', fontWeight: 600 }}>Cuentas de Acceso</h3>
                             <button className="calendar-btn-pill calendar-btn-primary" onClick={() => handleOpenUserModal()}>
@@ -511,7 +499,7 @@ const AdminView: React.FC = () => {
                 )}
 
                 {activeTab === 'security' && (
-                    <div className="admin-section animate-fade-in">
+                    <div className="admin-section">
                         <div className="flex justify-between items-center mb-4">
                             <h3 style={{ fontSize: '1.25rem', fontWeight: 600 }}>Trazabilidad de Acciones</h3>
                             <div className="flex gap-2">
@@ -535,91 +523,6 @@ const AdminView: React.FC = () => {
                                     </div>
                                 </div>
                             ))}
-                        </div>
-                    </div>
-                )}
-
-                {activeTab === 'audit' && (
-                    <div className="admin-section animate-fade-in">
-                        <div className="flex justify-between items-center mb-6">
-                            <div>
-                                <h3 style={{ fontSize: '1.25rem', fontWeight: 600, color: '#be123c' }}>
-                                    Auditoría de Registros Clínicos
-                                </h3>
-                                <p style={{ fontSize: '0.85rem', color: 'var(--color-text-secondary)' }}>
-                                    Sesiones finalizadas sin diario de sesión registrado
-                                </p>
-                            </div>
-                            <button className="calendar-btn-pill calendar-btn-secondary" onClick={() => fetchData()}>
-                                <TrendingUp size={16} /> 
-                                <span>Actualizar Auditoría</span>
-                            </button>
-                        </div>
-
-                        {pendingAppointments.length === 0 ? (
-                            <div className="empty-state" style={{ background: '#f0f9f4', color: '#166534', border: '1px solid #bbf7d0', padding: '3rem' }}>
-                                <ShieldCheck size={48} style={{ marginBottom: '1rem', opacity: 0.5 }} />
-                                <div style={{ fontSize: '1.1rem', fontWeight: 600 }}>¡Excelente!</div>
-                                <p>No hay sesiones pendientes de registro clínico en todo el centro.</p>
-                            </div>
-                        ) : (
-                            <div className="billing-table-wrapper">
-                                <table className="billing-table">
-                                    <thead>
-                                        <tr>
-                                            <th>Paciente</th>
-                                            <th>Fecha de Sesión</th>
-                                            <th>Terapeuta Responsable</th>
-                                            <th>Tipo de Servicio</th>
-                                            <th style={{ textAlign: 'center' }}>Estado</th>
-                                            <th>Acción</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody>
-                                        {pendingAppointments.map(appt => (
-                                            <tr key={appt.id}>
-                                                <td style={{ fontWeight: 700 }}>{appt.patientName}</td>
-                                                <td>{new Date(appt.start).toLocaleDateString('es-ES', { day: '2-digit', month: 'long', year: 'numeric' })}</td>
-                                                <td>
-                                                    <div className="flex items-center gap-2">
-                                                        <div className="avatar micro" style={{ background: 'var(--color-accent-blue)' }}>
-                                                            {appt.therapistName?.charAt(0) || 'T'}
-                                                        </div>
-                                                        {appt.therapistName}
-                                                    </div>
-                                                </td>
-                                                <td style={{ fontSize: '0.85rem' }}>{appt.type}</td>
-                                                <td style={{ textAlign: 'center' }}>
-                                                    <span className="badge badge-error" style={{ fontSize: '0.7rem' }}>SIN DIARIO</span>
-                                                </td>
-                                                <td>
-                                                    <button 
-                                                        className="btn-link" 
-                                                        onClick={() => {
-                                                            // Redirigir a pacientes con el ID (esto requiere que el módulo de pacientes maneje el parámetro ID)
-                                                            window.location.href = `/patients?id=${appt.patientId}&tab=history`;
-                                                            showToast(`Para completar, busca a ${appt.patientName} en la lista de pacientes.`, 'info');
-                                                        }}
-                                                    >
-                                                        Ir al Paciente
-                                                    </button>
-                                                </td>
-                                            </tr>
-                                        ))}
-                                    </tbody>
-                                </table>
-                            </div>
-                        )}
-                        
-                        <div style={{ marginTop: '1.5rem', padding: '1rem', background: '#fff5f5', borderRadius: '12px', border: '1px solid #fed7d7' }}>
-                            <div className="flex gap-2 text-red-700 font-bold text-sm mb-1">
-                                <ShieldAlert size={16} />
-                                <span>Importante: Calidad de los Registros</span>
-                            </div>
-                            <p style={{ fontSize: '0.8rem', color: '#991b1b', lineHeight: 1.5 }}>
-                                Según la normativa vigente, todos los actos clínicos deben quedar registrados en el historial del paciente tras su finalización. 
-                                Esta tabla muestra únicamente las sesiones marcadas como "Finalizadas" que no contienen información en el campo de Diario de Sesión.
-                            </p>
                         </div>
                     </div>
                 )}

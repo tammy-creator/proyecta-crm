@@ -142,8 +142,14 @@ const Header: React.FC = () => {
     const { title, icon } = getPageInfo();
 
     const handleLogout = async () => {
-        await logout();
-        navigate('/login', { replace: true });
+        try {
+            await logout();
+        } catch (error) {
+            console.error("Logout failed in Header:", error);
+        } finally {
+            // Always navigate to login, even if logout threw an error
+            navigate('/login', { replace: true });
+        }
     };
 
     return (
@@ -300,6 +306,19 @@ const Header: React.FC = () => {
                                     </span>
                                 </div>
                                 <div className="dropdown-divider"></div>
+                                {user?.identities && user.identities.length > 0 && (
+                                    <button 
+                                        className="dropdown-item" 
+                                        onClick={() => {
+                                            sessionStorage.removeItem('active_identity');
+                                            window.location.reload(); // Simplest way to trigger the selector again
+                                        }}
+                                        style={{ color: '#1A5F7A' }}
+                                    >
+                                        <Users size={16} />
+                                        <span>Cambiar Perfil</span>
+                                    </button>
+                                )}
                                 <button className="dropdown-item text-red-600" onClick={handleLogout}>
                                     <LogOut size={16} />
                                     <span>Cerrar Sesión</span>

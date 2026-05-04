@@ -7,7 +7,15 @@
 }
 
 /* Header */
-/* Header actions and search pills are now global */
+.page-header {
+    margin-bottom: 1rem;
+}
+
+.page-subtitle {
+    margin: 0;
+    font-size: 0.95rem;
+    color: var(--color-text-secondary);
+}
 
 
 /* Grid */
@@ -113,6 +121,10 @@
     transition: all 0.2s ease;
     background: white;
     cursor: pointer;
+}
+
+.btn-delete-discreet svg, .btn-edit-discreet svg {
+    pointer-events: none;
 }
 
 .btn-edit-discreet {

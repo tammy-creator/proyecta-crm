@@ -12,6 +12,7 @@ interface User {
     requiresPasswordChange: boolean;
     therapistId?: string;
     avatarUrl?: string;
+    identities?: { id: string, name: string, avatarUrl?: string, specialty?: string }[];
 }
 
 interface AuthContextType {
@@ -22,12 +23,12 @@ interface AuthContextType {
     logout: () => Promise<void>;
     isRole: (role: UserRole) => boolean;
     refreshUser: () => Promise<void>;
+    selectIdentity: (therapistId: string | null) => void;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 // Helper: map Supabase user to app User
-// Role is stored in user_metadata.role (set when creating the user in Admin)
 const mapUser = (supabaseUser: SupabaseUser): User => {
     const meta = supabaseUser.user_metadata || {};
     const role: UserRole = meta.role?.toUpperCase() === 'ADMIN' ? 'ADMIN' : 'THERAPIST';
@@ -42,6 +43,7 @@ const mapUser = (supabaseUser: SupabaseUser): User => {
         requiresPasswordChange,
         therapistId: meta.therapist_id,
         avatarUrl: meta.avatar_url,
+        identities: [],
     };
 }
 
@@ -61,8 +63,8 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
                 const initialUser = session?.user ? mapUser(session.user) : null;
                 setUser(initialUser);
 
-                // Sync therapistId if missing
-                if (initialUser && !initialUser.therapistId) {
+                // Sync therapistId and data
+                if (initialUser) {
                     syncTherapistId(initialUser.id);
                 }
             } catch (error) {
@@ -80,7 +82,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
             const updatedUser = session?.user ? mapUser(session.user) : null;
             setUser(updatedUser);
 
-            if (updatedUser && !updatedUser.therapistId) {
+            if (updatedUser) {
                 syncTherapistId(updatedUser.id);
             }
             setLoading(false);
@@ -91,53 +93,72 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
     const syncTherapistId = async (authId: string) => {
         try {
-            // Priority 1: Check user_accounts table
-            const { data: account } = await supabase
-                .from('user_accounts')
-                .select('therapist_id, email')
-                .eq('id', authId)
-                .maybeSingle();
+            const { data: { user: supabaseUser } } = await supabase.auth.getUser();
+            const email = supabaseUser?.email;
+            
+            if (!email) return;
 
-            if (account?.therapist_id) {
-                const { data: tData } = await supabase
-                    .from('therapists')
-                    .select('avatar_url')
-                    .eq('id', account.therapist_id)
-                    .maybeSingle();
+            // Fetch all therapists with this email
+            const { data: therapists } = await supabase
+                .from('therapists')
+                .select('id, full_name, avatar_url, specialty')
+                .eq('email', email);
 
-                setUser(prev => prev ? { 
-                    ...prev, 
-                    therapistId: account.therapist_id,
-                    avatarUrl: tData?.avatar_url || prev.avatarUrl
-                } : null);
-                return;
-            }
+            const identities = (therapists || []).map(t => ({
+                id: t.id,
+                name: t.full_name,
+                avatarUrl: t.avatar_url,
+                specialty: t.specialty
+            }));
 
-            // Priority 2: Fallback to matching by email in therapists table
-            const email = account?.email || (await supabase.auth.getUser()).data.user?.email;
-            if (email) {
-                const { data: therapist } = await supabase
-                    .from('therapists')
-                    .select('id')
-                    .eq('email', email)
-                    .maybeSingle();
+            // Check if we have a saved identity in this session
+            const savedId = sessionStorage.getItem('active_identity');
+            const activeId = savedId || (identities.length === 1 ? identities[0].id : null);
 
-                if (therapist) {
-                    const { data: tData } = await supabase
-                        .from('therapists')
-                        .select('avatar_url')
-                        .eq('id', therapist.id)
-                        .maybeSingle();
-
-                    setUser(prev => prev ? { 
-                        ...prev, 
-                        therapistId: therapist.id,
-                        avatarUrl: tData?.avatar_url || prev.avatarUrl 
-                    } : null);
-                }
-            }
+            setUser(prev => {
+                if (!prev) return null;
+                const active = identities.find(i => i.id === activeId);
+                return {
+                    ...prev,
+                    identities,
+                    therapistId: activeId || prev.therapistId,
+                    name: active?.name || prev.name,
+                    avatarUrl: active?.avatarUrl || prev.avatarUrl
+                };
+            });
         } catch (e) {
-            console.error("Error syncing therapist ID:", e);
+            console.error("Error syncing therapist identities:", e);
+        }
+    };
+
+    const selectIdentity = (therapistId: string | null) => {
+        if (!user) return;
+        
+        if (therapistId) {
+            sessionStorage.setItem('active_identity', therapistId);
+            const identity = user.identities?.find(i => i.id === therapistId);
+            if (identity) {
+                setUser({
+                    ...user,
+                    therapistId: identity.id,
+                    name: identity.name,
+                    avatarUrl: identity.avatarUrl
+                });
+            }
+        } else {
+            // Revert to base Admin identity
+            sessionStorage.removeItem('active_identity');
+            const getBaseMetadata = async () => {
+                const { data: { user: supabaseUser } } = await supabase.auth.getUser();
+                const meta = supabaseUser?.user_metadata || {};
+                setUser(prev => prev ? {
+                    ...prev,
+                    therapistId: undefined,
+                    name: meta.full_name || meta.name || prev.email.split('@')[0],
+                    avatarUrl: meta.avatar_url
+                } : null);
+            };
+            getBaseMetadata();
         }
     };
 
@@ -145,19 +166,27 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         const { data, error } = await supabase.auth.signInWithPassword({ email, password });
         if (error) throw error;
         
+        sessionStorage.removeItem('active_identity'); // Reset on new login
         const mappedUser = mapUser(data.user);
         setUser(mappedUser);
         
-        // Ensure synchronization happens immediately after login
-        if (mappedUser.role === 'THERAPIST' && !mappedUser.therapistId) {
-            await syncTherapistId(mappedUser.id);
-        }
-        
+        await syncTherapistId(data.user.id);
         return mappedUser;
     };
 
     const logout = async () => {
-        await supabase.auth.signOut();
+        try {
+            sessionStorage.removeItem('active_identity');
+            // We use a try-catch because if the session is already invalid or expired, 
+            // signOut might throw an error, but we still want to clear the local state.
+            await supabase.auth.signOut();
+        } catch (error) {
+            console.error("Error during Supabase signOut:", error);
+        } finally {
+            // Force clear local state to ensure the UI updates
+            setUser(null);
+            setSession(null);
+        }
     };
 
     const refreshUser = async () => {
@@ -165,16 +194,14 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         if (supabaseUser) {
             const upUser = mapUser(supabaseUser);
             setUser(upUser);
-            if (upUser.role === 'THERAPIST' && !upUser.therapistId) {
-                await syncTherapistId(upUser.id);
-            }
+            await syncTherapistId(supabaseUser.id);
         }
     };
 
     const isRole = (role: UserRole) => user?.role === role;
 
     return (
-        <AuthContext.Provider value={{ user, session, loading, login, logout, isRole, refreshUser }}>
+        <AuthContext.Provider value={{ user, session, loading, login, logout, isRole, refreshUser, selectIdentity }}>
             {children}
         </AuthContext.Provider>
     );

@@ -14,7 +14,7 @@ export interface Therapist {
     fullName: string;
     specialty: string;
     licenseNumber?: string; // Nº Colegiado
-    dni: string;
+    dni?: string;
     email: string;
     phone: string;
     color: string; // Color identificativo para la agenda
@@ -28,7 +28,8 @@ export const SPECIALTIES = [
     'Logopedia',
     'Neuropsicología',
     'Terapia Ocupacional',
-    'Psicopedagogía'
+    'Psicopedagogía',
+    'Administración'
 ];
 
 export const DAYS_OF_WEEK = [

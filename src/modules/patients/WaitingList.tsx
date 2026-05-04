@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { supabase } from '../../lib/supabase';
 import { getWaitingList, removeFromWaitingList, addToWaitingList, updateWaitingList, getPatients } from './service';
 import { type WaitingListEntry, type Patient } from './types';
 import { Plus, Trash2, Calendar, Clock, Edit2, Search, X as XIcon, Star, Timer, ClipboardList } from 'lucide-react';
@@ -46,23 +47,25 @@ const WaitingList: React.FC = () => {
     };
 
     const handleDelete = async (id: string, e: React.MouseEvent) => {
+        e.preventDefault();
         e.stopPropagation();
-        if (window.confirm('¿Eliminar a este paciente de la lista de espera?')) {
-            try {
-                const success = await removeFromWaitingList(id);
-                if (success) {
-                    setEntries(entries.filter(e => e.id !== id));
-                    toast.success('Eliminado de la lista');
-                }
-            } catch (_error) {
-                toast.error('Error al eliminar');
+        
+        if (!window.confirm('¿Eliminar a este paciente de la lista de espera?')) return;
+
+        try {
+            const success = await removeFromWaitingList(id);
+            if (success) {
+                setEntries(prev => prev.filter(entry => entry.id !== id));
+                toast.success('Eliminado de la lista');
             }
+        } catch (error) {
+            console.error('Error deleting from waiting list:', error);
+            toast.error('Error al eliminar');
         }
     };
 
     const handleEdit = (entry: WaitingListEntry) => {
         setEditingEntry(entry);
-        // If patientId is empty but name exists, it's likely a manual 'nuevo' entry
         const pid = entry.patientId ? entry.patientId : 'nuevo';
         setNewEntry({
             patientId: pid,
@@ -100,10 +103,6 @@ const WaitingList: React.FC = () => {
             console.error('Error saving entry:', error);
             const msg = error.message || 'Error al guardar el registro';
             toast.error(msg);
-            
-            if (msg.includes('column') || msg.includes('does not exist')) {
-                toast.error('Parece que faltan columnas en la base de datos. ¿Has ejecutado el SQL del último paso?', { duration: 6000 });
-            }
         } finally {
             setSaving(false);
         }
@@ -165,12 +164,8 @@ const WaitingList: React.FC = () => {
 
     return (
         <div className="waiting-list-page animate-fade-in">
-            <header className="page-header">
+            <header className="page-header" style={{ marginTop: '0.5rem' }}>
                 <div className="header-info">
-                    <h1 className="page-title">
-                        <Timer className="title-icon" size={32} /> 
-                        Lista de Espera
-                    </h1>
                     <p className="page-subtitle">Gestiona pacientes pendientes de asignación y sus preferencias horarias.</p>
                 </div>
                 
@@ -220,15 +215,19 @@ const WaitingList: React.FC = () => {
                             <Card 
                                 key={entry.id} 
                                 className="waiting-card premium-card animate-fade-in"
-                                onClick={() => handleEdit(entry)}
                             >
                                 <div className="waiting-card-header">
-                                    <div className="waiting-avatar">
-                                        {entry.patientName.charAt(0)}
-                                    </div>
-                                    <div className="waiting-info">
-                                        <h3 className="waiting-name">{entry.patientName}</h3>
-                                        <span className="waiting-specialty">{entry.specialty}</span>
+                                    <div 
+                                        className="waiting-card-identity" 
+                                        style={{ display: 'flex', alignItems: 'center', gap: '1rem', flex: 1 }}
+                                    >
+                                        <div className="waiting-avatar">
+                                            {entry.patientName.charAt(0)}
+                                        </div>
+                                        <div className="waiting-info">
+                                            <h3 className="waiting-name">{entry.patientName}</h3>
+                                            <span className="waiting-specialty">{entry.specialty}</span>
+                                        </div>
                                     </div>
                                     <div className="waiting-actions">
                                         <button 

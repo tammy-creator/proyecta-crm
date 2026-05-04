@@ -6,7 +6,7 @@
     padding: 0 1rem 1rem 0; /* Balanced padding */
     animation: fadeIn 0.4s ease-out;
     min-width: 0;
-    overflow: hidden;
+    overflow: visible;
 }
 
 .calendar-nav-toolbar {
@@ -97,7 +97,7 @@
 .calendar-grid-wrapper {
     flex: 1;
     background-color: #ffffff;
-    overflow: hidden;
+    overflow: visible; /* Permitir que los tooltips salgan del contenedor */
     display: flex;
     flex-direction: column;
     min-width: 0;
@@ -122,7 +122,7 @@
 }
 
 .header-cell {
-    padding: 0.5rem 0;
+    padding: 0.25rem 0;
     text-align: center;
     font-weight: 600;
     color: #8c7a6b;
@@ -130,12 +130,16 @@
     display: flex;
     flex-direction: column;
     justify-content: center;
+    overflow: hidden;
+    background-color: white !important; /* Force solid background */
+    z-index: 200 !important;
 }
 
 .header-cell.today {
     color: #e07a5f;
-    /* Naranja/Coral cálido */
-    position: relative;
+    position: sticky;
+    top: 0;
+    background-color: white !important;
 }
 
 .header-cell.today::after {
@@ -152,6 +156,7 @@
 .calendar-main-grid {
     flex: 1;
     overflow-y: auto;
+    overflow-x: visible; /* Permitir tooltips horizontales */
     position: relative;
     scrollbar-gutter: stable;
     width: 100%;
@@ -164,7 +169,7 @@
 }
 
 .time-cell {
-    height: 80px;
+    height: 100px;
     display: flex;
     justify-content: center;
     padding-top: 0.5rem;
@@ -183,11 +188,16 @@
 .day-column {
     min-width: 0;
     flex: 1;
-    overflow: hidden !important;
+    overflow: visible;
     position: relative;
     cursor: cell;
     background-color: #fffdfa;
     transition: none !important;
+    z-index: 1;
+}
+
+.day-column:hover {
+    z-index: 10; /* Sufficent to be over siblings (z-index: 1) but below headers (z-index: 200) */
 }
 
 /* Current Time Line */
@@ -213,7 +223,7 @@
 }
 
 .grid-slot {
-    height: 80px;
+    height: 100px;
     width: 100%;
     transition: background-color 0.2s;
     border-bottom: 1px dashed rgba(180, 165, 150, 0.6);
@@ -284,7 +294,7 @@
 }
 
 .appointment-modal-narrow {
-    width: 450px !important;
+    width: 480px !important;
     max-width: 95vw !important;
     padding: 1rem 1.25rem !important;
 }
@@ -293,7 +303,7 @@
     display: flex;
     justify-content: flex-end;
     gap: 0.75rem;
-    margin-top: 0.25rem;
+    margin-top: 1rem;
 }
 
 .appointment-block {
@@ -310,15 +320,18 @@
     cursor: pointer;
     transition: all 0.2s ease;
     z-index: 10;
-    overflow: hidden;
+    overflow: visible;
     display: flex;
     flex-direction: column;
+    box-sizing: border-box;
+    min-width: 0;
+    max-height: none !important; /* Asegurar que no se recorte */
 }
 
 .appointment-block:hover {
     transform: scale(1.02) translateY(-2px);
     box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
-    z-index: 20;
+    z-index: 999 !important; /* Forzamos para que esté sobre cualquier otra cita */
 }
 
 .embedded-mode {
@@ -335,14 +348,16 @@
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    gap: 0.25rem;
-    height: 80px; /* Standardize with day-col-header */
+    gap: 0.15rem;
+    height: 100%; /* Ocupar todo el alto de la celda de cabecera */
+    width: 100%;
 }
 
 .therapist-avatar-wrapper {
     position: relative;
-    width: 48px;
-    height: 48px;
+    width: 32px;
+    height: 32px;
+    flex-shrink: 0;
 }
 
 .therapist-header-avatar, .therapist-header-avatar-placeholder {
@@ -371,11 +386,11 @@
 }
 
 .therapist-name-label {
-    font-size: 0.8rem; /* Slightly smaller to fit */
-    font-weight: 600;
-    color: #4a3f35;
+    font-size: 0.7rem; /* Reducido para que quepa en el espacio */
+    font-weight: 700;
+    color: #334155;
     text-align: center;
-    max-width: 90%;
+    max-width: 95%;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
@@ -515,6 +530,19 @@
     display: flex;
     flex-direction: column;
     gap: 1rem;
+}
+
+.weekly-header-cell {
+    position: sticky;
+    top: 0;
+    left: 0;
+    z-index: 210 !important; /* Highest priority for the corner cell */
+    background-color: white !important;
+    border-bottom: 1px solid #e2e8f0;
+    border-right: 1px solid #e2e8f0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
 }
 
 .radar-range-selector {
@@ -680,10 +708,11 @@
 
 /* Appointment Block Internals */
 .appointment-block.status-blocked {
-    background: #f1f5f9 !important;
+    background: #f8fafc !important;
     border-color: #cbd5e1 !important;
     color: #475569 !important;
-    background-image: repeating-linear-gradient(45deg, transparent, transparent 5px, rgba(0, 0, 0, 0.03) 5px, rgba(0, 0, 0, 0.03) 10px) !important;
+    background-image: repeating-linear-gradient(45deg, transparent, transparent 10px, rgba(148, 163, 184, 0.05) 10px, rgba(148, 163, 184, 0.05) 20px) !important;
+    border-left-color: #64748b !important;
 }
 
 .appointment-block.status-blocked .appt-icon-tray {
@@ -693,6 +722,32 @@
 .appointment-block.status-blocked .appt-status-text {
     font-weight: bold !important;
     color: #475569 !important;
+    font-size: 0.65rem;
+}
+
+/* Ajuste para citas cortas para que el texto quepa mejor */
+.appointment-block[style*="height: 35px"] .appt-block-content,
+.appointment-block[style*="height: 36px"] .appt-block-content,
+.appointment-block[style*="height: 37px"] .appt-block-content,
+.appointment-block[style*="height: 38px"] .appt-block-content,
+.appointment-block[style*="height: 39px"] .appt-block-content,
+.appointment-block[style*="height: 40px"] .appt-block-content,
+.appointment-block[style*="height: 41px"] .appt-block-content,
+.appointment-block[style*="height: 42px"] .appt-block-content,
+.appointment-block[style*="height: 43px"] .appt-block-content,
+.appointment-block[style*="height: 44px"] .appt-block-content,
+.appointment-block[style*="height: 45px"] .appt-block-content,
+.appointment-block[style*="height: 46px"] .appt-block-content,
+.appointment-block[style*="height: 47px"] .appt-block-content,
+.appointment-block[style*="height: 48px"] .appt-block-content,
+.appointment-block[style*="height: 49px"] .appt-block-content,
+.appointment-block[style*="height: 50px"] .appt-block-content {
+    justify-content: center;
+    gap: 0;
+}
+
+.appointment-block[style*="height: 50px"] .appt-time-type {
+    font-size: 0.6rem;
 }
 
 .appt-icon-tray {
@@ -740,6 +795,11 @@
     flex: 1;
 }
 
+.appointment-block[style*="width: 50%"] .appt-patient-name,
+.appointment-block[style*="width: 33%"] .appt-patient-name {
+    font-size: 0.7rem;
+}
+
 .appt-time-type {
     font-size: 0.65rem;
     line-height: 1.2;
@@ -750,6 +810,11 @@
     text-overflow: ellipsis;
     display: flex;
     gap: 0.25rem;
+}
+
+.appointment-block[style*="width: 50%"] .appt-time-type,
+.appointment-block[style*="width: 33%"] .appt-time-type {
+    font-size: 0.6rem;
 }
 
 .appt-service-type {
@@ -788,7 +853,7 @@
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    height: 80px; /* Standardize with therapist-col-header */
+    height: 100px; /* Standardize with therapist-col-header */
 }
 
 .day-col-header.today {
@@ -1116,9 +1181,9 @@
     align-items: center;
     justify-content: center;
     width: 100%;
-    height: 80px; /* Match columns header height */
+    height: 100px;
     padding: 0.5rem;
-    background: linear-gradient(to bottom right, #eff6ff, #ffffff);
+    background-color: white !important;
     box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
     overflow: hidden;
 }
@@ -1232,27 +1297,51 @@
 .appt-hover-tooltip {
     display: none;
     position: absolute;
-    top: 5px;
+    top: 0;
     left: 100%;
-    margin-left: 0.75rem;
-    z-index: 100;
+    margin-left: 0.5rem;
+    z-index: 999999; /* Máximo posible */
     background-color: white;
     border: 1px solid #e2e8f0;
-    box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+    box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.15), 0 10px 10px -5px rgba(0, 0, 0, 0.1);
     border-radius: 0.75rem;
-    padding: 0.75rem;
-    width: 220px;
+    padding: 0.85rem;
+    width: 260px;
     pointer-events: none;
-    animation: fadeIn 0.15s ease-out;
+    animation: tooltipFadeIn 0.2s ease-out;
+}
+
+@keyframes tooltipFadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
 }
 
 .appointment-block:hover .appt-hover-tooltip {
-    display: block;
+    display: block !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+}
+
+/* Tooltip a la izquierda para las últimas columnas */
+.day-column-last .appt-hover-tooltip {
+    left: auto;
+    right: 100%;
+    margin-left: 0;
+    margin-right: 0.5rem;
+}
+
+.day-column-last .tooltip-arrow {
+    left: auto;
+    right: -0.375rem;
+    border-left: none;
+    border-bottom: none;
+    border-right: 1px solid #e2e8f0;
+    border-top: 1px solid #e2e8f0;
 }
 
 .tooltip-arrow {
     position: absolute;
-    top: 0.75rem;
+    top: 1rem;
     left: -0.375rem;
     width: 0.75rem;
     height: 0.75rem;
@@ -1353,4 +1442,168 @@
     display: flex;
     align-items: center;
     gap: 0.5rem;
+}
+
+/* Mini Calendar Styles */
+.mini-calendar-sidebar-section {
+    padding: 1rem;
+    background-color: #f8fafc;
+    border-bottom: 1px solid #e2e8f0;
+    margin-bottom: 0.5rem;
+}
+
+.mini-calendar-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 0.75rem;
+}
+
+.mini-calendar-month-name {
+    font-size: 0.85rem;
+    font-weight: 700;
+    color: #1e293b;
+    text-transform: capitalize;
+}
+
+.mini-calendar-nav-btns {
+    display: flex;
+    gap: 0.25rem;
+}
+
+.mini-nav-btn {
+    padding: 0.25rem;
+    border-radius: 0.375rem;
+    color: #64748b;
+    background: transparent;
+    border: none;
+    cursor: pointer;
+    transition: all 0.2s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.mini-nav-btn:hover {
+    background-color: #e2e8f0;
+    color: #1e293b;
+}
+
+.mini-calendar-grid {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    gap: 2px;
+}
+
+.mini-calendar-weekday {
+    font-size: 0.65rem;
+    font-weight: 700;
+    color: #94a3b8;
+    text-align: center;
+    padding-bottom: 0.25rem;
+}
+
+.mini-calendar-day {
+    aspect-ratio: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.75rem;
+    color: #475569;
+    cursor: pointer;
+    border-radius: 0.375rem;
+    transition: all 0.2s;
+}
+
+.mini-calendar-day:hover {
+    background-color: #e2e8f0;
+}
+
+.mini-calendar-day.outside {
+    color: #cbd5e1;
+}
+
+.mini-calendar-day.selected {
+    background-color: #2563eb;
+    color: white;
+    font-weight: 700;
+}
+
+.mini-calendar-day.today {
+    color: #2563eb;
+    font-weight: 800;
+    box-shadow: inset 0 0 0 1px #2563eb;
+}
+
+/* Sidebar Navigation & Compact Filters */
+.sidebar-top-nav {
+    padding: 0.75rem 1rem;
+    border-bottom: 1px solid #e2e8f0;
+    background-color: white;
+}
+
+.calendar-back-btn-top {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.4rem 0.75rem;
+    border-radius: 0.5rem;
+    color: #64748b;
+    font-size: 0.85rem;
+    font-weight: 600;
+    background: transparent;
+    border: none;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.calendar-back-btn-top:hover {
+    background-color: #f1f5f9;
+    color: #1e293b;
+}
+
+.calendar-compact-filters {
+    padding: 0.75rem 1rem;
+    border-bottom: 1px solid #e2e8f0;
+    background-color: white;
+}
+
+.calendar-search-wrapper-compact {
+    position: relative;
+    display: flex;
+    align-items: center;
+    width: 100%;
+}
+
+.calendar-search-icon {
+    position: absolute;
+    left: 0.75rem;
+    top: 50%;
+    transform: translateY(-50%);
+    color: #94a3b8;
+    pointer-events: none;
+    z-index: 10;
+}
+
+.calendar-search-input-compact {
+    width: 100%;
+    height: 38px;
+    background-color: #f1f5f9;
+    border: 1px solid #e2e8f0;
+    border-radius: 0.75rem;
+    padding: 0 1rem 0 2.5rem; /* 2.5rem leaves space for the icon */
+    font-size: 0.85rem;
+    color: #1e293b;
+    outline: none;
+    transition: all 0.2s ease;
+}
+
+.calendar-search-input-compact:focus {
+    background-color: white;
+    border-color: #2563eb;
+    box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+}
+
+.calendar-search-input-compact::placeholder {
+    color: #94a3b8;
 }

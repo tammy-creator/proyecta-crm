@@ -258,6 +258,11 @@
     color: #ea580c;
 }
 
+.wf-badge-holiday {
+    background-color: #fef3c7;
+    color: #b45309;
+}
+
 .wf-badge-missing {
     background-color: #fee2e2;
     color: #dc2626;
@@ -513,6 +518,15 @@
     color: white;
 }
 
+.holiday-day-holiday {
+    background: #f59e0b;
+    border-color: transparent;
+}
+
+.holiday-day-holiday .holiday-day-number {
+    color: white;
+}
+
 .holiday-day-weekend {
     background: #f8fafc;
 }
@@ -582,6 +596,7 @@
 }
 
 .legend-dot-vacation { background: #3b82f6; }
+.legend-dot-holiday { background: #f59e0b; }
 .legend-dot-sick { background: #f97316; }
 
 .legend-label {
@@ -754,6 +769,12 @@
     border-color: #f97316;
     background: #fff7ed;
     color: #f97316;
+}
+
+.wf-type-btn.active-holiday {
+    border-color: #f59e0b;
+    background: #fef3c7;
+    color: #b45309;
 }
 
 /* Form footer */

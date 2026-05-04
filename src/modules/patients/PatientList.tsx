@@ -1,13 +1,14 @@
-import React, { useEffect, useState } from 'react';
-import { getPatients, getPatientById, createPatient, updatePatient, uploadPatientFile, deletePatientFile } from './service';
+import React, { useEffect, useState, useRef } from 'react';
+import { getPatients, getPatientById, createPatient, updatePatient, deletePatient, uploadPatientFile, deletePatientFile, uploadPatientFileContent } from './service';
 import { supabase } from '../../lib/supabase';
+import { generateConsentPDF } from '../../utils/consentPdfGenerator';
 import { getAppointmentsByPatient } from '../calendar/service';
 import { type Patient, type PatientFile } from './types';
 import { type Appointment } from '../calendar/types';
-import { getUsers } from '../admin/service';
-import { type UserAccount } from '../admin/types';
+import { getTherapists } from '../therapists/service';
+import { type Therapist } from '../therapists/types';
 import Card from '../../components/ui/Card';
-import { User, Phone, Mail, Search, UserPlus, X, Calendar, ClipboardList, FileText, Upload, Activity, Download, Send, ShieldCheck, ShieldAlert, Star, Trash2 } from 'lucide-react';
+import { User, Users, Phone, Mail, Search, UserPlus, X, Calendar, ClipboardList, FileText, Upload, Activity, Download, Send, ShieldCheck, ShieldAlert, Star, Trash2, Heart } from 'lucide-react';
 import { useToast } from '../../hooks/useToast';
 import PrintPortal from '../../components/ui/PrintPortal';
 import ConsentDocument from './ConsentDocument';
@@ -18,18 +19,21 @@ import './PatientList.css';
 const PatientList: React.FC = () => {
     const { showToast } = useToast();
     const [patients, setPatients] = useState<Patient[]>([]);
+    const fileInputRef = useRef<HTMLInputElement>(null);
     const [loading, setLoading] = useState(true);
     const [searchTerm, setSearchTerm] = useState('');
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [selectedPatient, setSelectedPatient] = useState<Partial<Patient> | null>(null);
-    const [activeTab, setActiveTab] = useState<'general' | 'appointments' | 'files'>('general');
+    const [activeTab, setActiveTab] = useState<'general' | 'appointments' | 'files' | 'history'>('general');
     const [patientAppointments, setPatientAppointments] = useState<Appointment[]>([]);
     const [isConsentModalOpen, setIsConsentModalOpen] = useState(false);
     const [isConsentViewMode, setIsConsentViewMode] = useState(false);
     const [isSigned, setIsSigned] = useState(false);
     const [isSending, setIsSending] = useState(false);
     const [deleteConfirm, setDeleteConfirm] = useState<{ isOpen: boolean; file: PatientFile | null }>({ isOpen: false, file: null });
-    const [therapists, setTherapists] = useState<UserAccount[]>([]);
+    const [therapists, setTherapists] = useState<Therapist[]>([]);
+    const [processingStep, setProcessingStep] = useState<string>('');
+    const [patientDeleteConfirm, setPatientDeleteConfirm] = useState<{ isOpen: boolean; patient: Patient | null }>({ isOpen: false, patient: null });
 
     // Canvas signature state
     const [drawing, setDrawing] = useState(false);
@@ -45,14 +49,14 @@ const PatientList: React.FC = () => {
 
     useEffect(() => {
         fetchData();
-        getUsers().then(users => {
-            const onlyTherapists = users.filter(u => u.role === 'Therapist' && u.status === 'Active');
+        getTherapists().then(data => {
+            const onlyTherapists = data.filter(t => t.specialty !== 'Administración');
             setTherapists(onlyTherapists);
         });
     }, []);
 
     useEffect(() => {
-        if (isModalOpen && selectedPatient?.id && activeTab === 'appointments') {
+        if (isModalOpen && selectedPatient?.id && (activeTab === 'appointments' || activeTab === 'history')) {
             getAppointmentsByPatient(selectedPatient.id).then(setPatientAppointments);
         }
     }, [isModalOpen, selectedPatient?.id, activeTab]);
@@ -150,6 +154,27 @@ const PatientList: React.FC = () => {
         }
     };
 
+    const handleDelete = () => {
+        if (!selectedPatient?.id) return;
+        setPatientDeleteConfirm({ isOpen: true, patient: selectedPatient as Patient });
+    };
+
+    const confirmPatientDelete = async () => {
+        if (!patientDeleteConfirm.patient?.id) return;
+        const patientId = patientDeleteConfirm.patient.id;
+        
+        try {
+            await deletePatient(patientId);
+            showToast('Paciente eliminado correctamente', 'success');
+            setPatientDeleteConfirm({ isOpen: false, patient: null });
+            setIsModalOpen(false);
+            setPatients(prev => prev.filter(p => p.id !== patientId));
+        } catch (error: any) {
+            console.error("Error eliminando paciente:", error);
+            showToast(`Error al eliminar: ${error.message || 'Error de servidor'}`, 'error');
+        }
+    };
+
     const handleSave = async (e: React.FormEvent) => {
         e.preventDefault();
         if (!selectedPatient) return;
@@ -182,25 +207,35 @@ const PatientList: React.FC = () => {
         }
     };
 
-    const handleSimulateUpload = async () => {
-        if (!selectedPatient?.id) return;
-        const fileName = prompt('Nombre del archivo:', 'Informe_Evolucion.pdf');
-        if (!fileName) return;
+    const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (!file || !selectedPatient?.id) return;
 
         try {
-            await uploadPatientFile(selectedPatient.id, {
-                name: fileName,
-                type: 'application/pdf',
-                size: '1.2 MB'
-            });
+            showToast(`Subiendo "${file.name}"...`, "info");
+            setIsSending(true);
 
-            // Refresh total y el seleccionado
-            const data = await getPatients();
-            setPatients(data);
-            const updated = data.find(p => p.id === selectedPatient.id);
-            if (updated) setSelectedPatient(updated);
-        } catch (error) {
+            await uploadPatientFileContent(
+                selectedPatient.id,
+                file.name,
+                file,
+                file.type
+            );
+
+            showToast("Archivo subido correctamente", "success");
+            
+            // Refrescar datos
+            const updated = await getPatientById(selectedPatient.id);
+            if (updated) {
+                setSelectedPatient(updated);
+                setPatients(prev => prev.map(p => p.id === updated.id ? updated : p));
+            }
+        } catch (error: any) {
             console.error("Error subiendo archivo:", error);
+            showToast(`Error al subir: ${error.message || 'Error de conexión'}`, "error");
+        } finally {
+            setIsSending(false);
+            if (fileInputRef.current) fileInputRef.current.value = '';
         }
     };
 
@@ -286,11 +321,12 @@ const PatientList: React.FC = () => {
             await updatePatient(updatedPatientData);
             showToast("Borrador guardado correctamente. Los cambios en los textos se han actualizado.", "success");
             
-            // Refresh local data
-            const data = await getPatients();
-            setPatients(data);
-            const updated = data.find(p => p.id === selectedPatient.id);
-            if (updated) setSelectedPatient(updated);
+            // Refresh local data efficiently
+            const updated = await getPatientById(selectedPatient.id);
+            if (updated) {
+                setSelectedPatient(updated);
+                setPatients(prev => prev.map(p => p.id === updated.id ? updated : p));
+            }
         } catch (error) {
             console.error("Error guardando borrador:", error);
             showToast("Error al guardar el borrador.", "error");
@@ -298,108 +334,32 @@ const PatientList: React.FC = () => {
             setIsSending(false);
         }
     };
-    const generateAndSendPDF = async (updatedPatient: Patient, _extraFields: any) => {
-        const modalBody = document.querySelector('.consent-form-modal .modal-body');
-        const container = document.querySelector('.consent-document');
-        if (!modalBody || !container) return;
-
-        // Añadir clase temporal para optimizar la captura
-        container.classList.add('capturing');
-        
-        showToast("Generando documento de alta calidad (8 páginas). Espere por favor...", "info");
-
-        const pages = modalBody.querySelectorAll('.doc-page');
-        const pdf = new jsPDF('p', 'mm', 'a4');
-        const pdfWidth = pdf.internal.pageSize.getWidth();
-        const pdfHeight = pdf.internal.pageSize.getHeight();
-
-        try {
-            for (let i = 0; i < pages.length; i++) {
-                const canvas = await html2canvas(pages[i] as HTMLElement, {
-                    scale: 3, // Mayor resolución
-                    useCORS: true,
-                    logging: false,
-                    backgroundColor: '#ffffff',
-                    windowWidth: 794, // 210mm a 96dpi (aprox)
-                    onclone: (clonedDoc) => {
-                        // Asegurar que las fuentes y estilos se mantengan en el clon
-                        const clonedPage = clonedDoc.querySelectorAll('.doc-page')[i] as HTMLElement;
-                        if (clonedPage) {
-                            clonedPage.style.margin = '0';
-                            clonedPage.style.boxShadow = 'none';
-                        }
-                    }
-                });
-                
-                const imgData = canvas.toDataURL('image/jpeg', 0.95);
-                if (i > 0) pdf.addPage();
-                pdf.addImage(imgData, 'JPEG', 0, 0, pdfWidth, pdfHeight, undefined, 'FAST');
-            }
-
-            const pdfBase64 = pdf.output('datauristring');
-            const recipientEmail = updatedPatient.tutor1?.email || updatedPatient.email;
-
-            // Pruned patient for email body (no need for large base64 strings twice)
-            const prunedPatient = {
-                firstName: updatedPatient.firstName,
-                lastName: updatedPatient.lastName,
-                id: updatedPatient.id
-            };
-
-            const { data, error: invokeError } = await supabase.functions.invoke('send-consent-email', {
-                body: {
-                    email: recipientEmail,
-                    patient: prunedPatient,
-                    pdfBase64: pdfBase64,
-                    message: `Se adjunta la documentación clínica completa de ${updatedPatient.firstName} ${updatedPatient.lastName} integrada en el sistema.`
-                }
-            });
-
-            return { data, invokeError, recipientEmail };
-        } finally {
-            container.classList.remove('capturing');
-        }
-    };
-    
     const handleDownloadPDF = async () => {
         if (!selectedPatient) return;
         setIsSending(true);
         try {
-            const modalBody = document.querySelector('.modal-body');
-            const container = document.querySelector('.consent-document');
-            if (!modalBody) {
-                showToast("No se pudo encontrar el contenido del documento", "error");
-                return;
-            }
-
             showToast("Generando PDF de alta calidad. Espere por favor...", "info");
             
-            const pages = modalBody.querySelectorAll('.doc-page');
-            if (pages.length === 0) {
-                // Fallback si no hay .doc-page (por ejemplo en el visor simple)
-                window.print();
-                return;
-            }
-
-            const pdf = new jsPDF('p', 'mm', 'a4');
-            const pdfWidth = pdf.internal.pageSize.getWidth();
-            const pdfHeight = pdf.internal.pageSize.getHeight();
-
-            if (container) container.classList.add('capturing');
-
-            for (let i = 0; i < pages.length; i++) {
-                const canvas = await html2canvas(pages[i] as HTMLElement, {
-                    scale: 2,
-                    useCORS: true,
-                    logging: false,
-                    backgroundColor: '#ffffff'
-                });
-                const imgData = canvas.toDataURL('image/jpeg', 0.95);
-                if (i > 0) pdf.addPage();
-                pdf.addImage(imgData, 'JPEG', 0, 0, pdfWidth, pdfHeight, undefined, 'FAST');
-            }
+            const tutorCanvas = document.querySelector('.signature-pad-canvas[data-role="tutor"]') as HTMLCanvasElement;
+            const therapistCanvas = document.querySelector('.signature-pad-canvas[data-role="therapist"]') as HTMLCanvasElement;
             
-            if (container) container.classList.remove('capturing');
+            const tutorSignature = tutorCanvas?.getAttribute('data-signed') === 'true' ? tutorCanvas.toDataURL('image/png') : selectedPatient.consentSignature;
+            const therapistSignature = therapistCanvas?.getAttribute('data-signed') === 'true' ? therapistCanvas.toDataURL('image/png') : selectedPatient.therapistSignature;
+
+            const extraFields: Record<string, string> = {};
+            document.querySelectorAll('[data-field-id]').forEach(el => {
+                const fieldId = el.getAttribute('data-field-id');
+                if (fieldId) {
+                    extraFields[fieldId] = (el as HTMLElement).innerText || '';
+                }
+            });
+
+            const pdf = await generateConsentPDF(
+                selectedPatient as Patient,
+                extraFields,
+                tutorSignature,
+                therapistSignature
+            );
             
             pdf.save(`Documentacion_${selectedPatient.lastName || 'Paciente'}_${selectedPatient.firstName || ''}.pdf`);
             showToast("PDF descargado correctamente", "success");
@@ -414,9 +374,9 @@ const PatientList: React.FC = () => {
     const handleSaveAndSendConsent = async (options: { isSilentResend?: boolean } = {}) => {
         if (!selectedPatient?.id) return;
         setIsSending(true);
+        setProcessingStep('Preparando documento...');
 
         try {
-            // Capturar todos los campos editables manuales del DOM
             const extraFields: Record<string, string> = {};
             document.querySelectorAll('[data-field-id]').forEach(el => {
                 const fieldId = el.getAttribute('data-field-id');
@@ -425,54 +385,95 @@ const PatientList: React.FC = () => {
                 }
             });
 
-            // Capturar firmas por rol
             const tutorCanvas = document.querySelector('.signature-pad-canvas[data-role="tutor"]') as HTMLCanvasElement;
             const isTutorSigned = tutorCanvas?.getAttribute('data-signed') === 'true';
-            const tutorSignature = isTutorSigned ? tutorCanvas?.toDataURL('image/png') : (selectedPatient as Patient).consentSignature;
+            const tutorSignature = isTutorSigned ? tutorCanvas?.toDataURL('image/png') : selectedPatient.consentSignature;
 
             const therapistCanvas = document.querySelector('.signature-pad-canvas[data-role="therapist"]') as HTMLCanvasElement;
             const isTherapistSigned = therapistCanvas?.getAttribute('data-signed') === 'true';
-            const therapistSignature = isTherapistSigned ? therapistCanvas?.toDataURL('image/png') : (selectedPatient as Patient).therapistSignature;
+            const therapistSignature = isTherapistSigned ? therapistCanvas?.toDataURL('image/png') : selectedPatient.therapistSignature;
 
-            // Guardar y enviar si al menos hay una firma o ya existían
             if (tutorSignature || therapistSignature) {
                 const now = new Date().toISOString();
                 
-                // Actualizar el objeto paciente con los cambios manuales y firmas
                 const updatedPatientData = { 
                     ...selectedPatient as Patient, 
                     consentSignature: tutorSignature,
                     therapistSignature: therapistSignature,
                     consentLopd: true,
-                    consentDate: (isTutorSigned || isTherapistSigned) ? now : (selectedPatient as Patient).consentDate || now,
-                    // Mapear campos manuales a la ficha del paciente si existen
-                    schooling: extraFields.school_stage || extraFields.school_name || (selectedPatient as Patient).schooling,
-                    allergies: extraFields.allergies_detail || (selectedPatient as Patient).allergies,
-                    referralSource: extraFields.referral_detail || (selectedPatient as Patient).referralSource
+                    consentDate: (isTutorSigned || isTherapistSigned) ? now : selectedPatient.consentDate || now,
+                    schooling: extraFields.school_stage || extraFields.school_name || selectedPatient.schooling,
+                    allergies: extraFields.allergies_detail || selectedPatient.allergies,
+                    referralSource: extraFields.referral_detail || selectedPatient.referralSource
                 };
 
                 await updatePatient(updatedPatientData);
 
-                // Generar PDF de Alta Fidelidad y enviar
-                const result = await generateAndSendPDF(updatedPatientData, extraFields);
-                
-                if (result?.invokeError) {
-                    console.error("Error invoking Edge Function:", result.invokeError);
-                    showToast(`Error de conexión: ${result.invokeError.message}`, "error");
-                } else if (result?.data && result.data.success === false) {
-                    console.error("SMTP or Logic Error:", result.data.error);
-                    showToast(`Error al enviar: ${result.data.error}`, "error");
-                } else if (result?.data && result.data.success) {
-                    showToast(`¡DOCUMENTO ENVIADO CON ÉXITO!`, "success");
+                setProcessingStep('Generando PDF...');
+                const pdf = await generateConsentPDF(
+                    updatedPatientData,
+                    extraFields,
+                    tutorSignature,
+                    therapistSignature
+                );
+
+                const pdfBase64 = pdf.output('datauristring');
+                const pdfBlob = pdf.output('blob');
+                const recipientEmail = updatedPatientData.tutor1?.email || updatedPatientData.email;
+
+                setProcessingStep('Guardando en archivos...');
+
+                // Guardar registro de archivo en el historial solo si NO es un re-envío silencioso
+                if (!options.isSilentResend) {
+                    try {
+                        // Limpiar archivos anteriores con el mismo nombre para evitar duplicados en la lista
+                        const existingFiles = (selectedPatient as Patient).files || [];
+                        const oldConsentFiles = existingFiles.filter(f => f.name === 'Ficha_Inscripcion_Firmada.pdf');
+                        
+                        for (const oldFile of oldConsentFiles) {
+                            await deletePatientFile(oldFile.id, selectedPatient.id, oldFile.name);
+                        }
+
+                        await uploadPatientFile(selectedPatient.id, {
+                            name: 'Ficha_Inscripcion_Firmada.pdf',
+                            type: 'application/pdf',
+                            size: '1.4 MB'
+                        });
+                    } catch (uploadError) {
+                        console.warn("Fallo al gestionar registro de archivo, pero se ignora:", uploadError);
+                    }
                 }
 
-                // Simular subida de archivo para el historial solo si NO es un re-envío silencioso
+                // Enviar email en segundo plano
+                supabase.functions.invoke('send-consent-email', {
+                    body: {
+                        email: recipientEmail,
+                        patient: { firstName: updatedPatientData.firstName, lastName: updatedPatientData.lastName, id: updatedPatientData.id },
+                        pdfBase64: pdfBase64,
+                        message: `Se adjunta la documentación clínica completa de ${updatedPatientData.firstName} ${updatedPatientData.lastName} integrada en el sistema.`
+                    }
+                }).then(({ error: invokeError }) => {
+                    if (invokeError) {
+                        console.error("Error enviando email en 2do plano:", invokeError);
+                        showToast(`No se pudo enviar el email: ${invokeError.message}`, "error");
+                    } else if (!options.isSilentResend) {
+                        showToast(`¡Email enviado correctamente a ${recipientEmail}!`, "success");
+                    }
+                });
+
                 if (!options.isSilentResend) {
-                    await uploadPatientFile((selectedPatient as Patient).id, {
-                        name: 'Ficha_Inscripcion_Firmada.pdf',
-                        type: 'application/pdf',
-                        size: '1.4 MB'
-                    });
+                    showToast('¡Documento guardado! El email se está enviando en segundo plano.', 'success');
+                }
+
+                setIsConsentModalOpen(false);
+                setIsConsentViewMode(false);
+                setIsSigned(false);
+
+                // Refresh local data efficiently
+                const refreshed = await getPatientById(selectedPatient.id);
+                if (refreshed) {
+                    setSelectedPatient(refreshed);
+                    setPatients(prev => prev.map(p => p.id === refreshed.id ? refreshed : p));
                 }
             } else {
                 showToast("No se ha detectado ninguna firma en el panel.", "error");
@@ -482,19 +483,7 @@ const PatientList: React.FC = () => {
             showToast("Error crítico al procesar el documento.", "error");
         } finally {
             setIsSending(false);
-            setIsConsentModalOpen(false);
-            setIsConsentViewMode(false);
-            setIsSigned(false);
-
-            // Refresh local data
-            try {
-                const data = await getPatients();
-                setPatients(data);
-                const updated = data.find(p => p.id === selectedPatient.id);
-                if (updated) setSelectedPatient(updated);
-            } catch (error) {
-                console.error("Error refreshing after consent:", error);
-            }
+            setProcessingStep('');
         }
     };
 
@@ -508,14 +497,15 @@ const PatientList: React.FC = () => {
         const file = deleteConfirm.file;
         
         try {
-            await deletePatientFile(file.id);
+            await deletePatientFile(file.id, selectedPatient.id, file.name);
             showToast(`"${file.name}" eliminado correctamente`, "success");
             
-            // Refrescar datos
-            const data = await getPatients();
-            setPatients(data);
-            const updated = data.find(p => p.id === selectedPatient.id);
-            if (updated) setSelectedPatient(updated);
+            // Refrescar datos individualmente
+            const updated = await getPatientById(selectedPatient.id);
+            if (updated) {
+                setSelectedPatient(updated);
+                setPatients(prev => prev.map(p => p.id === updated.id ? updated : p));
+            }
         } catch (error) {
             console.error("Error eliminando archivo:", error);
             showToast("No se pudo eliminar el archivo. Revisa los permisos.", "error");
@@ -565,11 +555,15 @@ const PatientList: React.FC = () => {
         }
     };
 
+    const normalizeString = (str: string) => {
+        return str ? str.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().replace(/\s+/g, ' ').trim() : "";
+    };
 
-    const filteredPatients = patients.filter(p =>
-        `${p.firstName} ${p.lastName}`.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        p.tutorName?.toLowerCase().includes(searchTerm.toLowerCase())
-    );
+    const filteredPatients = patients.filter(p => {
+        const searchTarget = normalizeString(`${p.firstName} ${p.lastName} ${p.tutorName || ''}`);
+        const normalizedSearch = normalizeString(searchTerm);
+        return searchTarget.includes(normalizedSearch);
+    });
 
     if (loading && patients.length === 0) {
         return <div className="loading">Cargando pacientes...</div>;
@@ -605,7 +599,7 @@ const PatientList: React.FC = () => {
 
             <div className="patient-grid">
                 {filteredPatients.map((patient) => (
-                    <Card key={patient.id} className="patient-card">
+                    <Card key={patient.id} className="patient-card" onClick={() => handleOpenModal(patient)}>
                         <div className="patient-card-header">
                             <div className="patient-avatar" style={{ backgroundColor: 'var(--color-status-info-bg)' }}>
                                 {patient.firstName.charAt(0)}
@@ -683,9 +677,9 @@ const PatientList: React.FC = () => {
 
             {isModalOpen && selectedPatient && (
                 <div className="modal-overlay">
-                    <div className="modal-content" style={{ maxWidth: '750px' }}>
+                    <div className="modal-content" style={{ maxWidth: '680px' }}>
                         <div className="modal-header">
-                            <div className="flex items-center gap-3">
+                            <div className="flex items-center gap-5">
                                 <div className="patient-avatar small" style={{ backgroundColor: 'var(--color-status-info-bg)' }}>
                                     {selectedPatient.firstName?.charAt(0) || '?'}
                                 </div>
@@ -694,11 +688,12 @@ const PatientList: React.FC = () => {
                             <button className="btn-icon-round" title="Cerrar" onClick={() => setIsModalOpen(false)}><X size={20} /></button>
                         </div>
 
-                        <div className="modal-tabs flex gap-4 mb-6 border-bottom">
+                        <div className="modal-tabs flex gap-4 mb-3 border-bottom">
                             <button className={`tab-btn ${activeTab === 'general' ? 'active' : ''}`} onClick={() => setActiveTab('general')}>Datos Generales</button>
                             {selectedPatient.id && (
                                 <>
                                     <button className={`tab-btn ${activeTab === 'appointments' ? 'active' : ''}`} onClick={() => setActiveTab('appointments')}>Citas</button>
+                                    <button className={`tab-btn ${activeTab === 'history' ? 'active' : ''}`} onClick={() => setActiveTab('history')}>Historia Clínica</button>
                                     <button className={`tab-btn ${activeTab === 'files' ? 'active' : ''}`} onClick={() => setActiveTab('files')}>Archivos</button>
                                 </>
                             )}
@@ -706,30 +701,24 @@ const PatientList: React.FC = () => {
 
                         <div className="tab-content">
                             {activeTab === 'general' && (
-                                <form className="modal-form" onSubmit={handleSave} style={{ gap: '2rem' }}>
+                                <form className="modal-form" onSubmit={handleSave}>
                                     <section className="form-section">
-                                        <h4 className="section-title-small">1. DATOS DEL ALUMNO/A</h4>
-                                        <div className="flex gap-4">
-                                            <div className="form-group" style={{ flex: 2 }}>
+                                        <h4 className="section-title-small">
+                                            <User size={16} color="#fff" /> 1. DATOS DEL ALUMNO/A
+                                        </h4>
+                                        <div className="form-row-grid" style={{ gridTemplateColumns: '1fr 1fr' }}>
+                                            <div className="form-group">
                                                 <label>Nombre</label>
                                                 <input type="text" required value={selectedPatient.firstName} onChange={e => setSelectedPatient({ ...selectedPatient, firstName: e.target.value })} />
                                             </div>
-                                            <div className="form-group" style={{ flex: 3 }}>
+                                            <div className="form-group">
                                                 <label>Apellidos</label>
                                                 <input type="text" required value={selectedPatient.lastName} onChange={e => setSelectedPatient({ ...selectedPatient, lastName: e.target.value })} />
                                             </div>
                                         </div>
 
-                                        <div className="flex gap-4">
-                                            <div className="form-group" style={{ flex: 1 }}>
-                                                <label><Calendar size={14} style={{ marginRight: 6 }} /> F. Nacimiento</label>
-                                                <input type="date" required value={selectedPatient.birthDate} onChange={e => setSelectedPatient({ ...selectedPatient, birthDate: e.target.value })} />
-                                            </div>
-                                            <div className="form-group" style={{ flex: 1 }}>
-                                                <label>Etapa Escolarización</label>
-                                                <input type="text" value={selectedPatient.schooling} placeholder="Ej. 3º Primaria" onChange={e => setSelectedPatient({ ...selectedPatient, schooling: e.target.value })} />
-                                            </div>
-                                            <div className="form-group" style={{ flex: 1 }}>
+                                        <div className="form-row-grid" style={{ gridTemplateColumns: '1fr 1fr 1fr' }}>
+                                            <div className="form-group">
                                                 <label>Estado</label>
                                                 <select value={selectedPatient.status} onChange={e => setSelectedPatient({ ...selectedPatient, status: e.target.value as any })}>
                                                     <option value="Activo">Activo</option>
@@ -738,106 +727,132 @@ const PatientList: React.FC = () => {
                                                     <option value="Lista de espera">Lista de espera</option>
                                                 </select>
                                             </div>
+                                            <div className="form-group">
+                                                <label><Calendar size={14} style={{ marginRight: 6 }} /> F. Nacimiento</label>
+                                                <input type="date" value={selectedPatient.birthDate} onChange={e => setSelectedPatient({ ...selectedPatient, birthDate: e.target.value })} />
+                                            </div>
+                                            <div className="form-group">
+                                                <label>Etapa Escolarización</label>
+                                                <input type="text" value={selectedPatient.schooling} placeholder="Ej. 3º Primaria" onChange={e => setSelectedPatient({ ...selectedPatient, schooling: e.target.value })} />
+                                            </div>
                                         </div>
 
                                         <div className="form-group">
                                             <label>Dirección Completa</label>
-                                            <input type="text" value={selectedPatient.address} placeholder="Calle, Número, Piso, CP, Ciudad" onChange={e => setSelectedPatient({ ...selectedPatient, address: e.target.value })} />
+                                            <input type="text" value={selectedPatient.address} placeholder="Calle, Número, CP, Ciudad" onChange={e => setSelectedPatient({ ...selectedPatient, address: e.target.value })} />
                                         </div>
                                     </section>
 
                                     <section className="form-section">
-                                        <h4 className="section-title-small">2. DATOS DEL TUTOR 1 (Principal)</h4>
-                                        <div className="flex gap-4">
-                                            <div className="form-group" style={{ flex: 1 }}>
+                                        <h4 className="section-title-small">
+                                            <Users size={16} color="#fff" /> 2. DATOS DEL TUTOR 1 (Principal)
+                                        </h4>
+                                        <div className="form-row-grid" style={{ gridTemplateColumns: '1fr 1fr 1fr' }}>
+                                            <div className="form-group">
                                                 <label>Nombre</label>
                                                 <input type="text" value={selectedPatient.tutor1?.firstName} onChange={e => setSelectedPatient({ ...selectedPatient, tutor1: { ...selectedPatient.tutor1!, firstName: e.target.value } })} />
                                             </div>
-                                            <div className="form-group" style={{ flex: 1 }}>
+                                            <div className="form-group">
                                                 <label>Apellidos</label>
                                                 <input type="text" value={selectedPatient.tutor1?.lastName} onChange={e => setSelectedPatient({ ...selectedPatient, tutor1: { ...selectedPatient.tutor1!, lastName: e.target.value } })} />
                                             </div>
-                                            <div className="form-group" style={{ flex: 1 }}>
+                                            <div className="form-group">
                                                 <label>DNI/NIE</label>
                                                 <input type="text" value={selectedPatient.tutor1?.dni} onChange={e => setSelectedPatient({ ...selectedPatient, tutor1: { ...selectedPatient.tutor1!, dni: e.target.value } })} />
                                             </div>
                                         </div>
-                                        <div className="flex gap-4">
-                                            <div className="form-group" style={{ flex: 1 }}>
+                                        <div className="form-row-grid" style={{ gridTemplateColumns: '1fr 1fr 1fr' }}>
+                                            <div className="form-group">
                                                 <label>Profesión</label>
                                                 <input type="text" value={selectedPatient.tutor1?.job} onChange={e => setSelectedPatient({ ...selectedPatient, tutor1: { ...selectedPatient.tutor1!, job: e.target.value } })} />
                                             </div>
-                                            <div className="form-group" style={{ flex: 1 }}>
+                                            <div className="form-group">
                                                 <label>Teléfono</label>
                                                 <input type="tel" value={selectedPatient.tutor1?.phone} onChange={e => setSelectedPatient({ ...selectedPatient, tutor1: { ...selectedPatient.tutor1!, phone: e.target.value }, phone: e.target.value })} />
                                             </div>
-                                            <div className="form-group" style={{ flex: 1 }}>
-                                                <label>Email</label>
-                                                <input type="email" value={selectedPatient.tutor1?.email} onChange={e => setSelectedPatient({ ...selectedPatient, tutor1: { ...selectedPatient.tutor1!, email: e.target.value }, email: e.target.value })} />
+                                            <div className="form-group">
+                                                <label>Email {!selectedPatient.id && <span style={{ color: '#ef4444' }}>*</span>}</label>
+                                                <input 
+                                                    type="email" 
+                                                    required={!selectedPatient.id}
+                                                    value={selectedPatient.tutor1?.email} 
+                                                    onChange={e => setSelectedPatient({ ...selectedPatient, tutor1: { ...selectedPatient.tutor1!, email: e.target.value }, email: e.target.value })} 
+                                                />
                                             </div>
                                         </div>
                                     </section>
 
                                     <section className="form-section">
-                                        <h4 className="section-title-small">3. DATOS DEL TUTOR 2 (Opcional)</h4>
-                                        <div className="flex gap-4">
-                                            <div className="form-group" style={{ flex: 1 }}>
+                                        <h4 className="section-title-small">
+                                            <UserPlus size={16} color="#fff" /> 3. DATOS DEL TUTOR 2 (Opcional)
+                                        </h4>
+                                        <div className="form-row-grid" style={{ gridTemplateColumns: '1fr 1fr 1fr 1fr' }}>
+                                            <div className="form-group">
                                                 <label>Nombre</label>
                                                 <input type="text" value={selectedPatient.tutor2?.firstName} onChange={e => setSelectedPatient({ ...selectedPatient, tutor2: { ...selectedPatient.tutor2!, firstName: e.target.value } })} />
                                             </div>
-                                            <div className="form-group" style={{ flex: 1 }}>
+                                            <div className="form-group">
                                                 <label>Apellidos</label>
                                                 <input type="text" value={selectedPatient.tutor2?.lastName} onChange={e => setSelectedPatient({ ...selectedPatient, tutor2: { ...selectedPatient.tutor2!, lastName: e.target.value } })} />
                                             </div>
-                                            <div className="form-group" style={{ flex: 1 }}>
+                                            <div className="form-group">
                                                 <label>DNI/NIE</label>
                                                 <input type="text" value={selectedPatient.tutor2?.dni} onChange={e => setSelectedPatient({ ...selectedPatient, tutor2: { ...selectedPatient.tutor2!, dni: e.target.value } })} />
+                                            </div>
+                                            <div className="form-group">
+                                                <label>Teléfono</label>
+                                                <input type="tel" value={selectedPatient.tutor2?.phone} onChange={e => setSelectedPatient({ ...selectedPatient, tutor2: { ...selectedPatient.tutor2!, phone: e.target.value } })} />
                                             </div>
                                         </div>
                                     </section>
 
                                     <section className="form-section">
-                                        <h4 className="section-title-small">4. DATOS DE INTERÉS Y ORIGEN</h4>
-                                        <div className="form-group">
-                                            <label>¿Alergias o intolerancia alimenticia?</label>
-                                            <input type="text" value={selectedPatient.allergies} placeholder="Describir o indicar 'No'" onChange={e => setSelectedPatient({ ...selectedPatient, allergies: e.target.value })} />
-                                        </div>
-                                        <div className="form-group">
-                                            <label>¿Cómo nos conociste? (Origen/Referente)</label>
-                                            <select value={selectedPatient.referralSource} onChange={e => setSelectedPatient({ ...selectedPatient, referralSource: e.target.value })}>
-                                                <option value="">Seleccionar opción...</option>
-                                                <option value="Instagram">Instagram / Redes Sociales</option>
-                                                <option value="Google">Google / Web</option>
-                                                <option value="Recomendación">Recomendación Personal</option>
-                                                <option value="Colegio">Colegio / Orientador</option>
-                                                <option value="Pediatra">Pediatra / Centro Salud</option>
-                                                <option value="Seguro">Compañía de Seguros</option>
-                                                <option value="Otro">Otro</option>
-                                            </select>
-                                        </div>
-                                        <div className="form-group">
-                                            <label>Terapeuta Asignado (Opcional)</label>
-                                            <select 
-                                                value={selectedPatient.therapistId || ''} 
-                                                onChange={e => setSelectedPatient({ ...selectedPatient, therapistId: e.target.value })}
-                                            >
-                                                <option value="">Sin asignar / Rotatorio</option>
-                                                {therapists.map(t => (
-                                                    <option key={t.id} value={t.id}>{t.fullName}</option>
-                                                ))}
-                                            </select>
+                                        <h4 className="section-title-small">
+                                            <Heart size={16} color="#fff" /> 4. DATOS DE INTERÉS Y ORIGEN
+                                        </h4>
+                                        <div className="form-row-grid" style={{ gridTemplateColumns: '1.5fr 1fr 1fr' }}>
+                                            <div className="form-group">
+                                                <label>Alergias o intolerancia alimenticia</label>
+                                                <input type="text" value={selectedPatient.allergies} placeholder="Describir o indicar 'No'" onChange={e => setSelectedPatient({ ...selectedPatient, allergies: e.target.value })} />
+                                            </div>
+                                            <div className="form-group">
+                                                <label>¿Cómo nos conociste? (Origen)</label>
+                                                <select value={selectedPatient.referralSource} onChange={e => setSelectedPatient({ ...selectedPatient, referralSource: e.target.value })}>
+                                                    <option value="">Seleccionar...</option>
+                                                    <option value="Instagram">Instagram/Redes</option>
+                                                    <option value="Google">Google/Web</option>
+                                                    <option value="Recomendación">Recomendación</option>
+                                                    <option value="Colegio">Colegio/Orientador</option>
+                                                    <option value="Pediatra">Pediatra/C.Salud</option>
+                                                    <option value="Seguro">Seguros</option>
+                                                    <option value="Otro">Otro</option>
+                                                </select>
+                                            </div>
+                                            <div className="form-group">
+                                                <label>Terapeuta Asignado</label>
+                                                <select 
+                                                    value={selectedPatient.therapistId || ''} 
+                                                    onChange={e => setSelectedPatient({ ...selectedPatient, therapistId: e.target.value })}
+                                                >
+                                                    <option value="">Sin asignar</option>
+                                                    {therapists.map(t => (
+                                                        <option key={t.id} value={t.id}>{t.fullName}</option>
+                                                    ))}
+                                                </select>
+                                            </div>
                                         </div>
                                         <div className="form-group">
                                             <label><ClipboardList size={14} style={{ marginRight: 6 }} /> Notas Médicas / Observaciones</label>
-                                            <textarea rows={3} value={selectedPatient.notes} onChange={e => setSelectedPatient({ ...selectedPatient, notes: e.target.value })} style={{ width: '100%', padding: '0.75rem', borderRadius: '8px', border: '1px solid #ddd', fontFamily: 'inherit' }} />
+                                            <textarea rows={2} value={selectedPatient.notes} onChange={e => setSelectedPatient({ ...selectedPatient, notes: e.target.value })} style={{ width: '100%', padding: '0.5rem', borderRadius: '8px', border: '1px solid #ddd', fontFamily: 'inherit' }} />
                                         </div>
 
                                         <div className="consent-verification-check" style={{ 
-                                            padding: '1rem', 
+                                            padding: '0.6rem 0.8rem', 
                                             borderRadius: '8px', 
-                                            backgroundColor: selectedPatient.consentLopd ? 'rgba(5, 150, 105, 0.05)' : 'rgba(220, 38, 38, 0.05)',
-                                            border: `1px solid ${selectedPatient.consentLopd ? '#05966933' : '#dc262633'}`,
-                                            marginTop: '1.5rem'
+                                            backgroundColor: selectedPatient.consentLopd ? 'rgba(5, 150, 105, 0.08)' : 'rgba(220, 38, 38, 0.08)',
+                                            border: `1px solid ${selectedPatient.consentLopd ? '#05966944' : '#dc262644'}`,
+                                            marginTop: '0.75rem',
+                                            boxShadow: 'inset 0 1px 2px rgba(0,0,0,0.01)'
                                         }}>
                                             <div className="flex items-center justify-between">
                                                 <div className="flex items-center gap-2">
@@ -879,14 +894,22 @@ const PatientList: React.FC = () => {
 
                                     <div className="modal-footer">
                                         {selectedPatient.id && (
-                                            <button
-                                                type="button"
-                                                className="btn-link text-warning"
-                                                style={{ marginRight: 'auto', fontSize: '0.85rem' }}
-                                                onClick={() => handleMoveToWaitingList(selectedPatient as Patient)}
-                                            >
-                                                Mover a Lista de Espera
-                                            </button>
+                                            <div className="flex gap-2" style={{ marginRight: 'auto' }}>
+                                                <button
+                                                    type="button"
+                                                    className="btn-warning-soft"
+                                                    onClick={() => handleMoveToWaitingList(selectedPatient as Patient)}
+                                                >
+                                                    <ClipboardList size={14} /> Mover a Lista de Espera
+                                                </button>
+                                                <button
+                                                    type="button"
+                                                    className="btn-danger-soft"
+                                                    onClick={handleDelete}
+                                                >
+                                                    <Trash2 size={14} /> Eliminar Paciente
+                                                </button>
+                                            </div>
                                         )}
                                         <button type="button" className="btn-secondary" onClick={() => setIsModalOpen(false)}>Cancelar</button>
                                         <button type="submit" className="btn-primary">Guardar Ficha Completa</button>
@@ -936,6 +959,96 @@ const PatientList: React.FC = () => {
                                 </div>
                             )}
 
+                            {activeTab === 'history' && (
+                                <div className="history-tab">
+                                    <div className="section-title-small mb-4">
+                                        <Activity size={18} />
+                                        Historia Clínica (Evolución)
+                                    </div>
+
+                                    {/* Control de Registros Pendientes */}
+                                    {patientAppointments.filter(a => a.status === 'Finalizada' && !a.sessionDiary && !a.notes).length > 0 && (
+                                        <div className="history-pending-card mb-6">
+                                            <div className="history-pending-title">
+                                                <ShieldAlert size={18} />
+                                                Sesiones pendientes de registro
+                                            </div>
+                                            <div className="history-pending-list">
+                                                {patientAppointments
+                                                    .filter(a => a.status === 'Finalizada' && !a.sessionDiary && !a.notes)
+                                                    .map(appt => (
+                                                        <div key={appt.id} className="history-pending-item">
+                                                            <div className="history-pending-info">
+                                                                <span className="history-pending-date">
+                                                                    {new Date(appt.start).toLocaleDateString('es-ES', { day: '2-digit', month: 'short', year: 'numeric' })} - {appt.type}
+                                                                </span>
+                                                                <span className="history-pending-therapist">
+                                                                    Asignado a: {appt.therapistName}
+                                                                </span>
+                                                            </div>
+                                                            <div className="flex gap-2">
+                                                                <button 
+                                                                    className="btn-fix-history"
+                                                                    onClick={() => setActiveTab('appointments')}
+                                                                >
+                                                                    Ver Cita
+                                                                </button>
+                                                            </div>
+                                                        </div>
+                                                    ))}
+                                            </div>
+                                            <p className="text-[10px] text-red-400 mt-1 italic font-medium">
+                                                * Estas citas han finalizado pero no tienen contenido en el diario de sesiones ni notas clínicas.
+                                            </p>
+                                        </div>
+                                    )}
+
+                                    {patientAppointments.filter(a => a.sessionDiary || a.notes).length === 0 ? (
+                                        <div className="empty-state">No hay registros clínicos en la historia para este paciente.</div>
+                                    ) : (
+                                        <div className="history-timeline">
+                                            {patientAppointments
+                                                .filter(a => a.sessionDiary || (a.notes && a.status === 'Finalizada'))
+                                                .sort((a, b) => new Date(b.start).getTime() - new Date(a.start).getTime()) // Sort descending (newest first)
+                                                .map((appt) => (
+                                                    <div key={appt.id} className="history-item">
+                                                        <div className="history-marker"></div>
+                                                        <div className="history-header">
+                                                            <div className="history-date">
+                                                                <Calendar size={16} style={{ color: 'var(--color-accent-blue)' }} />
+                                                                {new Date(appt.start).toLocaleDateString('es-ES', { 
+                                                                    day: '2-digit', 
+                                                                    month: 'long', 
+                                                                    year: 'numeric' 
+                                                                })}
+                                                            </div>
+                                                            <div className="history-therapist">
+                                                                {appt.therapistName || 'Terapeuta'}
+                                                            </div>
+                                                        </div>
+                                                        <div className="history-content">
+                                                            {appt.sessionDiary ? (
+                                                                <div 
+                                                                    className="history-diary-text" 
+                                                                    dangerouslySetInnerHTML={{ __html: appt.sessionDiary }} 
+                                                                />
+                                                            ) : appt.notes ? (
+                                                                <div className="history-notes-text">
+                                                                    <div className="flex items-center gap-2 mb-2 opacity-60">
+                                                                        <ClipboardList size={14} />
+                                                                        <span className="text-xs font-bold uppercase tracking-wider">Notas de Sesión</span>
+                                                                    </div>
+                                                                    {appt.notes}
+                                                                </div>
+                                                            ) : null}
+                                                        </div>
+                                                    </div>
+                                                ))}
+                                        </div>
+                                    )}
+                                </div>
+                            )}
+
                             {activeTab === 'files' && (
                                 <div className="files-tab">
                                     <div className="section-title flex justify-between items-center mb-4">
@@ -958,9 +1071,19 @@ const PatientList: React.FC = () => {
                                                 <FileText size={16} />
                                                 {selectedPatient.consentSignature ? 'Ver Ficha Consentimiento' : 'Generar Ficha Consentimiento'}
                                             </button>
-                                            <button className="btn-secondary flex items-center gap-2" onClick={handleSimulateUpload}>
-                                                <Upload size={16} /> Subir Archivo
+                                            <button 
+                                                className="btn-secondary flex items-center gap-2" 
+                                                onClick={() => fileInputRef.current?.click()}
+                                                disabled={isSending}
+                                            >
+                                                <Upload size={16} /> {isSending ? 'Subiendo...' : 'Subir Archivo'}
                                             </button>
+                                            <input 
+                                                type="file" 
+                                                ref={fileInputRef} 
+                                                style={{ display: 'none' }} 
+                                                onChange={handleFileUpload}
+                                            />
                                         </div>
                                     </div>
 
@@ -1126,7 +1249,7 @@ const PatientList: React.FC = () => {
                                 onClick={() => handleSaveAndSendConsent()}
                                 style={{ backgroundColor: '#3b82f6', color: 'white' }}
                             >
-                                <Mail size={16} /> {isSending ? 'Enviando...' : (isConsentViewMode ? 'Firmar y Enviar de nuevo' : 'Firmar y Enviar')}
+                                <Mail size={16} /> {isSending ? (processingStep || 'Procesando...') : (isConsentViewMode ? 'Firmar y Enviar de nuevo' : 'Firmar y Enviar')}
                             </button>
 
                             {isConsentViewMode && (
@@ -1175,6 +1298,30 @@ const PatientList: React.FC = () => {
 
             {/* Espaciador final para asegurar margen inferior visual */}
             <div style={{ height: '250px', width: '100%', flexShrink: 0 }} aria-hidden="true" />
+            {/* Modal de Confirmación de Eliminación de Paciente */}
+            {patientDeleteConfirm.isOpen && (
+                <div className="modal-overlay" style={{ zIndex: 30000 }}>
+                    <div className="modal-content delete-confirm-modal" style={{ maxWidth: '400px' }}>
+                        <div className="modal-header">
+                            <h3 className="text-danger flex items-center gap-2">
+                                <Trash2 size={20} /> Confirmar Eliminación
+                            </h3>
+                            <button className="btn-icon-round" onClick={() => setPatientDeleteConfirm({ isOpen: false, patient: null })}><X size={20} /></button>
+                        </div>
+                        <div className="modal-body" style={{ padding: '1.5rem' }}>
+                            <p>¿Estás completamente seguro de que deseas eliminar a <strong>{patientDeleteConfirm.patient?.firstName} {patientDeleteConfirm.patient?.lastName}</strong>?</p>
+                            <p style={{ color: '#ef4444', fontSize: '0.85rem', marginTop: '1rem', fontWeight: 600 }}>
+                                <ShieldAlert size={14} style={{ marginRight: 4, verticalAlign: 'middle' }} />
+                                Esta acción es irreversible y eliminará todo su historial, archivos y citas.
+                            </p>
+                        </div>
+                        <div className="modal-footer" style={{ justifyContent: 'flex-end', gap: '1rem' }}>
+                            <button className="btn-secondary" onClick={() => setPatientDeleteConfirm({ isOpen: false, patient: null })}>Cancelar</button>
+                            <button className="btn-primary" style={{ backgroundColor: '#ef4444', border: 'none' }} onClick={confirmPatientDelete}>Sí, Eliminar Definitivamente</button>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 };

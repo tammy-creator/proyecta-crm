@@ -41,6 +41,11 @@ scratch_*
 *.ts.temp
 *.csv
 *.json
+!package.json
+!package-lock.json
+!tsconfig*.json
+!composer.json
+!*.schema.json
 scratch/
 scripts/manual_*.mjs
 *.mjs
@@ -50,3 +55,5 @@ scripts/manual_*.mjs
 !scripts/sync_patients.mjs
 !vite.config.mjs
 !next.config.mjs
+!vite.config.ts
+!scripts/service-account.json

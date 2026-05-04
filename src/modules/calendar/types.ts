@@ -24,6 +24,8 @@ export interface Appointment {
     cancellationReason?: string; // Motivo de cancelación
     voiceNoteUrl?: string; // Almacén de audio o referencia
     notificacionRecordatorioEnviada?: boolean; // Integración con automatización de recordatorios de citas
+    colIndex?: number;  // Layout property
+    totalCols?: number; // Layout property
 }
 
 export interface DayAvailability {

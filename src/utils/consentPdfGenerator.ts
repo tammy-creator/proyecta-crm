@@ -51,9 +51,9 @@ const drawHeader = (doc: jsPDF, title: string, subtitle: string = '', logoBase64
     return currentY + 10;
 };
 
-const drawFooter = (doc: jsPDF) => {
-    // Optional footer
-};
+// const drawFooter = (doc: jsPDF) => {
+//     // Optional footer
+// };
 
 const calculateAge = (birthDate?: string | null): string => {
     if (!birthDate) return '';

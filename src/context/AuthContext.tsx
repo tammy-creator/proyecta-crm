@@ -91,7 +91,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         return () => subscription.unsubscribe();
     }, []);
 
-    const syncTherapistId = async (authId: string) => {
+    const syncTherapistId = async (_authId: string) => {
         try {
             const { data: { user: supabaseUser } } = await supabase.auth.getUser();
             const email = supabaseUser?.email;

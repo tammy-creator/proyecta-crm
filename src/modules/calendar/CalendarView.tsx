@@ -28,18 +28,17 @@ import {
     subMonths,
     isSameMonth,
     endOfWeek,
-    startOfDay,
-    startOfToday
+    startOfDay
 } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { ChevronLeft, ChevronRight, Plus, X, User, UserPlus, Rocket, Puzzle, AlertTriangle, Clock as ClockIcon, DollarSign, Mic, Square, Info, Search, ArrowLeft } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { getAppointments, createAppointment, updateAppointment, deleteAppointment } from './service';
-import { getPatients, getWaitingList, createPatient } from '../patients/service';
+import { getPatients, getWaitingList } from '../patients/service';
 import { getTherapists } from '../therapists/service';
 import { getServices } from '../admin/service';
-import { getCurrentStatus } from '../workforce/service';
-import { type Appointment } from './types';
+// import { getCurrentStatus } from '../workforce/service'; // Unused in this file
+import { type Appointment, type AppointmentStatus } from './types';
 import { type Patient } from '../patients/types';
 import { type Therapist } from '../therapists/types';
 import { getIllustrativeAvatar } from '../therapists/utils';
@@ -89,7 +88,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({ mode: initialMode, therapis
     const [cancelType, setCancelType] = useState<'internal' | 'patient'>('patient');
     const [cancelSubtype, setCancelSubtype] = useState<'standard' | 'late'>('standard');
     const [isRadarOpen, setIsRadarOpen] = useState(false);
-    const [confirmDelete, setConfirmDelete] = useState(false);
+    // const [confirmDelete, setConfirmDelete] = useState(false); // Unused
     const [isRecording, setIsRecording] = useState(false);
     const [miniCalendarDate, setMiniCalendarDate] = useState(new Date());
     const [gaps, setGaps] = useState<{ start: Date; end: Date; count: number; therapists?: string[]; therapistIds?: string[] }[]>([]);
@@ -160,7 +159,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({ mode: initialMode, therapis
                 if (appt.status === 'Programada' || appt.status === 'En Sesión') newStatus = 'Finalizada';
             }
 
-            return newStatus !== appt.status ? { ...appt, status: newStatus as any } : appt;
+            return newStatus !== appt.status ? { ...appt, status: newStatus as AppointmentStatus } : appt;
         });
     };
 
@@ -450,7 +449,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({ mode: initialMode, therapis
         }
     };
 
-    const handleOpenModal = async (appt?: Appointment, tId?: string, date?: Date, isOutsideSchedule?: boolean) => {
+    const handleOpenModal = async (appt?: Appointment, tId?: string, date?: Date, _isOutsideSchedule?: boolean) => {
         setIsCancelling(false);
         if (appt) {
             setSelectedAppt(appt);
@@ -575,33 +574,6 @@ const CalendarView: React.FC<CalendarViewProps> = ({ mode: initialMode, therapis
 
         setIsModalOpen(false);
         fetchData();
-    };
-
-    const handleDeleteAppointment = async (e?: React.MouseEvent) => {
-        if (e) {
-            e.preventDefault();
-            e.stopPropagation();
-        }
-
-        if (!window.confirm("¿Estás seguro de que deseas eliminar esta cita? Esta acción no se puede deshacer.")) {
-            return;
-        }
-
-        try {
-            if (!selectedAppt?.id) {
-                showToast("ID no encontrado", "error");
-                return;
-            }
-
-            await deleteAppointment(selectedAppt.id);
-            showToast("Cita eliminada correctamente", "success");
-            setConfirmDelete(false);
-            setIsModalOpen(false);
-            fetchData();
-        } catch (err: any) {
-            console.error("Error in handleDeleteAppointment:", err);
-            showToast(`Error: ${err.message || 'Error desconocido'}`, "error");
-        }
     };
 
     const handleAnularCita = (e?: React.MouseEvent) => {
@@ -851,9 +823,6 @@ const CalendarView: React.FC<CalendarViewProps> = ({ mode: initialMode, therapis
         // Normalizar a minutos para evitar problemas de milisegundos
         const startHour = startDate.getHours();
         const startMin = startDate.getMinutes();
-        const endHour = endDate.getHours();
-        const endMin = endDate.getMinutes();
-        
         const duration = differenceInMinutes(
             setSeconds(setMilliseconds(endDate, 0), 0),
             setSeconds(setMilliseconds(startDate, 0), 0)
@@ -1449,9 +1418,9 @@ const CalendarView: React.FC<CalendarViewProps> = ({ mode: initialMode, therapis
                                     }
                                 })
                                 .sort((a, b) => parseISO(a.start).getTime() - parseISO(b.start).getTime())
-                                .reduce((acc, appt) => {
+                                .reduce((acc: { raw: Appointment[], rendered: any[] }, appt) => {
                                     // 1. First, group connected appointments (clusters)
-                                    const apptInCluster = acc.raw.filter(a => {
+                                    const apptInCluster = acc.raw.filter((a: Appointment) => {
                                         const aStart = setSeconds(setMilliseconds(parseISO(a.start), 0), 0).getTime();
                                         const aEnd = setSeconds(setMilliseconds(parseISO(a.end), 0), 0).getTime();
                                         const bStart = setSeconds(setMilliseconds(parseISO(appt.start), 0), 0).getTime();
@@ -1476,7 +1445,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({ mode: initialMode, therapis
                                     acc.raw.push(newAppt);
                                     return acc;
                                 }, { raw: [] as any[] }).raw
-                                .map((appt: any, idx: number, all: any[]) => {
+                                .map((appt: any, _idx: number, all: any[]) => {
                                     // 4. For each appointment, find how many TOTAL columns are needed in its "vicinity"
                                     const overlapping = all.filter(other => {
                                         const aStart = setSeconds(setMilliseconds(parseISO(appt.start), 0), 0).getTime();
@@ -1790,14 +1759,14 @@ const CalendarView: React.FC<CalendarViewProps> = ({ mode: initialMode, therapis
                                         </label>
                                     </div>
                                 </div>
-                                {selectedAppt.status !== 'Bloqueada' && (
+                                {selectedAppt.status !== ('Bloqueada' as any) && (
                                     <div className="form-group" style={{ position: 'relative' }}>
                                         <label><User size={12} className="mr-1" /> Paciente</label>
                                         <input
                                             type="text"
                                             placeholder="Buscar paciente..."
                                             value={patientSearch}
-                                            required={selectedAppt.status !== 'Bloqueada'}
+                                            required={selectedAppt.status !== ('Bloqueada' as any)}
                                             onFocus={() => setShowPatientSuggestions(true)}
                                             onBlur={() => setTimeout(() => setShowPatientSuggestions(false), 200)}
                                             onChange={e => {

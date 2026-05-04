@@ -12,8 +12,8 @@ import { User, Users, Phone, Mail, Search, UserPlus, X, Calendar, ClipboardList,
 import { useToast } from '../../hooks/useToast';
 import PrintPortal from '../../components/ui/PrintPortal';
 import ConsentDocument from './ConsentDocument';
-import html2canvas from 'html2canvas';
-import jsPDF from 'jspdf';
+// import html2canvas from 'html2canvas'; // Unused
+// import jsPDF from 'jspdf'; // Unused
 import './PatientList.css';
 
 const PatientList: React.FC = () => {
@@ -357,8 +357,8 @@ const PatientList: React.FC = () => {
             const pdf = await generateConsentPDF(
                 selectedPatient as Patient,
                 extraFields,
-                tutorSignature,
-                therapistSignature
+                tutorSignature || null,
+                therapistSignature || null
             );
             
             pdf.save(`Documentacion_${selectedPatient.lastName || 'Paciente'}_${selectedPatient.firstName || ''}.pdf`);
@@ -413,12 +413,12 @@ const PatientList: React.FC = () => {
                 const pdf = await generateConsentPDF(
                     updatedPatientData,
                     extraFields,
-                    tutorSignature,
-                    therapistSignature
+                    tutorSignature || null,
+                    therapistSignature || null
                 );
 
                 const pdfBase64 = pdf.output('datauristring');
-                const pdfBlob = pdf.output('blob');
+                // const _pdfBlob = pdf.output('blob'); // Unused
                 const recipientEmail = updatedPatientData.tutor1?.email || updatedPatientData.email;
 
                 setProcessingStep('Guardando en archivos...');

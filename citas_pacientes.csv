@@ -1,0 +1,790 @@
+﻿patientId;first name;last name;agenda;service;start time;end time;created;lastmodified;comments;appointment status;recurrency type;schedule id;eventId
+26547266;Valentina Olvido;Lopez Rodriguez;Vigil Vázquez, Marta;Sesión individual psicología;27/04/2026 13:00;27/04/2026 14:00;20/04/2026;27/04/2026;;Scheduled;Week;74086;70999444
+11693942;Esteban;Pablo;Vigil Vázquez, Marta;Sesión individual psicología;27/04/2026 14:30;27/04/2026 15:30;16/04/2026;27/04/2026;;Scheduled;Week;74086;70797947
+22698115;Ian González;aacc;Rodríguez Rodríguez, Sofía;Sesión psicología;27/04/2026 14:50;27/04/2026 15:50;08/04/2026;27/04/2026;;Scheduled;Week;193322;70339824
+17613863;Carla;Vivas Ariza;González López, Yaiza;Sesión individual logopedia;27/04/2026 14:50;27/04/2026 15:50;11/04/2026;27/04/2026;;Scheduled;Week;74094;70504688
+11473394;Elias;López de la Laba;Torres Vega, Ruth;Sesión individual psicología;27/04/2026 15:00;27/04/2026 16:00;09/04/2026;27/04/2026;;WaitingForConfirmation;;74088;70403533
+16714992;Iker;García Koval;Chico García, Laura;Sesión individual logopedia;27/04/2026 15:00;27/04/2026 16:00;27/04/2026;27/04/2026;;Scheduled;;74090;71315798
+14758663;Alicia;Cancio Díaz;Vigil Vázquez, Marta;Sesión individual psicología;27/04/2026 15:30;27/04/2026 16:30;22/04/2026;27/04/2026;;Scheduled;;74086;71171233
+21501333;Xiel;Rodríguez Hermosilla;González López, Yaiza;Sesión individual logopedia;27/04/2026 15:50;27/04/2026 16:50;11/04/2026;27/04/2026;;Scheduled;Week;74094;70504699
+25539525;leo;martin mata;Rodríguez Rodríguez, Sofía;Consulta online;27/04/2026 15:50;27/04/2026 16:50;24/04/2026;27/04/2026;;WaitingForConfirmation;;193321;71285896
+8572111;Mario;Martín Miguel;Chico García, Laura;Sesión individual logopedia;27/04/2026 16:00;27/04/2026 17:00;25/02/2026;27/04/2026;;WaitingForConfirmation;Week;74090;68190786
+13990167;Asier;Díaz González;Miranda Trillo, Zoe;Sesión individual;27/04/2026 16:00;27/04/2026 17:00;16/03/2026;27/04/2026;;WaitingForConfirmation;Week;125234;69221233
+8572071;Mael;Canal Romero;Torres Vega, Ruth;Sesión individual;27/04/2026 16:00;27/04/2026 17:00;31/03/2026;27/04/2026;;WaitingForConfirmation;Week;74088;70014094
+10387809;Darío;González Cuesta;Vigil Vázquez, Marta;Sesión individual psicología;27/04/2026 16:30;27/04/2026 17:30;22/04/2026;27/04/2026;;Scheduled;;74086;71171247
+8720376;Rubén;de Pablos;Rodríguez Rodríguez, Sofía;Consulta online;27/04/2026 16:50;27/04/2026 17:50;13/04/2026;27/04/2026;;WaitingForConfirmation;Week;193321;70560529
+23644111;Santiago;Lavandera Acebedo;González López, Yaiza;Sesión individual logopedia;27/04/2026 16:50;27/04/2026 17:50;20/04/2026;27/04/2026;;Scheduled;Week;74094;70937642
+17319740;Sergio;Feito Fernández;Chico García, Laura;Sesión individual logopedia;27/04/2026 17:00;27/04/2026 18:00;25/02/2026;27/04/2026;;WaitingForConfirmation;Week;74090;68190801
+16567821;Jonay;Amaya Martín;Miranda Trillo, Zoe;Sesión individual;27/04/2026 17:00;27/04/2026 18:00;16/03/2026;27/04/2026;;WaitingForConfirmation;Week;125234;69221272
+8776877;Aimar;Álvarez de Arriba;Torres Vega, Ruth;Sesión individual;27/04/2026 17:00;27/04/2026 18:00;31/03/2026;27/04/2026;#¿NOMBRE?;WaitingForConfirmation;;74088;70014064
+16980713;Ayesha;Pour;Vigil Vázquez, Marta;Sesión individual psicología;27/04/2026 17:30;27/04/2026 18:30;22/04/2026;27/04/2026;;Scheduled;;74086;71171259
+16670416;Nel;Sama;Vigil Vázquez, Marta;Sesión individual psicología;27/04/2026 17:30;27/04/2026 18:30;27/04/2026;27/04/2026;;Scheduled;;74086;71382440
+23453733;Tristan;Díaz García;Rodríguez Rodríguez, Sofía;Sesión psicología;27/04/2026 17:50;27/04/2026 18:50;08/04/2026;27/04/2026;;WaitingForConfirmation;Week;193322;70339893
+16261398;Nael;Cabral Álvarez;González López, Yaiza;Sesión individual logopedia;27/04/2026 17:50;27/04/2026 18:50;20/04/2026;27/04/2026;;Scheduled;Week;74094;70937709
+15569060;Lucas;Alonso Fernández;Chico García, Laura;Sesión individual logopedia;27/04/2026 18:00;27/04/2026 19:00;25/02/2026;27/04/2026;;WaitingForConfirmation;Week;74090;68190822
+8540787;Héctor;López Gil;Torres Vega, Ruth;Sesión individual;27/04/2026 18:00;27/04/2026 19:00;05/03/2026;27/04/2026;;WaitingForConfirmation;Week;74088;68708843
+8716470;Alex;Montes Sarmiento;Miranda Trillo, Zoe;Sesión individual;27/04/2026 18:00;27/04/2026 19:00;07/04/2026;27/04/2026;;WaitingForConfirmation;Week;125234;70254244
+16608282;Martina;Muñiz Albertos;Rodríguez Rodríguez, Sofía;Sesión psicología;27/04/2026 18:50;27/04/2026 19:50;25/03/2026;27/04/2026;;WaitingForConfirmation;Week;193322;69701831
+22844213;Nicolás;Rodríguez Aceres;González López, Yaiza;Sesión individual logopedia;27/04/2026 18:50;27/04/2026 19:50;20/04/2026;27/04/2026;;Scheduled;Week;74094;70937797
+19105874;Marco;Yano Yera (logo);Chico García, Laura;Sesión individual logopedia;27/04/2026 19:00;27/04/2026 20:00;25/02/2026;27/04/2026;;Scheduled;Week;74090;68190839
+11620225;Hugo;Blanco Fernandez;Torres Vega, Ruth;Sesión individual;27/04/2026 19:00;27/04/2026 20:00;31/03/2026;27/04/2026;;WaitingForConfirmation;Week;74088;70014034
+24582239;Martín;Rodríguez García-Lengomía;Miranda Trillo, Zoe;Sesión individual;27/04/2026 19:00;27/04/2026 20:00;15/04/2026;27/04/2026;;WaitingForConfirmation;Week;125234;70746495
+8572105;Fátima;Oulkady Lage;Chico García, Laura;Sesión individual logopedia;28/04/2026 14:00;28/04/2026 15:00;27/04/2026;28/04/2026;;Scheduled;;74090;71363244
+15959656;Bastian;Sifuentes Zegarra;Torres Vega, Ruth;Sesión individual;28/04/2026 15:00;28/04/2026 17:00;31/03/2026;28/04/2026;;WaitingForConfirmation;Week;74088;70013816
+14758663;Alicia;Cancio Díaz;Chico García, Laura;Sesión individual logopedia;28/04/2026 15:00;28/04/2026 16:00;16/04/2026;28/04/2026;;WaitingForConfirmation;Week;74090;70783761
+22945978;Dani;Blanco Jones;Vigil Vázquez, Marta;Sesión individual psicología;28/04/2026 15:00;28/04/2026 16:00;21/04/2026;28/04/2026;;WaitingForConfirmation;;74086;71054433
+8539229;Esteban;Álvarez;González López, Yaiza;Sesión individual logopedia;28/04/2026 15:20;28/04/2026 15:50;19/02/2026;28/04/2026;;Scheduled;Week;74094;67864832
+25939452;India;Prieto Menéndez;Miranda Trillo, Zoe;Sesión individual;28/04/2026 15:30;28/04/2026 16:00;07/04/2026;28/04/2026;;ConfirmedByPatient;Week;125234;70254584
+20169135;Mateo;Antúnez Fernández;González López, Yaiza;Sesión individual logopedia;28/04/2026 15:50;28/04/2026 16:50;21/04/2026;28/04/2026;;Scheduled;Week;74094;71063427
+14878339;Sara;Iglesias Florez;Rodríguez Rodríguez, Sofía;Consulta online;28/04/2026 16:00;28/04/2026 17:00;11/04/2026;28/04/2026;;WaitingForConfirmation;Week;193321;70504527
+12028782;Hugo;Viesca Fernández;Chico García, Laura;Sesión individual logopedia;28/04/2026 16:00;28/04/2026 17:00;21/04/2026;26/04/2026;;WaitingForConfirmation;Week;74090;71048414
+15952699;Martín;Milanés Recio;Vigil Vázquez, Marta;Sesión individual psicología;28/04/2026 16:00;28/04/2026 17:00;22/04/2026;28/04/2026;;Scheduled;;74086;71171268
+23480676;Melissa;Oulkady Elmaghraoui;Miranda Trillo, Zoe;Sesión individual;28/04/2026 16:00;28/04/2026 17:00;27/04/2026;28/04/2026;;Scheduled;;125234;71365112
+8539242;Ariel;Del Valle Primo;González López, Yaiza;Sesión individual logopedia;28/04/2026 16:50;28/04/2026 17:50;21/04/2026;21/04/2026;;Scheduled;Week;74094;71063537
+13059792;Vera;Cuetos Rodríguez;Torres Vega, Ruth;Sesión individual;28/04/2026 17:00;28/04/2026 18:00;31/03/2026;26/04/2026;;WaitingForConfirmation;Week;74088;70013874
+22722909;Ruth;Tomescu;Rodríguez Rodríguez, Sofía;Consulta online;28/04/2026 17:00;28/04/2026 18:00;11/04/2026;26/04/2026;;WaitingForConfirmation;;193321;70504577
+8701889;Hugo;Díaz;Chico García, Laura;Sesión individual logopedia;28/04/2026 17:00;28/04/2026 18:00;21/04/2026;26/04/2026;;WaitingForConfirmation;Week;74090;71048435
+24701551;Marina;Rotacismo;Miranda Trillo, Zoe;Sesión individual;28/04/2026 17:00;28/04/2026 18:00;22/04/2026;22/04/2026;;Scheduled;Week;125234;71138235
+10143532;Ángel;Canada;González López, Yaiza;Sesión individual logopedia;28/04/2026 17:50;28/04/2026 18:50;21/04/2026;21/04/2026;;Scheduled;Week;74094;71063451
+19952990;Adrián;Collada Abella;Miranda Trillo, Zoe;Sesión individual;28/04/2026 18:00;28/04/2026 18:30;27/03/2026;26/04/2026;;ConfirmedByPatient;Week;125234;69892615
+15279119;Miguel;Fernández Expósito;Torres Vega, Ruth;Sesión individual;28/04/2026 18:00;28/04/2026 19:00;31/03/2026;26/04/2026;;WaitingForConfirmation;Week;74088;70013926
+16022521;Leya;Magnien Paja;Rodríguez Rodríguez, Sofía;Sesión psicología;28/04/2026 18:00;28/04/2026 19:00;09/04/2026;26/04/2026;;WaitingForConfirmation;Week;193322;70406555
+10550033;Chloe;Setien Pérez;Chico García, Laura;Sesión individual logopedia;28/04/2026 18:00;28/04/2026 19:00;21/04/2026;26/04/2026;;WaitingForConfirmation;Week;74090;71048449
+16635915;Daniel (Sakina);.;González López, Yaiza;Sesión individual logopedia;28/04/2026 18:50;28/04/2026 19:50;22/04/2026;22/04/2026;;Scheduled;Week;74094;71165844
+23631732;Pelayo;Robledo López;Miranda Trillo, Zoe;Sesión individual;28/04/2026 19:00;28/04/2026 20:00;27/03/2026;26/04/2026;;WaitingForConfirmation;Week;125234;69892637
+15550886;Luis;Gavilán;Rodríguez Rodríguez, Sofía;Sesión psicología;28/04/2026 19:00;28/04/2026 20:00;11/04/2026;26/04/2026;;WaitingForConfirmation;Week;193322;70504542
+25460336;Alba;Gómez Aparicio;Torres Vega, Ruth;Sesión individual;28/04/2026 19:00;28/04/2026 20:00;14/04/2026;26/04/2026;;WaitingForConfirmation;Week;74088;70638340
+13989255;Bosco;Martinez Gonzalez;Chico García, Laura;Sesión individual logopedia;28/04/2026 19:00;28/04/2026 20:00;21/04/2026;26/04/2026;;WaitingForConfirmation;Week;74090;71048465
+25605522;Elías;Suárez Bolaño;Vigil Vázquez, Marta;Sesión individual psicología;28/04/2026 19:00;28/04/2026 20:00;22/04/2026;22/04/2026;;Scheduled;;74086;71171288
+22884906;Eliam;Oulkady;Chico García, Laura;Sesión individual logopedia;29/04/2026 14:00;29/04/2026 15:00;21/04/2026;21/04/2026;;Scheduled;Week;74090;71048604
+9638797;Luis;Suárez Fernández;Chico García, Laura;Sesión individual logopedia;29/04/2026 15:00;29/04/2026 16:00;25/02/2026;27/04/2026;;WaitingForConfirmation;Week;74090;68190901
+8673475;Mateo;Suárez Constanso;Miranda Trillo, Zoe;Sesión individual;29/04/2026 15:00;29/04/2026 16:00;27/03/2026;27/04/2026;;WaitingForConfirmation;Week;125234;69892656
+15480230;Mael;Mendes;Torres Vega, Ruth;Sesión individual psicología;29/04/2026 15:00;29/04/2026 16:00;30/03/2026;27/04/2026;;WaitingForConfirmation;Week;74088;69915084
+14783603;Izan;Montes;González López, Yaiza;Sesión individual psicología;29/04/2026 15:50;29/04/2026 16:50;19/02/2026;19/02/2026;;Scheduled;Week;74094;67894984
+15279109;María;Vena Vazquez;Rodríguez Rodríguez, Sofía;Sesión psicología;29/04/2026 15:50;29/04/2026 16:50;08/04/2026;27/04/2026;;WaitingForConfirmation;Week;193322;70339721
+25478961;Eleanor;Rodríguez Expósito;Vigil Vázquez, Marta;Sesión individual psicología;29/04/2026 15:50;29/04/2026 16:50;22/04/2026;22/04/2026;;Scheduled;;74086;71171306
+17319866;Rafa;García Artime;Miranda Trillo, Zoe;Sesión individual;29/04/2026 16:00;29/04/2026 17:00;27/03/2026;27/03/2026;;Scheduled;Week;125234;69892671
+21725102;Olatz;Supervisión;Torres Vega, Ruth;Sesión individual;29/04/2026 16:00;29/04/2026 17:00;22/04/2026;27/04/2026;;WaitingForConfirmation;;74088;71137109
+11776676;pablo;Álvarez Vega;Chico García, Laura;Sesión individual logopedia;29/04/2026 16:00;29/04/2026 17:00;27/04/2026;27/04/2026;;Scheduled;;74090;71363225
+22462463;Enar;Orviz Díaz;González López, Yaiza;Sesión individual psicología;29/04/2026 16:50;29/04/2026 17:50;19/02/2026;19/02/2026;;Scheduled;Week;74094;67895021
+11473394;Elias;López de la Laba;Rodríguez Rodríguez, Sofía;Consulta online;29/04/2026 16:50;29/04/2026 17:50;11/04/2026;27/04/2026;;WaitingForConfirmation;;193321;70504571
+15957500;Marcos;Díaz Pernaz;Vigil Vázquez, Marta;Sesión individual psicología;29/04/2026 16:50;29/04/2026 17:50;22/04/2026;22/04/2026;;Scheduled;;74086;71171312
+12362861;Alan;Mastropietro Merchan;Torres Vega, Ruth;Sesión individual;29/04/2026 17:00;29/04/2026 18:00;30/03/2026;27/04/2026;;WaitingForConfirmation;Week;74088;69915072
+8570541;Natalie;San Miguel;Miranda Trillo, Zoe;Sesión individual;29/04/2026 17:00;29/04/2026 18:00;07/04/2026;27/04/2026;;WaitingForConfirmation;Week;125234;70254380
+15955956;Carlos;Díaz Pernaz;Chico García, Laura;Sesión individual logopedia;29/04/2026 17:00;29/04/2026 18:00;21/04/2026;21/04/2026;;Scheduled;Week;74090;71048615
+15279119;Miguel;Fernández Expósito;González López, Yaiza;Sesión individual psicología;29/04/2026 17:50;29/04/2026 18:50;19/02/2026;19/02/2026;;Scheduled;Week;74094;67895054
+25819386;Oscar;Álvarez Trillo;Vigil Vázquez, Marta;Sesión individual psicología;29/04/2026 17:50;29/04/2026 18:50;22/04/2026;22/04/2026;;Scheduled;;74086;71171320
+8572077;Martin;Álvarez;Miranda Trillo, Zoe;Sesión individual;29/04/2026 18:00;29/04/2026 18:30;07/04/2026;27/04/2026;;WaitingForConfirmation;Week;125234;70254357
+12716708;Grupo;Bendis;Torres Vega, Ruth;Sesión individual;29/04/2026 18:00;29/04/2026 19:00;09/04/2026;09/04/2026;#¿NOMBRE?;Scheduled;Week;74088;70403498
+8792280;Julia;García;Chico García, Laura;Sesión individual logopedia;29/04/2026 18:00;29/04/2026 19:00;21/04/2026;27/04/2026;;WaitingForConfirmation;Week;74090;71048627
+26159084;Deva;Caso Méndez;Miranda Trillo, Zoe;Sesión individual;29/04/2026 18:30;29/04/2026 19:00;27/03/2026;27/04/2026;;WaitingForConfirmation;Week;125234;69892703
+16608282;Martina;Muñiz Albertos;Rodríguez Rodríguez, Sofía;Sesión psicología;29/04/2026 18:50;29/04/2026 19:50;25/03/2026;27/04/2026;;WaitingForConfirmation;Week;193322;69701832
+22180309;Ana;Lucia;González López, Yaiza;Sesión individual psicología;29/04/2026 18:50;29/04/2026 19:50;11/04/2026;11/04/2026;;Scheduled;Week;74094;70504168
+10184132;Noah;Peláez;Vigil Vázquez, Marta;Sesión individual psicología;29/04/2026 18:50;29/04/2026 19:50;22/04/2026;22/04/2026;;Scheduled;;74086;71171325
+8716471;Maximiliano;Nava Arias;Torres Vega, Ruth;Sesión individual;29/04/2026 19:00;29/04/2026 20:00;31/03/2026;27/04/2026;;WaitingForConfirmation;Week;74088;70014173
+15569060;Lucas;Alonso Fernández;Chico García, Laura;Sesión individual logopedia;29/04/2026 19:00;29/04/2026 20:00;21/04/2026;27/04/2026;;WaitingForConfirmation;Week;74090;71048639
+16968410;Martín;Vidal;Chico García, Laura;Sesión individual logopedia;29/04/2026 20:00;29/04/2026 21:00;25/02/2026;27/04/2026;;WaitingForConfirmation;Week;74090;68190854
+26713850;Jorge;Villaboy López;Vigil Vázquez, Marta;Entrevista inicial;30/04/2026 8:45;30/04/2026 9:45;23/04/2026;28/04/2026;;WaitingForConfirmation;;74086;71209534
+26720133;Iris Jasmine;Ortega;Vigil Vázquez, Marta;Entrevista inicial;30/04/2026 11:30;30/04/2026 12:30;24/04/2026;28/04/2026;;WaitingForConfirmation;;74086;71238415
+14628676;Supervisión;Logopedia;González López, Yaiza;Sesión individual psicología;30/04/2026 13:00;30/04/2026 13:30;24/04/2026;24/04/2026;;Scheduled;;74094;71280962
+13040830;Vera;Esteban Martín (yaiza);Chico García, Laura;Sesión individual logopedia;30/04/2026 14:00;30/04/2026 15:00;27/04/2026;27/04/2026;;Scheduled;;74090;71363359
+16045841;Nel;Navia;Vigil Vázquez, Marta;Sesión individual psicología;30/04/2026 14:30;30/04/2026 15:30;23/04/2026;23/04/2026;;Scheduled;;74086;71175439
+26160849;Chloe;Fernández Gómez;González López, Yaiza;Sesión individual logopedia;30/04/2026 14:50;30/04/2026 15:50;22/04/2026;22/04/2026;;Scheduled;Week;74094;71165686
+15932699;Enzo;Ferrer Álvarez;Torres Vega, Ruth;Sesión individual;30/04/2026 15:00;30/04/2026 16:00;05/03/2026;28/04/2026;;WaitingForConfirmation;Week;74088;68708679
+18532788;Alan;Gordo López;Rodríguez Rodríguez, Sofía;Consulta online;30/04/2026 15:00;30/04/2026 16:00;24/04/2026;28/04/2026;;ConfirmedByPatient;Week;193321;71256826
+19377428;Pelayo;Ameijide (hipoacusia);Chico García, Laura;Sesión individual logopedia;30/04/2026 15:00;30/04/2026 16:00;27/04/2026;27/04/2026;;Scheduled;;74090;71363316
+11878474;Martín;Fernández;Vigil Vázquez, Marta;Sesión individual psicología;30/04/2026 15:30;30/04/2026 16:30;22/04/2026;22/04/2026;;Scheduled;;74086;71171345
+24602382;Angel;Rodriguez San Juan;González López, Yaiza;Sesión individual psicología;30/04/2026 15:50;30/04/2026 16:50;11/04/2026;11/04/2026;;Scheduled;Week;74094;70504202
+8540637;Alicia;González Muñiz;Rodríguez Rodríguez, Sofía;Sesión psicología;30/04/2026 15:50;30/04/2026 16:50;13/04/2026;28/04/2026;;WaitingForConfirmation;Week;193322;70560641
+12028782;Hugo;Viesca Fernández;Chico García, Laura;Sesión individual logopedia;30/04/2026 16:00;30/04/2026 17:00;25/02/2026;25/02/2026;;Scheduled;Week;74090;68190928
+13029293;Jorge;Abol;Torres Vega, Ruth;Sesión individual;30/04/2026 16:00;30/04/2026 17:00;31/03/2026;31/03/2026;;Scheduled;Week;74088;70014206
+23480676;Melissa;Oulkady Elmaghraoui;Miranda Trillo, Zoe;Sesión individual;30/04/2026 16:00;30/04/2026 17:00;07/04/2026;07/04/2026;;Scheduled;Week;125234;70254441
+22559905;Malik;Tea;Rodríguez Rodríguez, Sofía;Sesión psicología;30/04/2026 16:50;30/04/2026 17:50;08/04/2026;13/04/2026;;Scheduled;Week;193322;70339913
+13987542;Pelayo;Plagio;González López, Yaiza;Sesión individual psicología;30/04/2026 16:50;30/04/2026 17:50;11/04/2026;11/04/2026;;Scheduled;Week;74094;70504190
+8701889;Hugo;Díaz;Chico García, Laura;Sesión individual logopedia;30/04/2026 17:00;30/04/2026 18:00;25/02/2026;25/02/2026;;Scheduled;Week;74090;68190948
+12889795;iyan;online;Vigil Vázquez, Marta;Sesión individual psicología;30/04/2026 17:30;30/04/2026 18:30;22/04/2026;22/04/2026;;Scheduled;;74086;71171356
+21480073;Izán;López Sánchez;González López, Yaiza;Sesión individual logopedia;30/04/2026 17:50;30/04/2026 18:50;22/04/2026;22/04/2026;;Scheduled;Week;74094;71165379
+12388925;Joan;Burches Penneca;Chico García, Laura;Sesión individual logopedia;30/04/2026 18:00;30/04/2026 19:00;25/02/2026;25/02/2026;;Scheduled;Week;74090;68190963
+12132745;Inés;Llopis Treve;Miranda Trillo, Zoe;Sesión individual;30/04/2026 18:00;30/04/2026 19:00;27/03/2026;27/03/2026;;Scheduled;Week;125234;69892727
+20020650;Zoe;Lorenzo;Torres Vega, Ruth;Sesión individual;30/04/2026 18:00;30/04/2026 19:00;08/04/2026;08/04/2026;;Scheduled;Week;74088;70339651
+10387809;Darío;González Cuesta;Vigil Vázquez, Marta;Sesión individual psicología;30/04/2026 18:30;30/04/2026 19:30;23/04/2026;23/04/2026;;Scheduled;;74086;71234475
+22180309;Ana;Lucia;González López, Yaiza;Sesión individual psicología;30/04/2026 18:50;30/04/2026 19:50;11/04/2026;11/04/2026;;Scheduled;Week;74094;70504169
+25749123;saúl;de tomás muñiz;Rodríguez Rodríguez, Sofía;Consulta online;30/04/2026 18:50;30/04/2026 19:50;23/04/2026;23/04/2026;;Scheduled;;193321;71175647
+8540787;Héctor;López Gil;Torres Vega, Ruth;Sesión individual psicología;30/04/2026 19:00;30/04/2026 20:00;19/02/2026;22/04/2026;;Scheduled;;74088;67871253
+13783230;David;Pacios Pérez;Torres Vega, Ruth;Sesión individual;30/04/2026 19:00;30/04/2026 20:00;31/03/2026;31/03/2026;;Scheduled;Week;74088;70014237
+11452114;Alvaro;Moriyón Miyar;Chico García, Laura;Sesión individual logopedia;30/04/2026 19:00;30/04/2026 20:00;21/04/2026;27/04/2026;;Scheduled;;74090;71051465
+23717344;Martin;Suarez;Rodríguez Rodríguez, Sofía;Consulta online;01/05/2026 14:00;01/05/2026 15:00;24/04/2026;24/04/2026;;Scheduled;Week;193321;71257773
+25800551;Grupo;Peques Sofi;Rodríguez Rodríguez, Sofía;Consulta online;01/05/2026 17:30;01/05/2026 18:30;09/04/2026;09/04/2026;;Scheduled;Week;193321;70412659
+17358492;Gabriel;Montedeva;Chico García, Laura;Sesión individual logopedia;04/05/2026 9:00;04/05/2026 10:00;28/04/2026;28/04/2026;;Scheduled;;74090;71429627
+8572111;Mario;Martín Miguel;Chico García, Laura;Sesión individual logopedia;04/05/2026 10:00;04/05/2026 11:00;28/04/2026;28/04/2026;;Scheduled;;74090;71429641
+16714992;Iker;García Koval;Chico García, Laura;Sesión individual logopedia;04/05/2026 12:00;04/05/2026 13:00;28/04/2026;28/04/2026;;Scheduled;;74090;71429696
+26547266;Valentina Olvido;Lopez Rodriguez;Vigil Vázquez, Marta;Sesión individual psicología;04/05/2026 13:00;04/05/2026 14:00;20/04/2026;20/04/2026;;Scheduled;Week;74086;70999445
+11693942;Esteban;Pablo;Vigil Vázquez, Marta;Sesión individual psicología;04/05/2026 14:30;04/05/2026 15:30;16/04/2026;16/04/2026;;Scheduled;Week;74086;70797948
+17613863;Carla;Vivas Ariza;González López, Yaiza;Sesión individual logopedia;04/05/2026 14:50;04/05/2026 15:50;11/04/2026;11/04/2026;;Scheduled;Week;74094;70504689
+20170051;Lua;Moreno;Rodríguez Rodríguez, Sofía;Sesión psicología;04/05/2026 15:50;04/05/2026 16:50;08/04/2026;08/04/2026;;Scheduled;Week;193322;70339843
+21501333;Xiel;Rodríguez Hermosilla;González López, Yaiza;Sesión individual logopedia;04/05/2026 15:50;04/05/2026 16:50;11/04/2026;11/04/2026;;Scheduled;Week;74094;70504700
+13990167;Asier;Díaz González;Miranda Trillo, Zoe;Sesión individual;04/05/2026 16:00;04/05/2026 17:00;16/03/2026;16/03/2026;;Scheduled;Week;125234;69221234
+8720376;Rubén;de Pablos;Rodríguez Rodríguez, Sofía;Consulta online;04/05/2026 16:50;04/05/2026 17:50;13/04/2026;13/04/2026;;Scheduled;Week;193321;70560530
+23644111;Santiago;Lavandera Acebedo;González López, Yaiza;Sesión individual logopedia;04/05/2026 16:50;04/05/2026 17:50;20/04/2026;20/04/2026;;Scheduled;Week;74094;70937643
+16567821;Jonay;Amaya Martín;Miranda Trillo, Zoe;Sesión individual;04/05/2026 17:00;04/05/2026 18:00;16/03/2026;16/03/2026;;Scheduled;Week;125234;69221273
+8776877;Aimar;Álvarez de Arriba;Torres Vega, Ruth;Sesión individual;04/05/2026 17:00;04/05/2026 18:00;31/03/2026;31/03/2026;;Scheduled;Week;74088;70014065
+23453733;Tristan;Díaz García;Rodríguez Rodríguez, Sofía;Sesión psicología;04/05/2026 17:50;04/05/2026 18:50;08/04/2026;08/04/2026;;Scheduled;Week;193322;70339894
+16261398;Nael;Cabral Álvarez;González López, Yaiza;Sesión individual logopedia;04/05/2026 17:50;04/05/2026 18:50;20/04/2026;20/04/2026;;Scheduled;Week;74094;70937710
+8540787;Héctor;López Gil;Torres Vega, Ruth;Sesión individual;04/05/2026 18:00;04/05/2026 19:00;05/03/2026;05/03/2026;;Scheduled;Week;74088;68708844
+24582239;Martín;Rodríguez García-Lengomía;Miranda Trillo, Zoe;Sesión individual;04/05/2026 18:00;04/05/2026 19:00;15/04/2026;28/04/2026;;Scheduled;;125234;70746497
+16608282;Martina;Muñiz Albertos;Rodríguez Rodríguez, Sofía;Sesión psicología;04/05/2026 18:50;04/05/2026 19:50;25/03/2026;25/03/2026;;Scheduled;Week;193322;69701833
+22844213;Nicolás;Rodríguez Aceres;González López, Yaiza;Sesión individual logopedia;04/05/2026 18:50;04/05/2026 19:50;20/04/2026;20/04/2026;;Scheduled;Week;74094;70937798
+15959656;Bastian;Sifuentes Zegarra;Torres Vega, Ruth;Sesión individual;05/05/2026 15:00;05/05/2026 17:00;31/03/2026;31/03/2026;;Scheduled;Week;74088;70013817
+14758663;Alicia;Cancio Díaz;Chico García, Laura;Sesión individual logopedia;05/05/2026 15:00;05/05/2026 16:00;16/04/2026;16/04/2026;;Scheduled;Week;74090;70783762
+25076887;Carlota;Quirós Somonte;Rodríguez Rodríguez, Sofía;Consulta online;05/05/2026 15:00;05/05/2026 16:00;21/04/2026;21/04/2026;;Scheduled;;193321;71053771
+22945978;Dani;Blanco Jones;Vigil Vázquez, Marta;Sesión individual psicología;05/05/2026 15:00;05/05/2026 16:00;24/04/2026;24/04/2026;;Scheduled;;74086;71238446
+25939452;India;Prieto Menéndez;Miranda Trillo, Zoe;Sesión individual;05/05/2026 15:30;05/05/2026 16:00;07/04/2026;07/04/2026;;Scheduled;Week;125234;70254585
+20169135;Mateo;Antúnez Fernández;González López, Yaiza;Sesión individual logopedia;05/05/2026 15:50;05/05/2026 16:50;21/04/2026;21/04/2026;;Scheduled;Week;74094;71063428
+16784738;Lucas Alejandro;Fernández Díaz;Miranda Trillo, Zoe;Sesión individual;05/05/2026 16:00;05/05/2026 17:00;27/03/2026;07/04/2026;;Scheduled;Week;125234;69892573
+14878339;Sara;Iglesias Florez;Rodríguez Rodríguez, Sofía;Consulta online;05/05/2026 16:00;05/05/2026 17:00;11/04/2026;11/04/2026;;Scheduled;Week;193321;70504528
+12028782;Hugo;Viesca Fernández;Chico García, Laura;Sesión individual logopedia;05/05/2026 16:00;05/05/2026 17:00;21/04/2026;21/04/2026;;Scheduled;Week;74090;71048415
+15952699;Martín;Milanés Recio;Vigil Vázquez, Marta;Sesión individual psicología;05/05/2026 16:00;05/05/2026 17:00;24/04/2026;24/04/2026;;Scheduled;;74086;71238454
+8539242;Ariel;Del Valle Primo;González López, Yaiza;Sesión individual logopedia;05/05/2026 16:50;05/05/2026 17:50;21/04/2026;21/04/2026;;Scheduled;Week;74094;71063538
+13059792;Vera;Cuetos Rodríguez;Torres Vega, Ruth;Sesión individual;05/05/2026 17:00;05/05/2026 18:00;31/03/2026;31/03/2026;;Scheduled;Week;74088;70013875
+8701889;Hugo;Díaz;Chico García, Laura;Sesión individual logopedia;05/05/2026 17:00;05/05/2026 18:00;21/04/2026;21/04/2026;;Scheduled;Week;74090;71048436
+20486396;Aiden;Mon Fernández;Miranda Trillo, Zoe;Sesión individual;05/05/2026 17:00;05/05/2026 18:00;22/04/2026;22/04/2026;;Scheduled;Week;125234;71138260
+22762178;Christabel;Giegbefumwen Omoruyi;Rodríguez Rodríguez, Sofía;Consulta online;05/05/2026 17:00;05/05/2026 18:00;22/04/2026;22/04/2026;;Scheduled;;193321;71143612
+21553981;Izan;Gonzalez Prieto;Vigil Vázquez, Marta;Sesión individual psicología;05/05/2026 17:00;05/05/2026 18:00;24/04/2026;24/04/2026;;Scheduled;;74086;71238457
+10143532;Ángel;Canada;González López, Yaiza;Sesión individual logopedia;05/05/2026 17:50;05/05/2026 18:50;21/04/2026;21/04/2026;;Scheduled;Week;74094;71063452
+15279119;Miguel;Fernández Expósito;Torres Vega, Ruth;Sesión individual;05/05/2026 18:00;05/05/2026 19:00;31/03/2026;31/03/2026;;Scheduled;Week;74088;70013927
+16022521;Leya;Magnien Paja;Rodríguez Rodríguez, Sofía;Sesión psicología;05/05/2026 18:00;05/05/2026 19:00;09/04/2026;09/04/2026;;Scheduled;Week;193322;70406556
+10550033;Chloe;Setien Pérez;Chico García, Laura;Sesión individual logopedia;05/05/2026 18:00;05/05/2026 19:00;21/04/2026;21/04/2026;;Scheduled;Week;74090;71048450
+16635915;Daniel (Sakina);.;González López, Yaiza;Sesión individual logopedia;05/05/2026 18:50;05/05/2026 19:50;22/04/2026;22/04/2026;;Scheduled;Week;74094;71165845
+23631732;Pelayo;Robledo López;Miranda Trillo, Zoe;Sesión individual;05/05/2026 19:00;05/05/2026 20:00;27/03/2026;08/04/2026;;Scheduled;Week;125234;69892638
+15550886;Luis;Gavilán;Rodríguez Rodríguez, Sofía;Sesión psicología;05/05/2026 19:00;05/05/2026 20:00;11/04/2026;11/04/2026;;Scheduled;Week;193322;70504543
+25460336;Alba;Gómez Aparicio;Torres Vega, Ruth;Sesión individual;05/05/2026 19:00;05/05/2026 20:00;14/04/2026;14/04/2026;;Scheduled;Week;74088;70638341
+13989255;Bosco;Martinez Gonzalez;Chico García, Laura;Sesión individual logopedia;05/05/2026 19:00;05/05/2026 20:00;21/04/2026;21/04/2026;;Scheduled;Week;74090;71048466
+25605522;Elías;Suárez Bolaño;Vigil Vázquez, Marta;Sesión individual psicología;05/05/2026 19:00;05/05/2026 20:00;24/04/2026;24/04/2026;;Scheduled;;74086;71238459
+22884906;Eliam;Oulkady;Chico García, Laura;Sesión individual logopedia;06/05/2026 14:00;06/05/2026 15:00;21/04/2026;21/04/2026;;Scheduled;Week;74090;71048605
+11878474;Martín;Fernández;Vigil Vázquez, Marta;Sesión individual psicología;06/05/2026 14:50;06/05/2026 15:50;24/04/2026;24/04/2026;;Scheduled;;74086;71238469
+8673475;Mateo;Suárez Constanso;Miranda Trillo, Zoe;Sesión individual;06/05/2026 15:00;06/05/2026 16:00;27/03/2026;27/03/2026;;Scheduled;Week;125234;69892657
+15480230;Mael;Mendes;Torres Vega, Ruth;Sesión individual psicología;06/05/2026 15:00;06/05/2026 16:00;30/03/2026;30/03/2026;;Scheduled;Week;74088;69915085
+15279109;María;Vena Vazquez;Rodríguez Rodríguez, Sofía;Sesión psicología;06/05/2026 15:50;06/05/2026 16:50;08/04/2026;08/04/2026;;Scheduled;Week;193322;70339722
+14783603;Izan;Montes;González López, Yaiza;Sesión individual logopedia;06/05/2026 15:50;06/05/2026 16:50;22/04/2026;22/04/2026;;Scheduled;Week;74094;71165435
+25478961;Eleanor;Rodríguez Expósito;Vigil Vázquez, Marta;Sesión individual psicología;06/05/2026 15:50;06/05/2026 16:50;24/04/2026;24/04/2026;;Scheduled;;74086;71238460
+8540787;Héctor;López Gil;Torres Vega, Ruth;Sesión individual psicología;06/05/2026 16:00;06/05/2026 17:00;19/02/2026;19/02/2026;;Scheduled;Week;74088;67871254
+17319866;Rafa;García Artime;Miranda Trillo, Zoe;Sesión individual;06/05/2026 16:00;06/05/2026 17:00;27/03/2026;27/03/2026;;Scheduled;Week;125234;69892672
+23997597;Aitor;Diaz González;González López, Yaiza;Sesión individual;06/05/2026 16:50;06/05/2026 17:50;23/04/2026;23/04/2026;;Scheduled;Week;74094;71175125
+12362861;Alan;Mastropietro Merchan;Torres Vega, Ruth;Sesión individual;06/05/2026 17:00;06/05/2026 18:00;30/03/2026;30/03/2026;;Scheduled;Week;74088;69915073
+8570541;Natalie;San Miguel;Miranda Trillo, Zoe;Sesión individual;06/05/2026 17:00;06/05/2026 18:00;07/04/2026;07/04/2026;;Scheduled;Week;125234;70254381
+15955956;Carlos;Díaz Pernaz;Chico García, Laura;Sesión individual logopedia;06/05/2026 17:00;06/05/2026 18:00;21/04/2026;21/04/2026;;Scheduled;Week;74090;71048616
+22164054;Dylan Fernando;Reyes Reyes;Rodríguez Rodríguez, Sofía;Consulta online;06/05/2026 17:50;06/05/2026 18:50;13/04/2026;13/04/2026;;Scheduled;Week;193321;70560568
+15279119;Miguel;Fernández Expósito;González López, Yaiza;Sesión individual logopedia;06/05/2026 17:50;06/05/2026 18:50;22/04/2026;22/04/2026;;Scheduled;Week;74094;71165340
+25819386;Oscar;Álvarez Trillo;Vigil Vázquez, Marta;Sesión individual psicología;06/05/2026 17:50;06/05/2026 18:50;24/04/2026;24/04/2026;;Scheduled;;74086;71238463
+8572077;Martin;Álvarez;Miranda Trillo, Zoe;Sesión individual;06/05/2026 18:00;06/05/2026 18:30;07/04/2026;07/04/2026;;Scheduled;Week;125234;70254358
+12716708;Grupo;Bendis;Torres Vega, Ruth;Sesión individual;06/05/2026 18:00;06/05/2026 19:00;09/04/2026;09/04/2026;#¿NOMBRE?;Scheduled;Week;74088;70403499
+8792280;Julia;García;Chico García, Laura;Sesión individual logopedia;06/05/2026 18:00;06/05/2026 19:00;21/04/2026;21/04/2026;;Scheduled;Week;74090;71048628
+26159084;Deva;Caso Méndez;Miranda Trillo, Zoe;Sesión individual;06/05/2026 18:30;06/05/2026 19:00;27/03/2026;27/03/2026;;Scheduled;Week;125234;69892704
+16608282;Martina;Muñiz Albertos;Rodríguez Rodríguez, Sofía;Sesión psicología;06/05/2026 18:50;06/05/2026 19:50;25/03/2026;25/03/2026;;Scheduled;Week;193322;69701834
+22180309;Ana;Lucia;González López, Yaiza;Sesión individual psicología;06/05/2026 18:50;06/05/2026 19:50;11/04/2026;11/04/2026;;Scheduled;Week;74094;70504170
+15253754;Noah;Canteli;Vigil Vázquez, Marta;Sesión individual psicología;06/05/2026 18:50;06/05/2026 19:50;24/04/2026;24/04/2026;;Scheduled;;74086;71238464
+8716471;Maximiliano;Nava Arias;Torres Vega, Ruth;Sesión individual;06/05/2026 19:00;06/05/2026 20:00;31/03/2026;31/03/2026;;Scheduled;Week;74088;70014174
+15569060;Lucas;Alonso Fernández;Chico García, Laura;Sesión individual logopedia;06/05/2026 19:00;06/05/2026 20:00;21/04/2026;21/04/2026;;Scheduled;Week;74090;71048640
+16968410;Martín;Vidal;Chico García, Laura;Sesión individual logopedia;06/05/2026 20:00;06/05/2026 21:00;27/04/2026;27/04/2026;;Scheduled;Week;74090;71362663
+26160849;Chloe;Fernández Gómez;González López, Yaiza;Sesión individual logopedia;07/05/2026 14:50;07/05/2026 15:50;22/04/2026;22/04/2026;;Scheduled;Week;74094;71165687
+15932699;Enzo;Ferrer Álvarez;Torres Vega, Ruth;Sesión individual;07/05/2026 15:00;07/05/2026 16:00;05/03/2026;05/03/2026;;Scheduled;Week;74088;68708680
+18532788;Alan;Gordo López;Rodríguez Rodríguez, Sofía;Consulta online;07/05/2026 15:00;07/05/2026 16:00;24/04/2026;24/04/2026;;Scheduled;Week;193321;71259726
+11878474;Martín;Fernández;Vigil Vázquez, Marta;Sesión individual psicología;07/05/2026 15:30;07/05/2026 16:30;24/04/2026;24/04/2026;;Scheduled;;74086;71238471
+24602382;Angel;Rodriguez San Juan;González López, Yaiza;Sesión individual psicología;07/05/2026 15:50;07/05/2026 16:50;11/04/2026;11/04/2026;;Scheduled;Week;74094;70504203
+8540637;Alicia;González Muñiz;Rodríguez Rodríguez, Sofía;Sesión psicología;07/05/2026 15:50;07/05/2026 16:50;13/04/2026;13/04/2026;;Scheduled;Week;193322;70560642
+13029293;Jorge;Abol;Torres Vega, Ruth;Sesión individual;07/05/2026 16:00;07/05/2026 17:00;31/03/2026;31/03/2026;;Scheduled;Week;74088;70014207
+23480676;Melissa;Oulkady Elmaghraoui;Miranda Trillo, Zoe;Sesión individual;07/05/2026 16:00;07/05/2026 17:00;07/04/2026;07/04/2026;;Scheduled;Week;125234;70254442
+8572111;Mario;Martín Miguel;Vigil Vázquez, Marta;Sesión individual psicología;07/05/2026 16:30;07/05/2026 17:30;23/04/2026;23/04/2026;;Scheduled;Week;74086;71222154
+13987542;Pelayo;Plagio;González López, Yaiza;Sesión individual psicología;07/05/2026 16:50;07/05/2026 17:50;11/04/2026;11/04/2026;;Scheduled;Week;74094;70504191
+22559905;Malik;Tea;Rodríguez Rodríguez, Sofía;Sesión psicología;07/05/2026 16:50;07/05/2026 17:50;13/04/2026;13/04/2026;;Scheduled;Week;193322;70560605
+25800392;Leo;Montoto Fiore;Miranda Trillo, Zoe;Sesión individual;07/05/2026 17:00;07/05/2026 18:00;25/03/2026;25/03/2026;;Scheduled;Week;125234;69747482
+23752041;Abril;Cajigal zapico;Vigil Vázquez, Marta;Sesión individual psicología;07/05/2026 17:30;07/05/2026 18:30;24/04/2026;24/04/2026;;Scheduled;;74086;71238473
+23599729;Carla;Arias Albuerne;Vigil Vázquez, Marta;Sesión individual psicología;07/05/2026 17:30;07/05/2026 18:30;24/04/2026;24/04/2026;;Scheduled;;74086;71238475
+21480073;Izán;López Sánchez;González López, Yaiza;Sesión individual logopedia;07/05/2026 17:50;07/05/2026 18:50;22/04/2026;22/04/2026;;Scheduled;Week;74094;71165380
+12132745;Inés;Llopis Treve;Miranda Trillo, Zoe;Sesión individual;07/05/2026 18:00;07/05/2026 19:00;27/03/2026;27/03/2026;;Scheduled;Week;125234;69892728
+20020650;Zoe;Lorenzo;Torres Vega, Ruth;Sesión individual;07/05/2026 18:00;07/05/2026 19:00;08/04/2026;08/04/2026;;Scheduled;Week;74088;70339652
+17330839;Bruno;.;Vigil Vázquez, Marta;Sesión individual psicología;07/05/2026 18:30;07/05/2026 19:30;24/04/2026;24/04/2026;;Scheduled;;74086;71238477
+8570646;Martin;Felgueroso;Vigil Vázquez, Marta;Sesión individual psicología;07/05/2026 18:30;07/05/2026 19:30;24/04/2026;24/04/2026;;Scheduled;;74086;71238480
+22180309;Ana;Lucia;González López, Yaiza;Sesión individual psicología;07/05/2026 18:50;07/05/2026 19:50;11/04/2026;11/04/2026;;Scheduled;Week;74094;70504171
+13783230;David;Pacios Pérez;Torres Vega, Ruth;Sesión individual;07/05/2026 19:00;07/05/2026 20:00;31/03/2026;31/03/2026;;Scheduled;Week;74088;70014238
+23717344;Martin;Suarez;Rodríguez Rodríguez, Sofía;Consulta online;08/05/2026 14:00;08/05/2026 15:00;24/04/2026;24/04/2026;;Scheduled;Week;193321;71257774
+24969466;Ainara;Martínez Sánchez;González López, Yaiza;Sesión individual logopedia;08/05/2026 14:50;08/05/2026 15:50;22/04/2026;22/04/2026;;Scheduled;Week;74094;71165617
+20799855;Liam;Rosario (bebé);Chico García, Laura;Sesión individual logopedia;08/05/2026 15:00;08/05/2026 16:00;10/04/2026;10/04/2026;;Scheduled;Week;74090;70481418
+24114684;Ianna;.;González López, Yaiza;Sesión individual logopedia;08/05/2026 15:50;08/05/2026 16:50;22/04/2026;22/04/2026;;Scheduled;Week;74094;71165643
+21154478;Diego Rubén;Sánchez;Miranda Trillo, Zoe;Sesión individual;08/05/2026 16:00;08/05/2026 17:00;13/04/2026;13/04/2026;;Scheduled;Week;125234;70599897
+22015894;Ezequiel;Ghobra Jiménez;González López, Yaiza;Sesión individual psicología;08/05/2026 16:50;08/05/2026 17:50;11/04/2026;11/04/2026;;Scheduled;Week;74094;70504227
+24766820;Zara;Gabriel Pico;Miranda Trillo, Zoe;Sesión individual;08/05/2026 17:00;08/05/2026 18:00;07/04/2026;07/04/2026;;Scheduled;Week;125234;70254491
+11452114;Alvaro;Moriyón Miyar;Chico García, Laura;Sesión individual logopedia;08/05/2026 17:00;08/05/2026 18:00;21/04/2026;21/04/2026;;Scheduled;Week;74090;71051466
+25800551;Grupo;Peques Sofi;Rodríguez Rodríguez, Sofía;Consulta online;08/05/2026 17:30;08/05/2026 18:30;09/04/2026;09/04/2026;;Scheduled;Week;193321;70412660
+22844213;Nicolás;Rodríguez Aceres;González López, Yaiza;Sesión individual logopedia;08/05/2026 17:50;08/05/2026 18:50;22/04/2026;22/04/2026;;Scheduled;Week;74094;71165665
+13611963;Luis;Díaz Martín;Miranda Trillo, Zoe;Sesión individual;08/05/2026 18:00;08/05/2026 19:00;27/03/2026;27/03/2026;;Scheduled;Week;125234;69892756
+26547266;Valentina Olvido;Lopez Rodriguez;Vigil Vázquez, Marta;Sesión individual psicología;11/05/2026 13:00;11/05/2026 14:00;20/04/2026;20/04/2026;;Scheduled;Week;74086;70999446
+11693942;Esteban;Pablo;Vigil Vázquez, Marta;Sesión individual psicología;11/05/2026 14:30;11/05/2026 15:30;16/04/2026;16/04/2026;;Scheduled;Week;74086;70797949
+22698115;Ian González;aacc;Rodríguez Rodríguez, Sofía;Sesión psicología;11/05/2026 14:50;11/05/2026 15:50;08/04/2026;08/04/2026;;Scheduled;Week;193322;70339826
+17613863;Carla;Vivas Ariza;González López, Yaiza;Sesión individual logopedia;11/05/2026 14:50;11/05/2026 15:50;11/04/2026;11/04/2026;;Scheduled;Week;74094;70504690
+11473394;Elias;López de la Laba;Torres Vega, Ruth;Sesión individual psicología;11/05/2026 15:00;11/05/2026 16:00;16/04/2026;16/04/2026;;Scheduled;;74088;70823028
+20170051;Lua;Moreno;Rodríguez Rodríguez, Sofía;Sesión psicología;11/05/2026 15:50;11/05/2026 16:50;08/04/2026;08/04/2026;;Scheduled;Week;193322;70339844
+21501333;Xiel;Rodríguez Hermosilla;González López, Yaiza;Sesión individual logopedia;11/05/2026 15:50;11/05/2026 16:50;11/04/2026;11/04/2026;;Scheduled;Week;74094;70504701
+13990167;Asier;Díaz González;Miranda Trillo, Zoe;Sesión individual;11/05/2026 16:00;11/05/2026 17:00;16/03/2026;16/03/2026;;Scheduled;Week;125234;69221235
+8572071;Mael;Canal Romero;Torres Vega, Ruth;Sesión individual;11/05/2026 16:00;11/05/2026 17:00;31/03/2026;31/03/2026;;Scheduled;Week;74088;70014096
+22559905;Malik;Tea;Rodríguez Rodríguez, Sofía;Consulta online;11/05/2026 16:50;11/05/2026 17:50;08/04/2026;08/04/2026;;Scheduled;Week;193321;70339882
+8720376;Rubén;de Pablos;Rodríguez Rodríguez, Sofía;Consulta online;11/05/2026 16:50;11/05/2026 17:50;13/04/2026;13/04/2026;;Scheduled;Week;193321;70560531
+23644111;Santiago;Lavandera Acebedo;González López, Yaiza;Sesión individual logopedia;11/05/2026 16:50;11/05/2026 17:50;20/04/2026;20/04/2026;;Scheduled;Week;74094;70937644
+16567821;Jonay;Amaya Martín;Miranda Trillo, Zoe;Sesión individual;11/05/2026 17:00;11/05/2026 18:00;16/03/2026;16/03/2026;;Scheduled;Week;125234;69221274
+8776877;Aimar;Álvarez de Arriba;Torres Vega, Ruth;Sesión individual;11/05/2026 17:00;11/05/2026 18:00;31/03/2026;31/03/2026;;Scheduled;Week;74088;70014066
+23453733;Tristan;Díaz García;Rodríguez Rodríguez, Sofía;Sesión psicología;11/05/2026 17:50;11/05/2026 18:50;08/04/2026;08/04/2026;;Scheduled;Week;193322;70339895
+16261398;Nael;Cabral Álvarez;González López, Yaiza;Sesión individual logopedia;11/05/2026 17:50;11/05/2026 18:50;20/04/2026;20/04/2026;;Scheduled;Week;74094;70937711
+8540787;Héctor;López Gil;Torres Vega, Ruth;Sesión individual;11/05/2026 18:00;11/05/2026 19:00;05/03/2026;05/03/2026;;Scheduled;Week;74088;68708845
+8716470;Alex;Montes Sarmiento;Miranda Trillo, Zoe;Sesión individual;11/05/2026 18:00;11/05/2026 19:00;07/04/2026;07/04/2026;;Scheduled;Week;125234;70254246
+22844213;Nicolás;Rodríguez Aceres;González López, Yaiza;Sesión individual logopedia;11/05/2026 18:50;11/05/2026 19:50;20/04/2026;20/04/2026;;Scheduled;Week;74094;70937799
+11620225;Hugo;Blanco Fernandez;Torres Vega, Ruth;Sesión individual;11/05/2026 19:00;11/05/2026 20:00;31/03/2026;31/03/2026;;Scheduled;Week;74088;70014036
+24582239;Martín;Rodríguez García-Lengomía;Miranda Trillo, Zoe;Sesión individual;11/05/2026 19:00;11/05/2026 20:00;15/04/2026;15/04/2026;;Scheduled;Week;125234;70746500
+15959656;Bastian;Sifuentes Zegarra;Torres Vega, Ruth;Sesión individual;12/05/2026 15:00;12/05/2026 17:00;31/03/2026;31/03/2026;;Scheduled;Week;74088;70013818
+14758663;Alicia;Cancio Díaz;Chico García, Laura;Sesión individual logopedia;12/05/2026 15:00;12/05/2026 16:00;16/04/2026;16/04/2026;;Scheduled;Week;74090;70783763
+25939452;India;Prieto Menéndez;Miranda Trillo, Zoe;Sesión individual;12/05/2026 15:30;12/05/2026 16:00;07/04/2026;07/04/2026;;Scheduled;Week;125234;70254586
+20169135;Mateo;Antúnez Fernández;González López, Yaiza;Sesión individual logopedia;12/05/2026 15:50;12/05/2026 16:50;21/04/2026;21/04/2026;;Scheduled;Week;74094;71063429
+16784738;Lucas Alejandro;Fernández Díaz;Miranda Trillo, Zoe;Sesión individual;12/05/2026 16:00;12/05/2026 17:00;27/03/2026;07/04/2026;;Scheduled;Week;125234;69892574
+14878339;Sara;Iglesias Florez;Rodríguez Rodríguez, Sofía;Consulta online;12/05/2026 16:00;12/05/2026 17:00;11/04/2026;11/04/2026;;Scheduled;Week;193321;70504529
+12028782;Hugo;Viesca Fernández;Chico García, Laura;Sesión individual logopedia;12/05/2026 16:00;12/05/2026 17:00;21/04/2026;21/04/2026;;Scheduled;Week;74090;71048416
+8539242;Ariel;Del Valle Primo;González López, Yaiza;Sesión individual logopedia;12/05/2026 16:50;12/05/2026 17:50;21/04/2026;21/04/2026;;Scheduled;Week;74094;71063539
+13059792;Vera;Cuetos Rodríguez;Torres Vega, Ruth;Sesión individual;12/05/2026 17:00;12/05/2026 18:00;31/03/2026;31/03/2026;;Scheduled;Week;74088;70013876
+8701889;Hugo;Díaz;Chico García, Laura;Sesión individual logopedia;12/05/2026 17:00;12/05/2026 18:00;21/04/2026;21/04/2026;;Scheduled;Week;74090;71048437
+24701551;Marina;Rotacismo;Miranda Trillo, Zoe;Sesión individual;12/05/2026 17:00;12/05/2026 18:00;22/04/2026;22/04/2026;;Scheduled;Week;125234;71138237
+10143532;Ángel;Canada;González López, Yaiza;Sesión individual logopedia;12/05/2026 17:50;12/05/2026 18:50;21/04/2026;21/04/2026;;Scheduled;Week;74094;71063453
+15279119;Miguel;Fernández Expósito;Torres Vega, Ruth;Sesión individual;12/05/2026 18:00;12/05/2026 19:00;31/03/2026;31/03/2026;;Scheduled;Week;74088;70013928
+16022521;Leya;Magnien Paja;Rodríguez Rodríguez, Sofía;Sesión psicología;12/05/2026 18:00;12/05/2026 19:00;09/04/2026;09/04/2026;;Scheduled;Week;193322;70406557
+10550033;Chloe;Setien Pérez;Chico García, Laura;Sesión individual logopedia;12/05/2026 18:00;12/05/2026 19:00;21/04/2026;21/04/2026;;Scheduled;Week;74090;71048451
+16635915;Daniel (Sakina);.;González López, Yaiza;Sesión individual logopedia;12/05/2026 18:50;12/05/2026 19:50;22/04/2026;22/04/2026;;Scheduled;Week;74094;71165846
+23631732;Pelayo;Robledo López;Miranda Trillo, Zoe;Sesión individual;12/05/2026 19:00;12/05/2026 20:00;27/03/2026;08/04/2026;;Scheduled;Week;125234;69892639
+15550886;Luis;Gavilán;Rodríguez Rodríguez, Sofía;Sesión psicología;12/05/2026 19:00;12/05/2026 20:00;11/04/2026;11/04/2026;;Scheduled;Week;193322;70504544
+25460336;Alba;Gómez Aparicio;Torres Vega, Ruth;Sesión individual;12/05/2026 19:00;12/05/2026 20:00;14/04/2026;14/04/2026;;Scheduled;Week;74088;70638342
+13989255;Bosco;Martinez Gonzalez;Chico García, Laura;Sesión individual logopedia;12/05/2026 19:00;12/05/2026 20:00;21/04/2026;21/04/2026;;Scheduled;Week;74090;71048467
+22884906;Eliam;Oulkady;Chico García, Laura;Sesión individual logopedia;13/05/2026 14:00;13/05/2026 15:00;21/04/2026;21/04/2026;;Scheduled;Week;74090;71048606
+8673475;Mateo;Suárez Constanso;Miranda Trillo, Zoe;Sesión individual;13/05/2026 15:00;13/05/2026 16:00;27/03/2026;27/03/2026;;Scheduled;Week;125234;69892658
+15480230;Mael;Mendes;Torres Vega, Ruth;Sesión individual psicología;13/05/2026 15:00;13/05/2026 16:00;30/03/2026;30/03/2026;;Scheduled;Week;74088;69915086
+15279109;María;Vena Vazquez;Rodríguez Rodríguez, Sofía;Sesión psicología;13/05/2026 15:50;13/05/2026 16:50;08/04/2026;08/04/2026;;Scheduled;Week;193322;70339723
+14783603;Izan;Montes;González López, Yaiza;Sesión individual logopedia;13/05/2026 15:50;13/05/2026 16:50;22/04/2026;22/04/2026;;Scheduled;Week;74094;71165436
+8540787;Héctor;López Gil;Torres Vega, Ruth;Sesión individual psicología;13/05/2026 16:00;13/05/2026 17:00;19/02/2026;19/02/2026;;Scheduled;Week;74088;67871255
+17319866;Rafa;García Artime;Miranda Trillo, Zoe;Sesión individual;13/05/2026 16:00;13/05/2026 17:00;27/03/2026;27/03/2026;;Scheduled;Week;125234;69892673
+23997597;Aitor;Diaz González;González López, Yaiza;Sesión individual;13/05/2026 16:50;13/05/2026 17:50;23/04/2026;23/04/2026;;Scheduled;Week;74094;71175127
+12362861;Alan;Mastropietro Merchan;Torres Vega, Ruth;Sesión individual;13/05/2026 17:00;13/05/2026 18:00;30/03/2026;30/03/2026;;Scheduled;Week;74088;69915074
+8570541;Natalie;San Miguel;Miranda Trillo, Zoe;Sesión individual;13/05/2026 17:00;13/05/2026 18:00;07/04/2026;07/04/2026;;Scheduled;Week;125234;70254382
+15955956;Carlos;Díaz Pernaz;Chico García, Laura;Sesión individual logopedia;13/05/2026 17:00;13/05/2026 18:00;21/04/2026;21/04/2026;;Scheduled;Week;74090;71048617
+22164054;Dylan Fernando;Reyes Reyes;Rodríguez Rodríguez, Sofía;Consulta online;13/05/2026 17:50;13/05/2026 18:50;13/04/2026;13/04/2026;;Scheduled;Week;193321;70560569
+15279119;Miguel;Fernández Expósito;González López, Yaiza;Sesión individual logopedia;13/05/2026 17:50;13/05/2026 18:50;22/04/2026;22/04/2026;;Scheduled;Week;74094;71165342
+8572077;Martin;Álvarez;Miranda Trillo, Zoe;Sesión individual;13/05/2026 18:00;13/05/2026 18:30;07/04/2026;07/04/2026;;Scheduled;Week;125234;70254359
+12716708;Grupo;Bendis;Torres Vega, Ruth;Sesión individual;13/05/2026 18:00;13/05/2026 19:00;09/04/2026;09/04/2026;#¿NOMBRE?;Scheduled;Week;74088;70403500
+8792280;Julia;García;Chico García, Laura;Sesión individual logopedia;13/05/2026 18:00;13/05/2026 19:00;21/04/2026;21/04/2026;;Scheduled;Week;74090;71048629
+26159084;Deva;Caso Méndez;Miranda Trillo, Zoe;Sesión individual;13/05/2026 18:30;13/05/2026 19:00;27/03/2026;27/03/2026;;Scheduled;Week;125234;69892705
+22180309;Ana;Lucia;González López, Yaiza;Sesión individual psicología;13/05/2026 18:50;13/05/2026 19:50;11/04/2026;11/04/2026;;Scheduled;Week;74094;70504172
+8716471;Maximiliano;Nava Arias;Torres Vega, Ruth;Sesión individual;13/05/2026 19:00;13/05/2026 20:00;31/03/2026;31/03/2026;;Scheduled;Week;74088;70014175
+15569060;Lucas;Alonso Fernández;Chico García, Laura;Sesión individual logopedia;13/05/2026 19:00;13/05/2026 20:00;21/04/2026;21/04/2026;;Scheduled;Week;74090;71048641
+16968410;Martín;Vidal;Chico García, Laura;Sesión individual logopedia;13/05/2026 20:00;13/05/2026 21:00;27/04/2026;27/04/2026;;Scheduled;Week;74090;71362664
+26160849;Chloe;Fernández Gómez;González López, Yaiza;Sesión individual logopedia;14/05/2026 14:50;14/05/2026 15:50;22/04/2026;22/04/2026;;Scheduled;Week;74094;71165688
+15932699;Enzo;Ferrer Álvarez;Torres Vega, Ruth;Sesión individual;14/05/2026 15:00;14/05/2026 16:00;05/03/2026;05/03/2026;;Scheduled;Week;74088;68708681
+18532788;Alan;Gordo López;Rodríguez Rodríguez, Sofía;Consulta online;14/05/2026 15:00;14/05/2026 16:00;24/04/2026;24/04/2026;;Scheduled;Week;193321;71259727
+24602382;Angel;Rodriguez San Juan;González López, Yaiza;Sesión individual psicología;14/05/2026 15:50;14/05/2026 16:50;11/04/2026;11/04/2026;;Scheduled;Week;74094;70504204
+8540637;Alicia;González Muñiz;Rodríguez Rodríguez, Sofía;Sesión psicología;14/05/2026 15:50;14/05/2026 16:50;13/04/2026;13/04/2026;;Scheduled;Week;193322;70560643
+13029293;Jorge;Abol;Torres Vega, Ruth;Sesión individual;14/05/2026 16:00;14/05/2026 17:00;31/03/2026;31/03/2026;;Scheduled;Week;74088;70014208
+23480676;Melissa;Oulkady Elmaghraoui;Miranda Trillo, Zoe;Sesión individual;14/05/2026 16:00;14/05/2026 17:00;07/04/2026;07/04/2026;;Scheduled;Week;125234;70254443
+13987542;Pelayo;Plagio;González López, Yaiza;Sesión individual psicología;14/05/2026 16:50;14/05/2026 17:50;11/04/2026;11/04/2026;;Scheduled;Week;74094;70504192
+22559905;Malik;Tea;Rodríguez Rodríguez, Sofía;Sesión psicología;14/05/2026 16:50;14/05/2026 17:50;13/04/2026;13/04/2026;;Scheduled;Week;193322;70560606
+25800392;Leo;Montoto Fiore;Miranda Trillo, Zoe;Sesión individual;14/05/2026 17:00;14/05/2026 18:00;25/03/2026;25/03/2026;;Scheduled;Week;125234;69747483
+21480073;Izán;López Sánchez;González López, Yaiza;Sesión individual logopedia;14/05/2026 17:50;14/05/2026 18:50;22/04/2026;22/04/2026;;Scheduled;Week;74094;71165381
+12132745;Inés;Llopis Treve;Miranda Trillo, Zoe;Sesión individual;14/05/2026 18:00;14/05/2026 19:00;27/03/2026;27/03/2026;;Scheduled;Week;125234;69892729
+20020650;Zoe;Lorenzo;Torres Vega, Ruth;Sesión individual;14/05/2026 18:00;14/05/2026 19:00;08/04/2026;08/04/2026;;Scheduled;Week;74088;70339653
+22180309;Ana;Lucia;González López, Yaiza;Sesión individual psicología;14/05/2026 18:50;14/05/2026 19:50;11/04/2026;11/04/2026;;Scheduled;Week;74094;70504173
+13783230;David;Pacios Pérez;Torres Vega, Ruth;Sesión individual;14/05/2026 19:00;14/05/2026 20:00;31/03/2026;31/03/2026;;Scheduled;Week;74088;70014239
+23717344;Martin;Suarez;Rodríguez Rodríguez, Sofía;Consulta online;15/05/2026 14:00;15/05/2026 15:00;24/04/2026;24/04/2026;;Scheduled;Week;193321;71257775
+24969466;Ainara;Martínez Sánchez;González López, Yaiza;Sesión individual logopedia;15/05/2026 14:50;15/05/2026 15:50;22/04/2026;22/04/2026;;Scheduled;Week;74094;71165618
+20799855;Liam;Rosario (bebé);Chico García, Laura;Sesión individual logopedia;15/05/2026 15:00;15/05/2026 16:00;10/04/2026;10/04/2026;;Scheduled;Week;74090;70481419
+24114684;Ianna;.;González López, Yaiza;Sesión individual logopedia;15/05/2026 15:50;15/05/2026 16:50;22/04/2026;22/04/2026;;Scheduled;Week;74094;71165644
+21154478;Diego Rubén;Sánchez;Miranda Trillo, Zoe;Sesión individual;15/05/2026 16:00;15/05/2026 17:00;13/04/2026;13/04/2026;;Scheduled;Week;125234;70599898
+22015894;Ezequiel;Ghobra Jiménez;González López, Yaiza;Sesión individual psicología;15/05/2026 16:50;15/05/2026 17:50;11/04/2026;11/04/2026;;Scheduled;Week;74094;70504228
+24766820;Zara;Gabriel Pico;Miranda Trillo, Zoe;Sesión individual;15/05/2026 17:00;15/05/2026 18:00;07/04/2026;07/04/2026;;Scheduled;Week;125234;70254492
+11452114;Alvaro;Moriyón Miyar;Chico García, Laura;Sesión individual logopedia;15/05/2026 17:00;15/05/2026 18:00;21/04/2026;21/04/2026;;Scheduled;Week;74090;71051467
+25800551;Grupo;Peques Sofi;Rodríguez Rodríguez, Sofía;Consulta online;15/05/2026 17:30;15/05/2026 18:30;09/04/2026;09/04/2026;;Scheduled;Week;193321;70412661
+22844213;Nicolás;Rodríguez Aceres;González López, Yaiza;Sesión individual logopedia;15/05/2026 17:50;15/05/2026 18:50;22/04/2026;22/04/2026;;Scheduled;Week;74094;71165666
+13611963;Luis;Díaz Martín;Miranda Trillo, Zoe;Sesión individual;15/05/2026 18:00;15/05/2026 19:00;27/03/2026;27/03/2026;;Scheduled;Week;125234;69892757
+26547266;Valentina Olvido;Lopez Rodriguez;Vigil Vázquez, Marta;Sesión individual psicología;18/05/2026 13:00;18/05/2026 14:00;20/04/2026;20/04/2026;;Scheduled;Week;74086;70999447
+11693942;Esteban;Pablo;Vigil Vázquez, Marta;Sesión individual psicología;18/05/2026 14:30;18/05/2026 15:30;16/04/2026;16/04/2026;;Scheduled;Week;74086;70797950
+22698115;Ian González;aacc;Rodríguez Rodríguez, Sofía;Sesión psicología;18/05/2026 14:50;18/05/2026 15:50;08/04/2026;08/04/2026;;Scheduled;Week;193322;70339827
+17613863;Carla;Vivas Ariza;González López, Yaiza;Sesión individual logopedia;18/05/2026 14:50;18/05/2026 15:50;11/04/2026;11/04/2026;;Scheduled;Week;74094;70504691
+20170051;Lua;Moreno;Rodríguez Rodríguez, Sofía;Sesión psicología;18/05/2026 15:50;18/05/2026 16:50;08/04/2026;08/04/2026;;Scheduled;Week;193322;70339845
+21501333;Xiel;Rodríguez Hermosilla;González López, Yaiza;Sesión individual logopedia;18/05/2026 15:50;18/05/2026 16:50;11/04/2026;11/04/2026;;Scheduled;Week;74094;70504702
+13990167;Asier;Díaz González;Miranda Trillo, Zoe;Sesión individual;18/05/2026 16:00;18/05/2026 17:00;16/03/2026;16/03/2026;;Scheduled;Week;125234;69221236
+8572071;Mael;Canal Romero;Torres Vega, Ruth;Sesión individual;18/05/2026 16:00;18/05/2026 17:00;31/03/2026;31/03/2026;;Scheduled;Week;74088;70014097
+22559905;Malik;Tea;Rodríguez Rodríguez, Sofía;Consulta online;18/05/2026 16:50;18/05/2026 17:50;08/04/2026;08/04/2026;;Scheduled;Week;193321;70339883
+8720376;Rubén;de Pablos;Rodríguez Rodríguez, Sofía;Consulta online;18/05/2026 16:50;18/05/2026 17:50;13/04/2026;13/04/2026;;Scheduled;Week;193321;70560532
+23644111;Santiago;Lavandera Acebedo;González López, Yaiza;Sesión individual logopedia;18/05/2026 16:50;18/05/2026 17:50;20/04/2026;20/04/2026;;Scheduled;Week;74094;70937645
+16567821;Jonay;Amaya Martín;Miranda Trillo, Zoe;Sesión individual;18/05/2026 17:00;18/05/2026 18:00;16/03/2026;16/03/2026;;Scheduled;Week;125234;69221275
+8776877;Aimar;Álvarez de Arriba;Torres Vega, Ruth;Sesión individual;18/05/2026 17:00;18/05/2026 18:00;31/03/2026;31/03/2026;;Scheduled;Week;74088;70014067
+23453733;Tristan;Díaz García;Rodríguez Rodríguez, Sofía;Sesión psicología;18/05/2026 17:50;18/05/2026 18:50;08/04/2026;08/04/2026;;Scheduled;Week;193322;70339896
+16261398;Nael;Cabral Álvarez;González López, Yaiza;Sesión individual logopedia;18/05/2026 17:50;18/05/2026 18:50;20/04/2026;20/04/2026;;Scheduled;Week;74094;70937712
+8540787;Héctor;López Gil;Torres Vega, Ruth;Sesión individual;18/05/2026 18:00;18/05/2026 19:00;05/03/2026;05/03/2026;;Scheduled;Week;74088;68708846
+8716470;Alex;Montes Sarmiento;Miranda Trillo, Zoe;Sesión individual;18/05/2026 18:00;18/05/2026 19:00;07/04/2026;07/04/2026;;Scheduled;Week;125234;70254247
+22844213;Nicolás;Rodríguez Aceres;González López, Yaiza;Sesión individual logopedia;18/05/2026 18:50;18/05/2026 19:50;20/04/2026;20/04/2026;;Scheduled;Week;74094;70937800
+11620225;Hugo;Blanco Fernandez;Torres Vega, Ruth;Sesión individual;18/05/2026 19:00;18/05/2026 20:00;31/03/2026;31/03/2026;;Scheduled;Week;74088;70014037
+24582239;Martín;Rodríguez García-Lengomía;Miranda Trillo, Zoe;Sesión individual;18/05/2026 19:00;18/05/2026 20:00;15/04/2026;15/04/2026;;Scheduled;Week;125234;70746502
+15959656;Bastian;Sifuentes Zegarra;Torres Vega, Ruth;Sesión individual;19/05/2026 15:00;19/05/2026 17:00;31/03/2026;31/03/2026;;Scheduled;Week;74088;70013819
+14758663;Alicia;Cancio Díaz;Chico García, Laura;Sesión individual logopedia;19/05/2026 15:00;19/05/2026 16:00;16/04/2026;16/04/2026;;Scheduled;Week;74090;70783764
+25939452;India;Prieto Menéndez;Miranda Trillo, Zoe;Sesión individual;19/05/2026 15:30;19/05/2026 16:00;07/04/2026;07/04/2026;;Scheduled;Week;125234;70254587
+20169135;Mateo;Antúnez Fernández;González López, Yaiza;Sesión individual logopedia;19/05/2026 15:50;19/05/2026 16:50;21/04/2026;21/04/2026;;Scheduled;Week;74094;71063430
+16784738;Lucas Alejandro;Fernández Díaz;Miranda Trillo, Zoe;Sesión individual;19/05/2026 16:00;19/05/2026 17:00;27/03/2026;07/04/2026;;Scheduled;Week;125234;69892575
+14878339;Sara;Iglesias Florez;Rodríguez Rodríguez, Sofía;Consulta online;19/05/2026 16:00;19/05/2026 17:00;11/04/2026;11/04/2026;;Scheduled;Week;193321;70504530
+12028782;Hugo;Viesca Fernández;Chico García, Laura;Sesión individual logopedia;19/05/2026 16:00;19/05/2026 17:00;21/04/2026;21/04/2026;;Scheduled;Week;74090;71048417
+8539242;Ariel;Del Valle Primo;González López, Yaiza;Sesión individual logopedia;19/05/2026 16:50;19/05/2026 17:50;21/04/2026;21/04/2026;;Scheduled;Week;74094;71063540
+13059792;Vera;Cuetos Rodríguez;Torres Vega, Ruth;Sesión individual;19/05/2026 17:00;19/05/2026 18:00;31/03/2026;31/03/2026;;Scheduled;Week;74088;70013877
+8701889;Hugo;Díaz;Chico García, Laura;Sesión individual logopedia;19/05/2026 17:00;19/05/2026 18:00;21/04/2026;21/04/2026;;Scheduled;Week;74090;71048438
+20486396;Aiden;Mon Fernández;Miranda Trillo, Zoe;Sesión individual;19/05/2026 17:00;19/05/2026 18:00;22/04/2026;22/04/2026;;Scheduled;Week;125234;71138261
+10143532;Ángel;Canada;González López, Yaiza;Sesión individual logopedia;19/05/2026 17:50;19/05/2026 18:50;21/04/2026;21/04/2026;;Scheduled;Week;74094;71063454
+19952990;Adrián;Collada Abella;Miranda Trillo, Zoe;Sesión individual;19/05/2026 18:00;19/05/2026 18:30;27/03/2026;21/04/2026;;Scheduled;Week;125234;69892618
+15279119;Miguel;Fernández Expósito;Torres Vega, Ruth;Sesión individual;19/05/2026 18:00;19/05/2026 19:00;31/03/2026;31/03/2026;;Scheduled;Week;74088;70013929
+16022521;Leya;Magnien Paja;Rodríguez Rodríguez, Sofía;Sesión psicología;19/05/2026 18:00;19/05/2026 19:00;09/04/2026;09/04/2026;;Scheduled;Week;193322;70406558
+10550033;Chloe;Setien Pérez;Chico García, Laura;Sesión individual logopedia;19/05/2026 18:00;19/05/2026 19:00;21/04/2026;21/04/2026;;Scheduled;Week;74090;71048453
+16635915;Daniel (Sakina);.;González López, Yaiza;Sesión individual logopedia;19/05/2026 18:50;19/05/2026 19:50;22/04/2026;22/04/2026;;Scheduled;Week;74094;71165847
+23631732;Pelayo;Robledo López;Miranda Trillo, Zoe;Sesión individual;19/05/2026 19:00;19/05/2026 20:00;27/03/2026;08/04/2026;;Scheduled;Week;125234;69892640
+15550886;Luis;Gavilán;Rodríguez Rodríguez, Sofía;Sesión psicología;19/05/2026 19:00;19/05/2026 20:00;11/04/2026;11/04/2026;;Scheduled;Week;193322;70504545
+25460336;Alba;Gómez Aparicio;Torres Vega, Ruth;Sesión individual;19/05/2026 19:00;19/05/2026 20:00;14/04/2026;14/04/2026;;Scheduled;Week;74088;70638343
+13989255;Bosco;Martinez Gonzalez;Chico García, Laura;Sesión individual logopedia;19/05/2026 19:00;19/05/2026 20:00;21/04/2026;21/04/2026;;Scheduled;Week;74090;71048468
+22884906;Eliam;Oulkady;Chico García, Laura;Sesión individual logopedia;20/05/2026 14:00;20/05/2026 15:00;21/04/2026;21/04/2026;;Scheduled;Week;74090;71048607
+8673475;Mateo;Suárez Constanso;Miranda Trillo, Zoe;Sesión individual;20/05/2026 15:00;20/05/2026 16:00;27/03/2026;27/03/2026;;Scheduled;Week;125234;69892659
+15480230;Mael;Mendes;Torres Vega, Ruth;Sesión individual psicología;20/05/2026 15:00;20/05/2026 16:00;30/03/2026;30/03/2026;;Scheduled;Week;74088;69915087
+15279109;María;Vena Vazquez;Rodríguez Rodríguez, Sofía;Sesión psicología;20/05/2026 15:50;20/05/2026 16:50;08/04/2026;08/04/2026;;Scheduled;Week;193322;70339724
+14783603;Izan;Montes;González López, Yaiza;Sesión individual logopedia;20/05/2026 15:50;20/05/2026 16:50;22/04/2026;22/04/2026;;Scheduled;Week;74094;71165437
+17319866;Rafa;García Artime;Miranda Trillo, Zoe;Sesión individual;20/05/2026 16:00;20/05/2026 17:00;27/03/2026;27/03/2026;;Scheduled;Week;125234;69892674
+23997597;Aitor;Diaz González;González López, Yaiza;Sesión individual;20/05/2026 16:50;20/05/2026 17:50;23/04/2026;23/04/2026;;Scheduled;Week;74094;71175128
+12362861;Alan;Mastropietro Merchan;Torres Vega, Ruth;Sesión individual;20/05/2026 17:00;20/05/2026 18:00;30/03/2026;30/03/2026;;Scheduled;Week;74088;69915075
+8570541;Natalie;San Miguel;Miranda Trillo, Zoe;Sesión individual;20/05/2026 17:00;20/05/2026 18:00;07/04/2026;07/04/2026;;Scheduled;Week;125234;70254383
+15955956;Carlos;Díaz Pernaz;Chico García, Laura;Sesión individual logopedia;20/05/2026 17:00;20/05/2026 18:00;21/04/2026;21/04/2026;;Scheduled;Week;74090;71048618
+22164054;Dylan Fernando;Reyes Reyes;Rodríguez Rodríguez, Sofía;Consulta online;20/05/2026 17:50;20/05/2026 18:50;13/04/2026;13/04/2026;;Scheduled;Week;193321;70560570
+15279119;Miguel;Fernández Expósito;González López, Yaiza;Sesión individual logopedia;20/05/2026 17:50;20/05/2026 18:50;22/04/2026;22/04/2026;;Scheduled;Week;74094;71165343
+8572077;Martin;Álvarez;Miranda Trillo, Zoe;Sesión individual;20/05/2026 18:00;20/05/2026 18:30;07/04/2026;07/04/2026;;Scheduled;Week;125234;70254360
+12716708;Grupo;Bendis;Torres Vega, Ruth;Sesión individual;20/05/2026 18:00;20/05/2026 19:00;09/04/2026;09/04/2026;#¿NOMBRE?;Scheduled;Week;74088;70403501
+8792280;Julia;García;Chico García, Laura;Sesión individual logopedia;20/05/2026 18:00;20/05/2026 19:00;21/04/2026;21/04/2026;;Scheduled;Week;74090;71048630
+26159084;Deva;Caso Méndez;Miranda Trillo, Zoe;Sesión individual;20/05/2026 18:30;20/05/2026 19:00;27/03/2026;27/03/2026;;Scheduled;Week;125234;69892706
+22180309;Ana;Lucia;González López, Yaiza;Sesión individual psicología;20/05/2026 18:50;20/05/2026 19:50;11/04/2026;11/04/2026;;Scheduled;Week;74094;70504174
+8716471;Maximiliano;Nava Arias;Torres Vega, Ruth;Sesión individual;20/05/2026 19:00;20/05/2026 20:00;31/03/2026;31/03/2026;;Scheduled;Week;74088;70014176
+15569060;Lucas;Alonso Fernández;Chico García, Laura;Sesión individual logopedia;20/05/2026 19:00;20/05/2026 20:00;21/04/2026;21/04/2026;;Scheduled;Week;74090;71048642
+16968410;Martín;Vidal;Chico García, Laura;Sesión individual logopedia;20/05/2026 20:00;20/05/2026 21:00;27/04/2026;27/04/2026;;Scheduled;Week;74090;71362665
+25370139;Kira;Gentile;Vigil Vázquez, Marta;Sesión individual psicología;21/05/2026 8:15;21/05/2026 9:15;24/04/2026;24/04/2026;;Scheduled;;74086;71241662
+26160849;Chloe;Fernández Gómez;González López, Yaiza;Sesión individual logopedia;21/05/2026 14:50;21/05/2026 15:50;22/04/2026;22/04/2026;;Scheduled;Week;74094;71165689
+15932699;Enzo;Ferrer Álvarez;Torres Vega, Ruth;Sesión individual;21/05/2026 15:00;21/05/2026 16:00;05/03/2026;05/03/2026;;Scheduled;Week;74088;68708682
+18532788;Alan;Gordo López;Rodríguez Rodríguez, Sofía;Consulta online;21/05/2026 15:00;21/05/2026 16:00;24/04/2026;24/04/2026;;Scheduled;Week;193321;71259728
+24602382;Angel;Rodriguez San Juan;González López, Yaiza;Sesión individual psicología;21/05/2026 15:50;21/05/2026 16:50;11/04/2026;11/04/2026;;Scheduled;Week;74094;70504205
+8540637;Alicia;González Muñiz;Rodríguez Rodríguez, Sofía;Sesión psicología;21/05/2026 15:50;21/05/2026 16:50;13/04/2026;13/04/2026;;Scheduled;Week;193322;70560644
+13029293;Jorge;Abol;Torres Vega, Ruth;Sesión individual;21/05/2026 16:00;21/05/2026 17:00;31/03/2026;31/03/2026;;Scheduled;Week;74088;70014209
+23480676;Melissa;Oulkady Elmaghraoui;Miranda Trillo, Zoe;Sesión individual;21/05/2026 16:00;21/05/2026 17:00;07/04/2026;07/04/2026;;Scheduled;Week;125234;70254444
+8572111;Mario;Martín Miguel;Vigil Vázquez, Marta;Sesión individual psicología;21/05/2026 16:30;21/05/2026 17:30;23/04/2026;23/04/2026;;Scheduled;Week;74086;71222155
+13987542;Pelayo;Plagio;González López, Yaiza;Sesión individual psicología;21/05/2026 16:50;21/05/2026 17:50;11/04/2026;11/04/2026;;Scheduled;Week;74094;70504193
+22559905;Malik;Tea;Rodríguez Rodríguez, Sofía;Sesión psicología;21/05/2026 16:50;21/05/2026 17:50;13/04/2026;13/04/2026;;Scheduled;Week;193322;70560607
+25800392;Leo;Montoto Fiore;Miranda Trillo, Zoe;Sesión individual;21/05/2026 17:00;21/05/2026 18:00;25/03/2026;25/03/2026;;Scheduled;Week;125234;69747484
+21480073;Izán;López Sánchez;González López, Yaiza;Sesión individual logopedia;21/05/2026 17:50;21/05/2026 18:50;22/04/2026;22/04/2026;;Scheduled;Week;74094;71165382
+12132745;Inés;Llopis Treve;Miranda Trillo, Zoe;Sesión individual;21/05/2026 18:00;21/05/2026 19:00;27/03/2026;27/03/2026;;Scheduled;Week;125234;69892730
+20020650;Zoe;Lorenzo;Torres Vega, Ruth;Sesión individual;21/05/2026 18:00;21/05/2026 19:00;08/04/2026;08/04/2026;;Scheduled;Week;74088;70339654
+22180309;Ana;Lucia;González López, Yaiza;Sesión individual psicología;21/05/2026 18:50;21/05/2026 19:50;11/04/2026;11/04/2026;;Scheduled;Week;74094;70504175
+13783230;David;Pacios Pérez;Torres Vega, Ruth;Sesión individual;21/05/2026 19:00;21/05/2026 20:00;31/03/2026;31/03/2026;;Scheduled;Week;74088;70014240
+23717344;Martin;Suarez;Rodríguez Rodríguez, Sofía;Consulta online;22/05/2026 14:00;22/05/2026 15:00;24/04/2026;24/04/2026;;Scheduled;Week;193321;71257776
+24969466;Ainara;Martínez Sánchez;González López, Yaiza;Sesión individual logopedia;22/05/2026 14:50;22/05/2026 15:50;22/04/2026;22/04/2026;;Scheduled;Week;74094;71165619
+20799855;Liam;Rosario (bebé);Chico García, Laura;Sesión individual logopedia;22/05/2026 15:00;22/05/2026 16:00;10/04/2026;10/04/2026;;Scheduled;Week;74090;70481420
+24114684;Ianna;.;González López, Yaiza;Sesión individual logopedia;22/05/2026 15:50;22/05/2026 16:50;22/04/2026;22/04/2026;;Scheduled;Week;74094;71165645
+21154478;Diego Rubén;Sánchez;Miranda Trillo, Zoe;Sesión individual;22/05/2026 16:00;22/05/2026 17:00;13/04/2026;13/04/2026;;Scheduled;Week;125234;70599899
+22015894;Ezequiel;Ghobra Jiménez;González López, Yaiza;Sesión individual psicología;22/05/2026 16:50;22/05/2026 17:50;11/04/2026;11/04/2026;;Scheduled;Week;74094;70504229
+24766820;Zara;Gabriel Pico;Miranda Trillo, Zoe;Sesión individual;22/05/2026 17:00;22/05/2026 18:00;07/04/2026;07/04/2026;;Scheduled;Week;125234;70254493
+11452114;Alvaro;Moriyón Miyar;Chico García, Laura;Sesión individual logopedia;22/05/2026 17:00;22/05/2026 18:00;21/04/2026;21/04/2026;;Scheduled;Week;74090;71051468
+25800551;Grupo;Peques Sofi;Rodríguez Rodríguez, Sofía;Consulta online;22/05/2026 17:30;22/05/2026 18:30;09/04/2026;09/04/2026;;Scheduled;Week;193321;70412662
+22844213;Nicolás;Rodríguez Aceres;González López, Yaiza;Sesión individual logopedia;22/05/2026 17:50;22/05/2026 18:50;22/04/2026;22/04/2026;;Scheduled;Week;74094;71165667
+13611963;Luis;Díaz Martín;Miranda Trillo, Zoe;Sesión individual;22/05/2026 18:00;22/05/2026 19:00;27/03/2026;27/03/2026;;Scheduled;Week;125234;69892758
+26547266;Valentina Olvido;Lopez Rodriguez;Vigil Vázquez, Marta;Sesión individual psicología;25/05/2026 13:00;25/05/2026 14:00;20/04/2026;20/04/2026;;Scheduled;Week;74086;70999448
+11693942;Esteban;Pablo;Vigil Vázquez, Marta;Sesión individual psicología;25/05/2026 14:30;25/05/2026 15:30;16/04/2026;16/04/2026;;Scheduled;Week;74086;70797951
+22698115;Ian González;aacc;Rodríguez Rodríguez, Sofía;Sesión psicología;25/05/2026 14:50;25/05/2026 15:50;08/04/2026;08/04/2026;;Scheduled;Week;193322;70339828
+17613863;Carla;Vivas Ariza;González López, Yaiza;Sesión individual logopedia;25/05/2026 14:50;25/05/2026 15:50;11/04/2026;11/04/2026;;Scheduled;Week;74094;70504692
+20170051;Lua;Moreno;Rodríguez Rodríguez, Sofía;Sesión psicología;25/05/2026 15:50;25/05/2026 16:50;08/04/2026;08/04/2026;;Scheduled;Week;193322;70339846
+21501333;Xiel;Rodríguez Hermosilla;González López, Yaiza;Sesión individual logopedia;25/05/2026 15:50;25/05/2026 16:50;11/04/2026;11/04/2026;;Scheduled;Week;74094;70504703
+13990167;Asier;Díaz González;Miranda Trillo, Zoe;Sesión individual;25/05/2026 16:00;25/05/2026 17:00;16/03/2026;16/03/2026;;Scheduled;Week;125234;69221237
+8572071;Mael;Canal Romero;Torres Vega, Ruth;Sesión individual;25/05/2026 16:00;25/05/2026 17:00;31/03/2026;31/03/2026;;Scheduled;Week;74088;70014098
+22559905;Malik;Tea;Rodríguez Rodríguez, Sofía;Consulta online;25/05/2026 16:50;25/05/2026 17:50;08/04/2026;08/04/2026;;Scheduled;Week;193321;70339884
+8720376;Rubén;de Pablos;Rodríguez Rodríguez, Sofía;Consulta online;25/05/2026 16:50;25/05/2026 17:50;13/04/2026;13/04/2026;;Scheduled;Week;193321;70560533
+23644111;Santiago;Lavandera Acebedo;González López, Yaiza;Sesión individual logopedia;25/05/2026 16:50;25/05/2026 17:50;20/04/2026;20/04/2026;;Scheduled;Week;74094;70937646
+16567821;Jonay;Amaya Martín;Miranda Trillo, Zoe;Sesión individual;25/05/2026 17:00;25/05/2026 18:00;16/03/2026;16/03/2026;;Scheduled;Week;125234;69221276
+8776877;Aimar;Álvarez de Arriba;Torres Vega, Ruth;Sesión individual;25/05/2026 17:00;25/05/2026 18:00;31/03/2026;31/03/2026;;Scheduled;Week;74088;70014068
+23453733;Tristan;Díaz García;Rodríguez Rodríguez, Sofía;Sesión psicología;25/05/2026 17:50;25/05/2026 18:50;08/04/2026;08/04/2026;;Scheduled;Week;193322;70339897
+16261398;Nael;Cabral Álvarez;González López, Yaiza;Sesión individual logopedia;25/05/2026 17:50;25/05/2026 18:50;20/04/2026;20/04/2026;;Scheduled;Week;74094;70937713
+8540787;Héctor;López Gil;Torres Vega, Ruth;Sesión individual;25/05/2026 18:00;25/05/2026 19:00;05/03/2026;05/03/2026;;Scheduled;Week;74088;68708847
+8716470;Alex;Montes Sarmiento;Miranda Trillo, Zoe;Sesión individual;25/05/2026 18:00;25/05/2026 19:00;07/04/2026;07/04/2026;;Scheduled;Week;125234;70254248
+22844213;Nicolás;Rodríguez Aceres;González López, Yaiza;Sesión individual logopedia;25/05/2026 18:50;25/05/2026 19:50;20/04/2026;20/04/2026;;Scheduled;Week;74094;70937801
+11620225;Hugo;Blanco Fernandez;Torres Vega, Ruth;Sesión individual;25/05/2026 19:00;25/05/2026 20:00;31/03/2026;31/03/2026;;Scheduled;Week;74088;70014038
+24582239;Martín;Rodríguez García-Lengomía;Miranda Trillo, Zoe;Sesión individual;25/05/2026 19:00;25/05/2026 20:00;15/04/2026;15/04/2026;;Scheduled;Week;125234;70746504
+15959656;Bastian;Sifuentes Zegarra;Torres Vega, Ruth;Sesión individual;26/05/2026 15:00;26/05/2026 17:00;31/03/2026;31/03/2026;;Scheduled;Week;74088;70013820
+14758663;Alicia;Cancio Díaz;Chico García, Laura;Sesión individual logopedia;26/05/2026 15:00;26/05/2026 16:00;16/04/2026;16/04/2026;;Scheduled;Week;74090;70783765
+25939452;India;Prieto Menéndez;Miranda Trillo, Zoe;Sesión individual;26/05/2026 15:30;26/05/2026 16:00;07/04/2026;07/04/2026;;Scheduled;Week;125234;70254588
+20169135;Mateo;Antúnez Fernández;González López, Yaiza;Sesión individual logopedia;26/05/2026 15:50;26/05/2026 16:50;21/04/2026;21/04/2026;;Scheduled;Week;74094;71063431
+16784738;Lucas Alejandro;Fernández Díaz;Miranda Trillo, Zoe;Sesión individual;26/05/2026 16:00;26/05/2026 17:00;27/03/2026;07/04/2026;;Scheduled;Week;125234;69892576
+14878339;Sara;Iglesias Florez;Rodríguez Rodríguez, Sofía;Consulta online;26/05/2026 16:00;26/05/2026 17:00;11/04/2026;11/04/2026;;Scheduled;Week;193321;70504531
+12028782;Hugo;Viesca Fernández;Chico García, Laura;Sesión individual logopedia;26/05/2026 16:00;26/05/2026 17:00;21/04/2026;21/04/2026;;Scheduled;Week;74090;71048418
+8539242;Ariel;Del Valle Primo;González López, Yaiza;Sesión individual logopedia;26/05/2026 16:50;26/05/2026 17:50;21/04/2026;21/04/2026;;Scheduled;Week;74094;71063541
+13059792;Vera;Cuetos Rodríguez;Torres Vega, Ruth;Sesión individual;26/05/2026 17:00;26/05/2026 18:00;31/03/2026;31/03/2026;;Scheduled;Week;74088;70013878
+8701889;Hugo;Díaz;Chico García, Laura;Sesión individual logopedia;26/05/2026 17:00;26/05/2026 18:00;21/04/2026;21/04/2026;;Scheduled;Week;74090;71048439
+24701551;Marina;Rotacismo;Miranda Trillo, Zoe;Sesión individual;26/05/2026 17:00;26/05/2026 18:00;22/04/2026;22/04/2026;;Scheduled;Week;125234;71138238
+10143532;Ángel;Canada;González López, Yaiza;Sesión individual logopedia;26/05/2026 17:50;26/05/2026 18:50;21/04/2026;21/04/2026;;Scheduled;Week;74094;71063455
+19952990;Adrián;Collada Abella;Miranda Trillo, Zoe;Sesión individual;26/05/2026 18:00;26/05/2026 18:30;27/03/2026;21/04/2026;;Scheduled;Week;125234;69892619
+15279119;Miguel;Fernández Expósito;Torres Vega, Ruth;Sesión individual;26/05/2026 18:00;26/05/2026 19:00;31/03/2026;31/03/2026;;Scheduled;Week;74088;70013930
+16022521;Leya;Magnien Paja;Rodríguez Rodríguez, Sofía;Sesión psicología;26/05/2026 18:00;26/05/2026 19:00;09/04/2026;09/04/2026;;Scheduled;Week;193322;70406559
+10550033;Chloe;Setien Pérez;Chico García, Laura;Sesión individual logopedia;26/05/2026 18:00;26/05/2026 19:00;21/04/2026;21/04/2026;;Scheduled;Week;74090;71048454
+16635915;Daniel (Sakina);.;González López, Yaiza;Sesión individual logopedia;26/05/2026 18:50;26/05/2026 19:50;22/04/2026;22/04/2026;;Scheduled;Week;74094;71165848
+23631732;Pelayo;Robledo López;Miranda Trillo, Zoe;Sesión individual;26/05/2026 19:00;26/05/2026 20:00;27/03/2026;08/04/2026;;Scheduled;Week;125234;69892641
+15550886;Luis;Gavilán;Rodríguez Rodríguez, Sofía;Sesión psicología;26/05/2026 19:00;26/05/2026 20:00;11/04/2026;11/04/2026;;Scheduled;Week;193322;70504546
+25460336;Alba;Gómez Aparicio;Torres Vega, Ruth;Sesión individual;26/05/2026 19:00;26/05/2026 20:00;14/04/2026;14/04/2026;;Scheduled;Week;74088;70638344
+13989255;Bosco;Martinez Gonzalez;Chico García, Laura;Sesión individual logopedia;26/05/2026 19:00;26/05/2026 20:00;21/04/2026;21/04/2026;;Scheduled;Week;74090;71048469
+22884906;Eliam;Oulkady;Chico García, Laura;Sesión individual logopedia;27/05/2026 14:00;27/05/2026 15:00;21/04/2026;21/04/2026;;Scheduled;Week;74090;71048608
+8673475;Mateo;Suárez Constanso;Miranda Trillo, Zoe;Sesión individual;27/05/2026 15:00;27/05/2026 16:00;27/03/2026;27/03/2026;;Scheduled;Week;125234;69892660
+15480230;Mael;Mendes;Torres Vega, Ruth;Sesión individual psicología;27/05/2026 15:00;27/05/2026 16:00;30/03/2026;30/03/2026;;Scheduled;Week;74088;69915088
+15279109;María;Vena Vazquez;Rodríguez Rodríguez, Sofía;Sesión psicología;27/05/2026 15:50;27/05/2026 16:50;08/04/2026;08/04/2026;;Scheduled;Week;193322;70339725
+14783603;Izan;Montes;González López, Yaiza;Sesión individual logopedia;27/05/2026 15:50;27/05/2026 16:50;22/04/2026;22/04/2026;;Scheduled;Week;74094;71165438
+17319866;Rafa;García Artime;Miranda Trillo, Zoe;Sesión individual;27/05/2026 16:00;27/05/2026 17:00;27/03/2026;27/03/2026;;Scheduled;Week;125234;69892675
+23997597;Aitor;Diaz González;González López, Yaiza;Sesión individual;27/05/2026 16:50;27/05/2026 17:50;23/04/2026;23/04/2026;;Scheduled;Week;74094;71175129
+12362861;Alan;Mastropietro Merchan;Torres Vega, Ruth;Sesión individual;27/05/2026 17:00;27/05/2026 18:00;30/03/2026;30/03/2026;;Scheduled;Week;74088;69915076
+8570541;Natalie;San Miguel;Miranda Trillo, Zoe;Sesión individual;27/05/2026 17:00;27/05/2026 18:00;07/04/2026;07/04/2026;;Scheduled;Week;125234;70254384
+15955956;Carlos;Díaz Pernaz;Chico García, Laura;Sesión individual logopedia;27/05/2026 17:00;27/05/2026 18:00;21/04/2026;21/04/2026;;Scheduled;Week;74090;71048619
+22164054;Dylan Fernando;Reyes Reyes;Rodríguez Rodríguez, Sofía;Consulta online;27/05/2026 17:50;27/05/2026 18:50;13/04/2026;13/04/2026;;Scheduled;Week;193321;70560571
+15279119;Miguel;Fernández Expósito;González López, Yaiza;Sesión individual logopedia;27/05/2026 17:50;27/05/2026 18:50;22/04/2026;22/04/2026;;Scheduled;Week;74094;71165344
+8572077;Martin;Álvarez;Miranda Trillo, Zoe;Sesión individual;27/05/2026 18:00;27/05/2026 18:30;07/04/2026;07/04/2026;;Scheduled;Week;125234;70254361
+12716708;Grupo;Bendis;Torres Vega, Ruth;Sesión individual;27/05/2026 18:00;27/05/2026 19:00;09/04/2026;09/04/2026;#¿NOMBRE?;Scheduled;Week;74088;70403502
+8792280;Julia;García;Chico García, Laura;Sesión individual logopedia;27/05/2026 18:00;27/05/2026 19:00;21/04/2026;21/04/2026;;Scheduled;Week;74090;71048631
+26159084;Deva;Caso Méndez;Miranda Trillo, Zoe;Sesión individual;27/05/2026 18:30;27/05/2026 19:00;27/03/2026;27/03/2026;;Scheduled;Week;125234;69892707
+22180309;Ana;Lucia;González López, Yaiza;Sesión individual psicología;27/05/2026 18:50;27/05/2026 19:50;11/04/2026;11/04/2026;;Scheduled;Week;74094;70504176
+8716471;Maximiliano;Nava Arias;Torres Vega, Ruth;Sesión individual;27/05/2026 19:00;27/05/2026 20:00;31/03/2026;31/03/2026;;Scheduled;Week;74088;70014177
+15569060;Lucas;Alonso Fernández;Chico García, Laura;Sesión individual logopedia;27/05/2026 19:00;27/05/2026 20:00;21/04/2026;21/04/2026;;Scheduled;Week;74090;71048643
+16968410;Martín;Vidal;Chico García, Laura;Sesión individual logopedia;27/05/2026 20:00;27/05/2026 21:00;27/04/2026;27/04/2026;;Scheduled;Week;74090;71362666
+26160849;Chloe;Fernández Gómez;González López, Yaiza;Sesión individual logopedia;28/05/2026 14:50;28/05/2026 15:50;22/04/2026;22/04/2026;;Scheduled;Week;74094;71165690
+18532788;Alan;Gordo López;Rodríguez Rodríguez, Sofía;Consulta online;28/05/2026 15:00;28/05/2026 16:00;24/04/2026;24/04/2026;;Scheduled;Week;193321;71259729
+24602382;Angel;Rodriguez San Juan;González López, Yaiza;Sesión individual psicología;28/05/2026 15:50;28/05/2026 16:50;11/04/2026;11/04/2026;;Scheduled;Week;74094;70504206
+8540637;Alicia;González Muñiz;Rodríguez Rodríguez, Sofía;Sesión psicología;28/05/2026 15:50;28/05/2026 16:50;13/04/2026;13/04/2026;;Scheduled;Week;193322;70560645
+13029293;Jorge;Abol;Torres Vega, Ruth;Sesión individual;28/05/2026 16:00;28/05/2026 17:00;31/03/2026;31/03/2026;;Scheduled;Week;74088;70014210
+23480676;Melissa;Oulkady Elmaghraoui;Miranda Trillo, Zoe;Sesión individual;28/05/2026 16:00;28/05/2026 17:00;07/04/2026;07/04/2026;;Scheduled;Week;125234;70254445
+13987542;Pelayo;Plagio;González López, Yaiza;Sesión individual psicología;28/05/2026 16:50;28/05/2026 17:50;11/04/2026;11/04/2026;;Scheduled;Week;74094;70504194
+22559905;Malik;Tea;Rodríguez Rodríguez, Sofía;Sesión psicología;28/05/2026 16:50;28/05/2026 17:50;13/04/2026;13/04/2026;;Scheduled;Week;193322;70560608
+25800392;Leo;Montoto Fiore;Miranda Trillo, Zoe;Sesión individual;28/05/2026 17:00;28/05/2026 18:00;25/03/2026;25/03/2026;;Scheduled;Week;125234;69747485
+21480073;Izán;López Sánchez;González López, Yaiza;Sesión individual logopedia;28/05/2026 17:50;28/05/2026 18:50;22/04/2026;22/04/2026;;Scheduled;Week;74094;71165383
+12132745;Inés;Llopis Treve;Miranda Trillo, Zoe;Sesión individual;28/05/2026 18:00;28/05/2026 19:00;27/03/2026;27/03/2026;;Scheduled;Week;125234;69892731
+20020650;Zoe;Lorenzo;Torres Vega, Ruth;Sesión individual;28/05/2026 18:00;28/05/2026 19:00;08/04/2026;08/04/2026;;Scheduled;Week;74088;70339655
+22180309;Ana;Lucia;González López, Yaiza;Sesión individual psicología;28/05/2026 18:50;28/05/2026 19:50;11/04/2026;11/04/2026;;Scheduled;Week;74094;70504177
+13783230;David;Pacios Pérez;Torres Vega, Ruth;Sesión individual;28/05/2026 19:00;28/05/2026 20:00;31/03/2026;31/03/2026;;Scheduled;Week;74088;70014241
+23717344;Martin;Suarez;Rodríguez Rodríguez, Sofía;Consulta online;29/05/2026 14:00;29/05/2026 15:00;24/04/2026;24/04/2026;;Scheduled;Week;193321;71257777
+24969466;Ainara;Martínez Sánchez;González López, Yaiza;Sesión individual logopedia;29/05/2026 14:50;29/05/2026 15:50;22/04/2026;22/04/2026;;Scheduled;Week;74094;71165620
+20799855;Liam;Rosario (bebé);Chico García, Laura;Sesión individual logopedia;29/05/2026 15:00;29/05/2026 16:00;10/04/2026;10/04/2026;;Scheduled;Week;74090;70481421
+24114684;Ianna;.;González López, Yaiza;Sesión individual logopedia;29/05/2026 15:50;29/05/2026 16:50;22/04/2026;22/04/2026;;Scheduled;Week;74094;71165646
+21154478;Diego Rubén;Sánchez;Miranda Trillo, Zoe;Sesión individual;29/05/2026 16:00;29/05/2026 17:00;13/04/2026;13/04/2026;;Scheduled;Week;125234;70599900
+22015894;Ezequiel;Ghobra Jiménez;González López, Yaiza;Sesión individual psicología;29/05/2026 16:50;29/05/2026 17:50;11/04/2026;11/04/2026;;Scheduled;Week;74094;70504230
+24766820;Zara;Gabriel Pico;Miranda Trillo, Zoe;Sesión individual;29/05/2026 17:00;29/05/2026 18:00;07/04/2026;07/04/2026;;Scheduled;Week;125234;70254494
+11452114;Alvaro;Moriyón Miyar;Chico García, Laura;Sesión individual logopedia;29/05/2026 17:00;29/05/2026 18:00;21/04/2026;21/04/2026;;Scheduled;Week;74090;71051469
+25800551;Grupo;Peques Sofi;Rodríguez Rodríguez, Sofía;Consulta online;29/05/2026 17:30;29/05/2026 18:30;09/04/2026;09/04/2026;;Scheduled;Week;193321;70412663
+22844213;Nicolás;Rodríguez Aceres;González López, Yaiza;Sesión individual logopedia;29/05/2026 17:50;29/05/2026 18:50;22/04/2026;22/04/2026;;Scheduled;Week;74094;71165668
+13611963;Luis;Díaz Martín;Miranda Trillo, Zoe;Sesión individual;29/05/2026 18:00;29/05/2026 19:00;27/03/2026;27/03/2026;;Scheduled;Week;125234;69892759
+26547266;Valentina Olvido;Lopez Rodriguez;Vigil Vázquez, Marta;Sesión individual psicología;01/06/2026 13:00;01/06/2026 14:00;20/04/2026;20/04/2026;;Scheduled;Week;74086;70999449
+11693942;Esteban;Pablo;Vigil Vázquez, Marta;Sesión individual psicología;01/06/2026 14:30;01/06/2026 15:30;16/04/2026;16/04/2026;;Scheduled;Week;74086;70797952
+22698115;Ian González;aacc;Rodríguez Rodríguez, Sofía;Sesión psicología;01/06/2026 14:50;01/06/2026 15:50;08/04/2026;08/04/2026;;Scheduled;Week;193322;70339829
+17613863;Carla;Vivas Ariza;González López, Yaiza;Sesión individual logopedia;01/06/2026 14:50;01/06/2026 15:50;11/04/2026;11/04/2026;;Scheduled;Week;74094;70504693
+20170051;Lua;Moreno;Rodríguez Rodríguez, Sofía;Sesión psicología;01/06/2026 15:50;01/06/2026 16:50;08/04/2026;08/04/2026;;Scheduled;Week;193322;70339847
+21501333;Xiel;Rodríguez Hermosilla;González López, Yaiza;Sesión individual logopedia;01/06/2026 15:50;01/06/2026 16:50;11/04/2026;11/04/2026;;Scheduled;Week;74094;70504704
+8572071;Mael;Canal Romero;Torres Vega, Ruth;Sesión individual;01/06/2026 16:00;01/06/2026 17:00;31/03/2026;31/03/2026;;Scheduled;Week;74088;70014099
+22559905;Malik;Tea;Rodríguez Rodríguez, Sofía;Consulta online;01/06/2026 16:50;01/06/2026 17:50;08/04/2026;08/04/2026;;Scheduled;Week;193321;70339885
+8720376;Rubén;de Pablos;Rodríguez Rodríguez, Sofía;Consulta online;01/06/2026 16:50;01/06/2026 17:50;13/04/2026;13/04/2026;;Scheduled;Week;193321;70560534
+23644111;Santiago;Lavandera Acebedo;González López, Yaiza;Sesión individual logopedia;01/06/2026 16:50;01/06/2026 17:50;20/04/2026;20/04/2026;;Scheduled;Week;74094;70937647
+8776877;Aimar;Álvarez de Arriba;Torres Vega, Ruth;Sesión individual;01/06/2026 17:00;01/06/2026 18:00;31/03/2026;31/03/2026;;Scheduled;Week;74088;70014069
+23453733;Tristan;Díaz García;Rodríguez Rodríguez, Sofía;Sesión psicología;01/06/2026 17:50;01/06/2026 18:50;08/04/2026;08/04/2026;;Scheduled;Week;193322;70339898
+16261398;Nael;Cabral Álvarez;González López, Yaiza;Sesión individual logopedia;01/06/2026 17:50;01/06/2026 18:50;20/04/2026;20/04/2026;;Scheduled;Week;74094;70937714
+8716470;Alex;Montes Sarmiento;Miranda Trillo, Zoe;Sesión individual;01/06/2026 18:00;01/06/2026 19:00;07/04/2026;07/04/2026;;Scheduled;Week;125234;70254249
+22844213;Nicolás;Rodríguez Aceres;González López, Yaiza;Sesión individual logopedia;01/06/2026 18:50;01/06/2026 19:50;20/04/2026;20/04/2026;;Scheduled;Week;74094;70937802
+11620225;Hugo;Blanco Fernandez;Torres Vega, Ruth;Sesión individual;01/06/2026 19:00;01/06/2026 20:00;31/03/2026;31/03/2026;;Scheduled;Week;74088;70014039
+24582239;Martín;Rodríguez García-Lengomía;Miranda Trillo, Zoe;Sesión individual;01/06/2026 19:00;01/06/2026 20:00;15/04/2026;15/04/2026;;Scheduled;Week;125234;70746507
+15959656;Bastian;Sifuentes Zegarra;Torres Vega, Ruth;Sesión individual;02/06/2026 15:00;02/06/2026 17:00;31/03/2026;31/03/2026;;Scheduled;Week;74088;70013821
+14758663;Alicia;Cancio Díaz;Chico García, Laura;Sesión individual logopedia;02/06/2026 15:00;02/06/2026 16:00;16/04/2026;16/04/2026;;Scheduled;Week;74090;70783766
+25939452;India;Prieto Menéndez;Miranda Trillo, Zoe;Sesión individual;02/06/2026 15:30;02/06/2026 16:00;07/04/2026;07/04/2026;;Scheduled;Week;125234;70254589
+20169135;Mateo;Antúnez Fernández;González López, Yaiza;Sesión individual logopedia;02/06/2026 15:50;02/06/2026 16:50;21/04/2026;21/04/2026;;Scheduled;Week;74094;71063432
+16784738;Lucas Alejandro;Fernández Díaz;Miranda Trillo, Zoe;Sesión individual;02/06/2026 16:00;02/06/2026 17:00;27/03/2026;07/04/2026;;Scheduled;Week;125234;69892577
+14878339;Sara;Iglesias Florez;Rodríguez Rodríguez, Sofía;Consulta online;02/06/2026 16:00;02/06/2026 17:00;11/04/2026;11/04/2026;;Scheduled;Week;193321;70504532
+12028782;Hugo;Viesca Fernández;Chico García, Laura;Sesión individual logopedia;02/06/2026 16:00;02/06/2026 17:00;21/04/2026;21/04/2026;;Scheduled;Week;74090;71048419
+8539242;Ariel;Del Valle Primo;González López, Yaiza;Sesión individual logopedia;02/06/2026 16:50;02/06/2026 17:50;21/04/2026;21/04/2026;;Scheduled;Week;74094;71063542
+13059792;Vera;Cuetos Rodríguez;Torres Vega, Ruth;Sesión individual;02/06/2026 17:00;02/06/2026 18:00;31/03/2026;31/03/2026;;Scheduled;Week;74088;70013879
+8701889;Hugo;Díaz;Chico García, Laura;Sesión individual logopedia;02/06/2026 17:00;02/06/2026 18:00;21/04/2026;21/04/2026;;Scheduled;Week;74090;71048440
+20486396;Aiden;Mon Fernández;Miranda Trillo, Zoe;Sesión individual;02/06/2026 17:00;02/06/2026 18:00;22/04/2026;22/04/2026;;Scheduled;Week;125234;71138262
+10143532;Ángel;Canada;González López, Yaiza;Sesión individual logopedia;02/06/2026 17:50;02/06/2026 18:50;21/04/2026;21/04/2026;;Scheduled;Week;74094;71063456
+19952990;Adrián;Collada Abella;Miranda Trillo, Zoe;Sesión individual;02/06/2026 18:00;02/06/2026 18:30;27/03/2026;21/04/2026;;Scheduled;Week;125234;69892620
+15279119;Miguel;Fernández Expósito;Torres Vega, Ruth;Sesión individual;02/06/2026 18:00;02/06/2026 19:00;31/03/2026;31/03/2026;;Scheduled;Week;74088;70013931
+16022521;Leya;Magnien Paja;Rodríguez Rodríguez, Sofía;Sesión psicología;02/06/2026 18:00;02/06/2026 19:00;09/04/2026;09/04/2026;;Scheduled;Week;193322;70406560
+10550033;Chloe;Setien Pérez;Chico García, Laura;Sesión individual logopedia;02/06/2026 18:00;02/06/2026 19:00;21/04/2026;21/04/2026;;Scheduled;Week;74090;71048455
+16635915;Daniel (Sakina);.;González López, Yaiza;Sesión individual logopedia;02/06/2026 18:50;02/06/2026 19:50;22/04/2026;22/04/2026;;Scheduled;Week;74094;71165849
+23631732;Pelayo;Robledo López;Miranda Trillo, Zoe;Sesión individual;02/06/2026 19:00;02/06/2026 20:00;27/03/2026;08/04/2026;;Scheduled;Week;125234;69892642
+15550886;Luis;Gavilán;Rodríguez Rodríguez, Sofía;Sesión psicología;02/06/2026 19:00;02/06/2026 20:00;11/04/2026;11/04/2026;;Scheduled;Week;193322;70504547
+25460336;Alba;Gómez Aparicio;Torres Vega, Ruth;Sesión individual;02/06/2026 19:00;02/06/2026 20:00;14/04/2026;14/04/2026;;Scheduled;Week;74088;70638345
+13989255;Bosco;Martinez Gonzalez;Chico García, Laura;Sesión individual logopedia;02/06/2026 19:00;02/06/2026 20:00;21/04/2026;21/04/2026;;Scheduled;Week;74090;71048470
+22884906;Eliam;Oulkady;Chico García, Laura;Sesión individual logopedia;03/06/2026 14:00;03/06/2026 15:00;21/04/2026;21/04/2026;;Scheduled;Week;74090;71048609
+8673475;Mateo;Suárez Constanso;Miranda Trillo, Zoe;Sesión individual;03/06/2026 15:00;03/06/2026 16:00;27/03/2026;27/03/2026;;Scheduled;Week;125234;69892661
+15480230;Mael;Mendes;Torres Vega, Ruth;Sesión individual psicología;03/06/2026 15:00;03/06/2026 16:00;30/03/2026;30/03/2026;;Scheduled;Week;74088;69915089
+15279109;María;Vena Vazquez;Rodríguez Rodríguez, Sofía;Sesión psicología;03/06/2026 15:50;03/06/2026 16:50;08/04/2026;08/04/2026;;Scheduled;Week;193322;70339726
+14783603;Izan;Montes;González López, Yaiza;Sesión individual logopedia;03/06/2026 15:50;03/06/2026 16:50;22/04/2026;22/04/2026;;Scheduled;Week;74094;71165439
+17319866;Rafa;García Artime;Miranda Trillo, Zoe;Sesión individual;03/06/2026 16:00;03/06/2026 17:00;27/03/2026;27/03/2026;;Scheduled;Week;125234;69892676
+23997597;Aitor;Diaz González;González López, Yaiza;Sesión individual;03/06/2026 16:50;03/06/2026 17:50;23/04/2026;23/04/2026;;Scheduled;Week;74094;71175130
+12362861;Alan;Mastropietro Merchan;Torres Vega, Ruth;Sesión individual;03/06/2026 17:00;03/06/2026 18:00;30/03/2026;30/03/2026;;Scheduled;Week;74088;69915077
+8570541;Natalie;San Miguel;Miranda Trillo, Zoe;Sesión individual;03/06/2026 17:00;03/06/2026 18:00;07/04/2026;07/04/2026;;Scheduled;Week;125234;70254385
+15955956;Carlos;Díaz Pernaz;Chico García, Laura;Sesión individual logopedia;03/06/2026 17:00;03/06/2026 18:00;21/04/2026;21/04/2026;;Scheduled;Week;74090;71048620
+22164054;Dylan Fernando;Reyes Reyes;Rodríguez Rodríguez, Sofía;Consulta online;03/06/2026 17:50;03/06/2026 18:50;13/04/2026;13/04/2026;;Scheduled;Week;193321;70560572
+15279119;Miguel;Fernández Expósito;González López, Yaiza;Sesión individual logopedia;03/06/2026 17:50;03/06/2026 18:50;22/04/2026;22/04/2026;;Scheduled;Week;74094;71165345
+8572077;Martin;Álvarez;Miranda Trillo, Zoe;Sesión individual;03/06/2026 18:00;03/06/2026 18:30;07/04/2026;07/04/2026;;Scheduled;Week;125234;70254362
+12716708;Grupo;Bendis;Torres Vega, Ruth;Sesión individual;03/06/2026 18:00;03/06/2026 19:00;09/04/2026;09/04/2026;#¿NOMBRE?;Scheduled;Week;74088;70403503
+8792280;Julia;García;Chico García, Laura;Sesión individual logopedia;03/06/2026 18:00;03/06/2026 19:00;21/04/2026;21/04/2026;;Scheduled;Week;74090;71048632
+26159084;Deva;Caso Méndez;Miranda Trillo, Zoe;Sesión individual;03/06/2026 18:30;03/06/2026 19:00;27/03/2026;27/03/2026;;Scheduled;Week;125234;69892708
+22180309;Ana;Lucia;González López, Yaiza;Sesión individual psicología;03/06/2026 18:50;03/06/2026 19:50;11/04/2026;11/04/2026;;Scheduled;Week;74094;70504178
+8716471;Maximiliano;Nava Arias;Torres Vega, Ruth;Sesión individual;03/06/2026 19:00;03/06/2026 20:00;31/03/2026;31/03/2026;;Scheduled;Week;74088;70014178
+15569060;Lucas;Alonso Fernández;Chico García, Laura;Sesión individual logopedia;03/06/2026 19:00;03/06/2026 20:00;21/04/2026;21/04/2026;;Scheduled;Week;74090;71048644
+16968410;Martín;Vidal;Chico García, Laura;Sesión individual logopedia;03/06/2026 20:00;03/06/2026 21:00;27/04/2026;27/04/2026;;Scheduled;Week;74090;71362667
+26160849;Chloe;Fernández Gómez;González López, Yaiza;Sesión individual logopedia;04/06/2026 14:50;04/06/2026 15:50;22/04/2026;22/04/2026;;Scheduled;Week;74094;71165691
+18532788;Alan;Gordo López;Rodríguez Rodríguez, Sofía;Consulta online;04/06/2026 15:00;04/06/2026 16:00;24/04/2026;24/04/2026;;Scheduled;Week;193321;71259730
+24602382;Angel;Rodriguez San Juan;González López, Yaiza;Sesión individual psicología;04/06/2026 15:50;04/06/2026 16:50;11/04/2026;11/04/2026;;Scheduled;Week;74094;70504207
+8540637;Alicia;González Muñiz;Rodríguez Rodríguez, Sofía;Sesión psicología;04/06/2026 15:50;04/06/2026 16:50;13/04/2026;13/04/2026;;Scheduled;Week;193322;70560646
+13029293;Jorge;Abol;Torres Vega, Ruth;Sesión individual;04/06/2026 16:00;04/06/2026 17:00;31/03/2026;31/03/2026;;Scheduled;Week;74088;70014211
+23480676;Melissa;Oulkady Elmaghraoui;Miranda Trillo, Zoe;Sesión individual;04/06/2026 16:00;04/06/2026 17:00;07/04/2026;07/04/2026;;Scheduled;Week;125234;70254446
+8572111;Mario;Martín Miguel;Vigil Vázquez, Marta;Sesión individual psicología;04/06/2026 16:30;04/06/2026 17:30;23/04/2026;23/04/2026;;Scheduled;Week;74086;71222156
+13987542;Pelayo;Plagio;González López, Yaiza;Sesión individual psicología;04/06/2026 16:50;04/06/2026 17:50;11/04/2026;11/04/2026;;Scheduled;Week;74094;70504195
+22559905;Malik;Tea;Rodríguez Rodríguez, Sofía;Sesión psicología;04/06/2026 16:50;04/06/2026 17:50;13/04/2026;13/04/2026;;Scheduled;Week;193322;70560609
+25800392;Leo;Montoto Fiore;Miranda Trillo, Zoe;Sesión individual;04/06/2026 17:00;04/06/2026 18:00;25/03/2026;25/03/2026;;Scheduled;Week;125234;69747486
+21480073;Izán;López Sánchez;González López, Yaiza;Sesión individual logopedia;04/06/2026 17:50;04/06/2026 18:50;22/04/2026;22/04/2026;;Scheduled;Week;74094;71165384
+12132745;Inés;Llopis Treve;Miranda Trillo, Zoe;Sesión individual;04/06/2026 18:00;04/06/2026 19:00;27/03/2026;27/03/2026;;Scheduled;Week;125234;69892732
+20020650;Zoe;Lorenzo;Torres Vega, Ruth;Sesión individual;04/06/2026 18:00;04/06/2026 19:00;08/04/2026;08/04/2026;;Scheduled;Week;74088;70339656
+22180309;Ana;Lucia;González López, Yaiza;Sesión individual psicología;04/06/2026 18:50;04/06/2026 19:50;11/04/2026;11/04/2026;;Scheduled;Week;74094;70504179
+13783230;David;Pacios Pérez;Torres Vega, Ruth;Sesión individual;04/06/2026 19:00;04/06/2026 20:00;31/03/2026;31/03/2026;;Scheduled;Week;74088;70014242
+23717344;Martin;Suarez;Rodríguez Rodríguez, Sofía;Consulta online;05/06/2026 14:00;05/06/2026 15:00;24/04/2026;24/04/2026;;Scheduled;Week;193321;71257778
+24969466;Ainara;Martínez Sánchez;González López, Yaiza;Sesión individual logopedia;05/06/2026 14:50;05/06/2026 15:50;22/04/2026;22/04/2026;;Scheduled;Week;74094;71165621
+20799855;Liam;Rosario (bebé);Chico García, Laura;Sesión individual logopedia;05/06/2026 15:00;05/06/2026 16:00;10/04/2026;10/04/2026;;Scheduled;Week;74090;70481422
+24114684;Ianna;.;González López, Yaiza;Sesión individual logopedia;05/06/2026 15:50;05/06/2026 16:50;22/04/2026;22/04/2026;;Scheduled;Week;74094;71165647
+21154478;Diego Rubén;Sánchez;Miranda Trillo, Zoe;Sesión individual;05/06/2026 16:00;05/06/2026 17:00;13/04/2026;13/04/2026;;Scheduled;Week;125234;70599901
+22015894;Ezequiel;Ghobra Jiménez;González López, Yaiza;Sesión individual psicología;05/06/2026 16:50;05/06/2026 17:50;11/04/2026;11/04/2026;;Scheduled;Week;74094;70504231
+24766820;Zara;Gabriel Pico;Miranda Trillo, Zoe;Sesión individual;05/06/2026 17:00;05/06/2026 18:00;07/04/2026;07/04/2026;;Scheduled;Week;125234;70254495
+11452114;Alvaro;Moriyón Miyar;Chico García, Laura;Sesión individual logopedia;05/06/2026 17:00;05/06/2026 18:00;21/04/2026;21/04/2026;;Scheduled;Week;74090;71051470
+25800551;Grupo;Peques Sofi;Rodríguez Rodríguez, Sofía;Consulta online;05/06/2026 17:30;05/06/2026 18:30;09/04/2026;09/04/2026;;Scheduled;Week;193321;70412664
+22844213;Nicolás;Rodríguez Aceres;González López, Yaiza;Sesión individual logopedia;05/06/2026 17:50;05/06/2026 18:50;22/04/2026;22/04/2026;;Scheduled;Week;74094;71165669
+13611963;Luis;Díaz Martín;Miranda Trillo, Zoe;Sesión individual;05/06/2026 18:00;05/06/2026 19:00;27/03/2026;27/03/2026;;Scheduled;Week;125234;69892760
+26547266;Valentina Olvido;Lopez Rodriguez;Vigil Vázquez, Marta;Sesión individual psicología;08/06/2026 13:00;08/06/2026 14:00;20/04/2026;20/04/2026;;Scheduled;Week;74086;70999450
+11693942;Esteban;Pablo;Vigil Vázquez, Marta;Sesión individual psicología;08/06/2026 14:30;08/06/2026 15:30;16/04/2026;16/04/2026;;Scheduled;Week;74086;70797955
+22698115;Ian González;aacc;Rodríguez Rodríguez, Sofía;Sesión psicología;08/06/2026 14:50;08/06/2026 15:50;08/04/2026;08/04/2026;;Scheduled;Week;193322;70339830
+17613863;Carla;Vivas Ariza;González López, Yaiza;Sesión individual logopedia;08/06/2026 14:50;08/06/2026 15:50;11/04/2026;11/04/2026;;Scheduled;Week;74094;70504694
+20170051;Lua;Moreno;Rodríguez Rodríguez, Sofía;Sesión psicología;08/06/2026 15:50;08/06/2026 16:50;08/04/2026;08/04/2026;;Scheduled;Week;193322;70339848
+21501333;Xiel;Rodríguez Hermosilla;González López, Yaiza;Sesión individual logopedia;08/06/2026 15:50;08/06/2026 16:50;11/04/2026;11/04/2026;;Scheduled;Week;74094;70504705
+8572071;Mael;Canal Romero;Torres Vega, Ruth;Sesión individual;08/06/2026 16:00;08/06/2026 17:00;31/03/2026;31/03/2026;;Scheduled;Week;74088;70014100
+22559905;Malik;Tea;Rodríguez Rodríguez, Sofía;Consulta online;08/06/2026 16:50;08/06/2026 17:50;08/04/2026;08/04/2026;;Scheduled;Week;193321;70339886
+8720376;Rubén;de Pablos;Rodríguez Rodríguez, Sofía;Consulta online;08/06/2026 16:50;08/06/2026 17:50;13/04/2026;13/04/2026;;Scheduled;Week;193321;70560535
+23644111;Santiago;Lavandera Acebedo;González López, Yaiza;Sesión individual logopedia;08/06/2026 16:50;08/06/2026 17:50;20/04/2026;20/04/2026;;Scheduled;Week;74094;70937648
+8776877;Aimar;Álvarez de Arriba;Torres Vega, Ruth;Sesión individual;08/06/2026 17:00;08/06/2026 18:00;31/03/2026;31/03/2026;;Scheduled;Week;74088;70014070
+23453733;Tristan;Díaz García;Rodríguez Rodríguez, Sofía;Sesión psicología;08/06/2026 17:50;08/06/2026 18:50;08/04/2026;08/04/2026;;Scheduled;Week;193322;70339899
+16261398;Nael;Cabral Álvarez;González López, Yaiza;Sesión individual logopedia;08/06/2026 17:50;08/06/2026 18:50;20/04/2026;20/04/2026;;Scheduled;Week;74094;70937715
+8716470;Alex;Montes Sarmiento;Miranda Trillo, Zoe;Sesión individual;08/06/2026 18:00;08/06/2026 19:00;07/04/2026;07/04/2026;;Scheduled;Week;125234;70254250
+22844213;Nicolás;Rodríguez Aceres;González López, Yaiza;Sesión individual logopedia;08/06/2026 18:50;08/06/2026 19:50;20/04/2026;20/04/2026;;Scheduled;Week;74094;70937803
+11620225;Hugo;Blanco Fernandez;Torres Vega, Ruth;Sesión individual;08/06/2026 19:00;08/06/2026 20:00;31/03/2026;31/03/2026;;Scheduled;Week;74088;70014040
+24582239;Martín;Rodríguez García-Lengomía;Miranda Trillo, Zoe;Sesión individual;08/06/2026 19:00;08/06/2026 20:00;15/04/2026;15/04/2026;;Scheduled;Week;125234;70746514
+15959656;Bastian;Sifuentes Zegarra;Torres Vega, Ruth;Sesión individual;09/06/2026 15:00;09/06/2026 17:00;31/03/2026;31/03/2026;;Scheduled;Week;74088;70013822
+14758663;Alicia;Cancio Díaz;Chico García, Laura;Sesión individual logopedia;09/06/2026 15:00;09/06/2026 16:00;16/04/2026;16/04/2026;;Scheduled;Week;74090;70783767
+25939452;India;Prieto Menéndez;Miranda Trillo, Zoe;Sesión individual;09/06/2026 15:30;09/06/2026 16:00;07/04/2026;07/04/2026;;Scheduled;Week;125234;70254590
+20169135;Mateo;Antúnez Fernández;González López, Yaiza;Sesión individual logopedia;09/06/2026 15:50;09/06/2026 16:50;21/04/2026;21/04/2026;;Scheduled;Week;74094;71063433
+16784738;Lucas Alejandro;Fernández Díaz;Miranda Trillo, Zoe;Sesión individual;09/06/2026 16:00;09/06/2026 17:00;27/03/2026;07/04/2026;;Scheduled;Week;125234;69892578
+14878339;Sara;Iglesias Florez;Rodríguez Rodríguez, Sofía;Consulta online;09/06/2026 16:00;09/06/2026 17:00;11/04/2026;11/04/2026;;Scheduled;Week;193321;70504533
+12028782;Hugo;Viesca Fernández;Chico García, Laura;Sesión individual logopedia;09/06/2026 16:00;09/06/2026 17:00;21/04/2026;21/04/2026;;Scheduled;Week;74090;71048420
+8539242;Ariel;Del Valle Primo;González López, Yaiza;Sesión individual logopedia;09/06/2026 16:50;09/06/2026 17:50;21/04/2026;21/04/2026;;Scheduled;Week;74094;71063543
+13059792;Vera;Cuetos Rodríguez;Torres Vega, Ruth;Sesión individual;09/06/2026 17:00;09/06/2026 18:00;31/03/2026;31/03/2026;;Scheduled;Week;74088;70013880
+8701889;Hugo;Díaz;Chico García, Laura;Sesión individual logopedia;09/06/2026 17:00;09/06/2026 18:00;21/04/2026;21/04/2026;;Scheduled;Week;74090;71048441
+24701551;Marina;Rotacismo;Miranda Trillo, Zoe;Sesión individual;09/06/2026 17:00;09/06/2026 18:00;22/04/2026;22/04/2026;;Scheduled;Week;125234;71138239
+10143532;Ángel;Canada;González López, Yaiza;Sesión individual logopedia;09/06/2026 17:50;09/06/2026 18:50;21/04/2026;21/04/2026;;Scheduled;Week;74094;71063457
+19952990;Adrián;Collada Abella;Miranda Trillo, Zoe;Sesión individual;09/06/2026 18:00;09/06/2026 18:30;27/03/2026;21/04/2026;;Scheduled;Week;125234;69892621
+15279119;Miguel;Fernández Expósito;Torres Vega, Ruth;Sesión individual;09/06/2026 18:00;09/06/2026 19:00;31/03/2026;31/03/2026;;Scheduled;Week;74088;70013932
+16022521;Leya;Magnien Paja;Rodríguez Rodríguez, Sofía;Sesión psicología;09/06/2026 18:00;09/06/2026 19:00;09/04/2026;09/04/2026;;Scheduled;Week;193322;70406561
+10550033;Chloe;Setien Pérez;Chico García, Laura;Sesión individual logopedia;09/06/2026 18:00;09/06/2026 19:00;21/04/2026;21/04/2026;;Scheduled;Week;74090;71048456
+16635915;Daniel (Sakina);.;González López, Yaiza;Sesión individual logopedia;09/06/2026 18:50;09/06/2026 19:50;22/04/2026;22/04/2026;;Scheduled;Week;74094;71165850
+23631732;Pelayo;Robledo López;Miranda Trillo, Zoe;Sesión individual;09/06/2026 19:00;09/06/2026 20:00;27/03/2026;08/04/2026;;Scheduled;Week;125234;69892643
+15550886;Luis;Gavilán;Rodríguez Rodríguez, Sofía;Sesión psicología;09/06/2026 19:00;09/06/2026 20:00;11/04/2026;11/04/2026;;Scheduled;Week;193322;70504548
+25460336;Alba;Gómez Aparicio;Torres Vega, Ruth;Sesión individual;09/06/2026 19:00;09/06/2026 20:00;14/04/2026;14/04/2026;;Scheduled;Week;74088;70638346
+13989255;Bosco;Martinez Gonzalez;Chico García, Laura;Sesión individual logopedia;09/06/2026 19:00;09/06/2026 20:00;21/04/2026;21/04/2026;;Scheduled;Week;74090;71048471
+22884906;Eliam;Oulkady;Chico García, Laura;Sesión individual logopedia;10/06/2026 14:00;10/06/2026 15:00;21/04/2026;21/04/2026;;Scheduled;Week;74090;71048610
+8673475;Mateo;Suárez Constanso;Miranda Trillo, Zoe;Sesión individual;10/06/2026 15:00;10/06/2026 16:00;27/03/2026;27/03/2026;;Scheduled;Week;125234;69892662
+15480230;Mael;Mendes;Torres Vega, Ruth;Sesión individual psicología;10/06/2026 15:00;10/06/2026 16:00;30/03/2026;30/03/2026;;Scheduled;Week;74088;69915090
+15279109;María;Vena Vazquez;Rodríguez Rodríguez, Sofía;Sesión psicología;10/06/2026 15:50;10/06/2026 16:50;08/04/2026;08/04/2026;;Scheduled;Week;193322;70339727
+14783603;Izan;Montes;González López, Yaiza;Sesión individual logopedia;10/06/2026 15:50;10/06/2026 16:50;22/04/2026;22/04/2026;;Scheduled;Week;74094;71165440
+17319866;Rafa;García Artime;Miranda Trillo, Zoe;Sesión individual;10/06/2026 16:00;10/06/2026 17:00;27/03/2026;27/03/2026;;Scheduled;Week;125234;69892677
+23997597;Aitor;Diaz González;González López, Yaiza;Sesión individual;10/06/2026 16:50;10/06/2026 17:50;23/04/2026;23/04/2026;;Scheduled;Week;74094;71175131
+12362861;Alan;Mastropietro Merchan;Torres Vega, Ruth;Sesión individual;10/06/2026 17:00;10/06/2026 18:00;30/03/2026;30/03/2026;;Scheduled;Week;74088;69915078
+8570541;Natalie;San Miguel;Miranda Trillo, Zoe;Sesión individual;10/06/2026 17:00;10/06/2026 18:00;07/04/2026;07/04/2026;;Scheduled;Week;125234;70254386
+15955956;Carlos;Díaz Pernaz;Chico García, Laura;Sesión individual logopedia;10/06/2026 17:00;10/06/2026 18:00;21/04/2026;21/04/2026;;Scheduled;Week;74090;71048621
+22164054;Dylan Fernando;Reyes Reyes;Rodríguez Rodríguez, Sofía;Consulta online;10/06/2026 17:50;10/06/2026 18:50;13/04/2026;13/04/2026;;Scheduled;Week;193321;70560573
+15279119;Miguel;Fernández Expósito;González López, Yaiza;Sesión individual logopedia;10/06/2026 17:50;10/06/2026 18:50;22/04/2026;22/04/2026;;Scheduled;Week;74094;71165346
+8572077;Martin;Álvarez;Miranda Trillo, Zoe;Sesión individual;10/06/2026 18:00;10/06/2026 18:30;07/04/2026;07/04/2026;;Scheduled;Week;125234;70254363
+12716708;Grupo;Bendis;Torres Vega, Ruth;Sesión individual;10/06/2026 18:00;10/06/2026 19:00;09/04/2026;09/04/2026;#¿NOMBRE?;Scheduled;Week;74088;70403504
+8792280;Julia;García;Chico García, Laura;Sesión individual logopedia;10/06/2026 18:00;10/06/2026 19:00;21/04/2026;21/04/2026;;Scheduled;Week;74090;71048633
+26159084;Deva;Caso Méndez;Miranda Trillo, Zoe;Sesión individual;10/06/2026 18:30;10/06/2026 19:00;27/03/2026;27/03/2026;;Scheduled;Week;125234;69892709
+22180309;Ana;Lucia;González López, Yaiza;Sesión individual psicología;10/06/2026 18:50;10/06/2026 19:50;11/04/2026;11/04/2026;;Scheduled;Week;74094;70504180
+8716471;Maximiliano;Nava Arias;Torres Vega, Ruth;Sesión individual;10/06/2026 19:00;10/06/2026 20:00;31/03/2026;31/03/2026;;Scheduled;Week;74088;70014179
+15569060;Lucas;Alonso Fernández;Chico García, Laura;Sesión individual logopedia;10/06/2026 19:00;10/06/2026 20:00;21/04/2026;21/04/2026;;Scheduled;Week;74090;71048645
+16968410;Martín;Vidal;Chico García, Laura;Sesión individual logopedia;10/06/2026 20:00;10/06/2026 21:00;27/04/2026;27/04/2026;;Scheduled;Week;74090;71362668
+26160849;Chloe;Fernández Gómez;González López, Yaiza;Sesión individual logopedia;11/06/2026 14:50;11/06/2026 15:50;22/04/2026;22/04/2026;;Scheduled;Week;74094;71165692
+18532788;Alan;Gordo López;Rodríguez Rodríguez, Sofía;Consulta online;11/06/2026 15:00;11/06/2026 16:00;24/04/2026;24/04/2026;;Scheduled;Week;193321;71259731
+24602382;Angel;Rodriguez San Juan;González López, Yaiza;Sesión individual psicología;11/06/2026 15:50;11/06/2026 16:50;11/04/2026;11/04/2026;;Scheduled;Week;74094;70504208
+8540637;Alicia;González Muñiz;Rodríguez Rodríguez, Sofía;Sesión psicología;11/06/2026 15:50;11/06/2026 16:50;13/04/2026;13/04/2026;;Scheduled;Week;193322;70560647
+13029293;Jorge;Abol;Torres Vega, Ruth;Sesión individual;11/06/2026 16:00;11/06/2026 17:00;31/03/2026;31/03/2026;;Scheduled;Week;74088;70014212
+23480676;Melissa;Oulkady Elmaghraoui;Miranda Trillo, Zoe;Sesión individual;11/06/2026 16:00;11/06/2026 17:00;07/04/2026;07/04/2026;;Scheduled;Week;125234;70254447
+13987542;Pelayo;Plagio;González López, Yaiza;Sesión individual psicología;11/06/2026 16:50;11/06/2026 17:50;11/04/2026;11/04/2026;;Scheduled;Week;74094;70504196
+22559905;Malik;Tea;Rodríguez Rodríguez, Sofía;Sesión psicología;11/06/2026 16:50;11/06/2026 17:50;13/04/2026;13/04/2026;;Scheduled;Week;193322;70560610
+25800392;Leo;Montoto Fiore;Miranda Trillo, Zoe;Sesión individual;11/06/2026 17:00;11/06/2026 18:00;25/03/2026;25/03/2026;;Scheduled;Week;125234;69747487
+21480073;Izán;López Sánchez;González López, Yaiza;Sesión individual logopedia;11/06/2026 17:50;11/06/2026 18:50;22/04/2026;22/04/2026;;Scheduled;Week;74094;71165385
+12132745;Inés;Llopis Treve;Miranda Trillo, Zoe;Sesión individual;11/06/2026 18:00;11/06/2026 19:00;27/03/2026;27/03/2026;;Scheduled;Week;125234;69892733
+20020650;Zoe;Lorenzo;Torres Vega, Ruth;Sesión individual;11/06/2026 18:00;11/06/2026 19:00;08/04/2026;08/04/2026;;Scheduled;Week;74088;70339657
+22180309;Ana;Lucia;González López, Yaiza;Sesión individual psicología;11/06/2026 18:50;11/06/2026 19:50;11/04/2026;11/04/2026;;Scheduled;Week;74094;70504181
+13783230;David;Pacios Pérez;Torres Vega, Ruth;Sesión individual;11/06/2026 19:00;11/06/2026 20:00;31/03/2026;31/03/2026;;Scheduled;Week;74088;70014243
+23717344;Martin;Suarez;Rodríguez Rodríguez, Sofía;Consulta online;12/06/2026 14:00;12/06/2026 15:00;24/04/2026;24/04/2026;;Scheduled;Week;193321;71257779
+24969466;Ainara;Martínez Sánchez;González López, Yaiza;Sesión individual logopedia;12/06/2026 14:50;12/06/2026 15:50;22/04/2026;22/04/2026;;Scheduled;Week;74094;71165622
+20799855;Liam;Rosario (bebé);Chico García, Laura;Sesión individual logopedia;12/06/2026 15:00;12/06/2026 16:00;10/04/2026;10/04/2026;;Scheduled;Week;74090;70481423
+24114684;Ianna;.;González López, Yaiza;Sesión individual logopedia;12/06/2026 15:50;12/06/2026 16:50;22/04/2026;22/04/2026;;Scheduled;Week;74094;71165648
+21154478;Diego Rubén;Sánchez;Miranda Trillo, Zoe;Sesión individual;12/06/2026 16:00;12/06/2026 17:00;13/04/2026;13/04/2026;;Scheduled;Week;125234;70599902
+22015894;Ezequiel;Ghobra Jiménez;González López, Yaiza;Sesión individual psicología;12/06/2026 16:50;12/06/2026 17:50;11/04/2026;11/04/2026;;Scheduled;Week;74094;70504232
+24766820;Zara;Gabriel Pico;Miranda Trillo, Zoe;Sesión individual;12/06/2026 17:00;12/06/2026 18:00;07/04/2026;07/04/2026;;Scheduled;Week;125234;70254496
+11452114;Alvaro;Moriyón Miyar;Chico García, Laura;Sesión individual logopedia;12/06/2026 17:00;12/06/2026 18:00;21/04/2026;21/04/2026;;Scheduled;Week;74090;71051471
+25800551;Grupo;Peques Sofi;Rodríguez Rodríguez, Sofía;Consulta online;12/06/2026 17:30;12/06/2026 18:30;09/04/2026;09/04/2026;;Scheduled;Week;193321;70412665
+22844213;Nicolás;Rodríguez Aceres;González López, Yaiza;Sesión individual logopedia;12/06/2026 17:50;12/06/2026 18:50;22/04/2026;22/04/2026;;Scheduled;Week;74094;71165670
+13611963;Luis;Díaz Martín;Miranda Trillo, Zoe;Sesión individual;12/06/2026 18:00;12/06/2026 19:00;27/03/2026;27/03/2026;;Scheduled;Week;125234;69892761
+26547266;Valentina Olvido;Lopez Rodriguez;Vigil Vázquez, Marta;Sesión individual psicología;15/06/2026 13:00;15/06/2026 14:00;20/04/2026;20/04/2026;;Scheduled;Week;74086;70999451
+11693942;Esteban;Pablo;Vigil Vázquez, Marta;Sesión individual psicología;15/06/2026 14:30;15/06/2026 15:30;16/04/2026;16/04/2026;;Scheduled;Week;74086;70797957
+17613863;Carla;Vivas Ariza;González López, Yaiza;Sesión individual logopedia;15/06/2026 14:50;15/06/2026 15:50;11/04/2026;11/04/2026;;Scheduled;Week;74094;70504695
+21501333;Xiel;Rodríguez Hermosilla;González López, Yaiza;Sesión individual logopedia;15/06/2026 15:50;15/06/2026 16:50;11/04/2026;11/04/2026;;Scheduled;Week;74094;70504706
+8572071;Mael;Canal Romero;Torres Vega, Ruth;Sesión individual;15/06/2026 16:00;15/06/2026 17:00;31/03/2026;31/03/2026;;Scheduled;Week;74088;70014101
+8720376;Rubén;de Pablos;Rodríguez Rodríguez, Sofía;Consulta online;15/06/2026 16:50;15/06/2026 17:50;13/04/2026;13/04/2026;;Scheduled;Week;193321;70560536
+23644111;Santiago;Lavandera Acebedo;González López, Yaiza;Sesión individual logopedia;15/06/2026 16:50;15/06/2026 17:50;20/04/2026;20/04/2026;;Scheduled;Week;74094;70937649
+8776877;Aimar;Álvarez de Arriba;Torres Vega, Ruth;Sesión individual;15/06/2026 17:00;15/06/2026 18:00;31/03/2026;31/03/2026;;Scheduled;Week;74088;70014071
+16261398;Nael;Cabral Álvarez;González López, Yaiza;Sesión individual logopedia;15/06/2026 17:50;15/06/2026 18:50;20/04/2026;20/04/2026;;Scheduled;Week;74094;70937716
+8716470;Alex;Montes Sarmiento;Miranda Trillo, Zoe;Sesión individual;15/06/2026 18:00;15/06/2026 19:00;07/04/2026;07/04/2026;;Scheduled;Week;125234;70254251
+22844213;Nicolás;Rodríguez Aceres;González López, Yaiza;Sesión individual logopedia;15/06/2026 18:50;15/06/2026 19:50;20/04/2026;20/04/2026;;Scheduled;Week;74094;70937804
+11620225;Hugo;Blanco Fernandez;Torres Vega, Ruth;Sesión individual;15/06/2026 19:00;15/06/2026 20:00;31/03/2026;31/03/2026;;Scheduled;Week;74088;70014041
+24582239;Martín;Rodríguez García-Lengomía;Miranda Trillo, Zoe;Sesión individual;15/06/2026 19:00;15/06/2026 20:00;15/04/2026;15/04/2026;;Scheduled;Week;125234;70746524
+15959656;Bastian;Sifuentes Zegarra;Torres Vega, Ruth;Sesión individual;16/06/2026 15:00;16/06/2026 17:00;31/03/2026;31/03/2026;;Scheduled;Week;74088;70013823
+14758663;Alicia;Cancio Díaz;Chico García, Laura;Sesión individual logopedia;16/06/2026 15:00;16/06/2026 16:00;16/04/2026;16/04/2026;;Scheduled;Week;74090;70783768
+20169135;Mateo;Antúnez Fernández;González López, Yaiza;Sesión individual logopedia;16/06/2026 15:50;16/06/2026 16:50;21/04/2026;21/04/2026;;Scheduled;Week;74094;71063435
+14878339;Sara;Iglesias Florez;Rodríguez Rodríguez, Sofía;Consulta online;16/06/2026 16:00;16/06/2026 17:00;11/04/2026;11/04/2026;;Scheduled;Week;193321;70504534
+12028782;Hugo;Viesca Fernández;Chico García, Laura;Sesión individual logopedia;16/06/2026 16:00;16/06/2026 17:00;21/04/2026;21/04/2026;;Scheduled;Week;74090;71048421
+8539242;Ariel;Del Valle Primo;González López, Yaiza;Sesión individual logopedia;16/06/2026 16:50;16/06/2026 17:50;21/04/2026;21/04/2026;;Scheduled;Week;74094;71063544
+13059792;Vera;Cuetos Rodríguez;Torres Vega, Ruth;Sesión individual;16/06/2026 17:00;16/06/2026 18:00;31/03/2026;31/03/2026;;Scheduled;Week;74088;70013881
+8701889;Hugo;Díaz;Chico García, Laura;Sesión individual logopedia;16/06/2026 17:00;16/06/2026 18:00;21/04/2026;21/04/2026;;Scheduled;Week;74090;71048442
+20486396;Aiden;Mon Fernández;Miranda Trillo, Zoe;Sesión individual;16/06/2026 17:00;16/06/2026 18:00;22/04/2026;22/04/2026;;Scheduled;Week;125234;71138263
+10143532;Ángel;Canada;González López, Yaiza;Sesión individual logopedia;16/06/2026 17:50;16/06/2026 18:50;21/04/2026;21/04/2026;;Scheduled;Week;74094;71063458
+15279119;Miguel;Fernández Expósito;Torres Vega, Ruth;Sesión individual;16/06/2026 18:00;16/06/2026 19:00;31/03/2026;31/03/2026;;Scheduled;Week;74088;70013933
+16022521;Leya;Magnien Paja;Rodríguez Rodríguez, Sofía;Sesión psicología;16/06/2026 18:00;16/06/2026 19:00;09/04/2026;09/04/2026;;Scheduled;Week;193322;70406562
+10550033;Chloe;Setien Pérez;Chico García, Laura;Sesión individual logopedia;16/06/2026 18:00;16/06/2026 19:00;21/04/2026;21/04/2026;;Scheduled;Week;74090;71048457
+16635915;Daniel (Sakina);.;González López, Yaiza;Sesión individual logopedia;16/06/2026 18:50;16/06/2026 19:50;22/04/2026;22/04/2026;;Scheduled;Week;74094;71165851
+15550886;Luis;Gavilán;Rodríguez Rodríguez, Sofía;Sesión psicología;16/06/2026 19:00;16/06/2026 20:00;11/04/2026;11/04/2026;;Scheduled;Week;193322;70504549
+25460336;Alba;Gómez Aparicio;Torres Vega, Ruth;Sesión individual;16/06/2026 19:00;16/06/2026 20:00;14/04/2026;14/04/2026;;Scheduled;Week;74088;70638347
+13989255;Bosco;Martinez Gonzalez;Chico García, Laura;Sesión individual logopedia;16/06/2026 19:00;16/06/2026 20:00;21/04/2026;21/04/2026;;Scheduled;Week;74090;71048472
+22884906;Eliam;Oulkady;Chico García, Laura;Sesión individual logopedia;17/06/2026 14:00;17/06/2026 15:00;21/04/2026;21/04/2026;;Scheduled;Week;74090;71048611
+14783603;Izan;Montes;González López, Yaiza;Sesión individual logopedia;17/06/2026 15:50;17/06/2026 16:50;22/04/2026;22/04/2026;;Scheduled;Week;74094;71165441
+23997597;Aitor;Diaz González;González López, Yaiza;Sesión individual;17/06/2026 16:50;17/06/2026 17:50;23/04/2026;23/04/2026;;Scheduled;Week;74094;71175132
+8570541;Natalie;San Miguel;Miranda Trillo, Zoe;Sesión individual;17/06/2026 17:00;17/06/2026 18:00;07/04/2026;07/04/2026;;Scheduled;Week;125234;70254387
+15955956;Carlos;Díaz Pernaz;Chico García, Laura;Sesión individual logopedia;17/06/2026 17:00;17/06/2026 18:00;21/04/2026;21/04/2026;;Scheduled;Week;74090;71048622
+22164054;Dylan Fernando;Reyes Reyes;Rodríguez Rodríguez, Sofía;Consulta online;17/06/2026 17:50;17/06/2026 18:50;13/04/2026;13/04/2026;;Scheduled;Week;193321;70560574
+15279119;Miguel;Fernández Expósito;González López, Yaiza;Sesión individual logopedia;17/06/2026 17:50;17/06/2026 18:50;22/04/2026;22/04/2026;;Scheduled;Week;74094;71165347
+8572077;Martin;Álvarez;Miranda Trillo, Zoe;Sesión individual;17/06/2026 18:00;17/06/2026 18:30;07/04/2026;07/04/2026;;Scheduled;Week;125234;70254364
+12716708;Grupo;Bendis;Torres Vega, Ruth;Sesión individual;17/06/2026 18:00;17/06/2026 19:00;09/04/2026;09/04/2026;#¿NOMBRE?;Scheduled;Week;74088;70403505
+8792280;Julia;García;Chico García, Laura;Sesión individual logopedia;17/06/2026 18:00;17/06/2026 19:00;21/04/2026;21/04/2026;;Scheduled;Week;74090;71048634
+22180309;Ana;Lucia;González López, Yaiza;Sesión individual psicología;17/06/2026 18:50;17/06/2026 19:50;11/04/2026;11/04/2026;;Scheduled;Week;74094;70504182
+8716471;Maximiliano;Nava Arias;Torres Vega, Ruth;Sesión individual;17/06/2026 19:00;17/06/2026 20:00;31/03/2026;31/03/2026;;Scheduled;Week;74088;70014180
+15569060;Lucas;Alonso Fernández;Chico García, Laura;Sesión individual logopedia;17/06/2026 19:00;17/06/2026 20:00;21/04/2026;21/04/2026;;Scheduled;Week;74090;71048646
+16968410;Martín;Vidal;Chico García, Laura;Sesión individual logopedia;17/06/2026 20:00;17/06/2026 21:00;27/04/2026;27/04/2026;;Scheduled;Week;74090;71362669
+26160849;Chloe;Fernández Gómez;González López, Yaiza;Sesión individual logopedia;18/06/2026 14:50;18/06/2026 15:50;22/04/2026;22/04/2026;;Scheduled;Week;74094;71165693
+18532788;Alan;Gordo López;Rodríguez Rodríguez, Sofía;Consulta online;18/06/2026 15:00;18/06/2026 16:00;24/04/2026;24/04/2026;;Scheduled;Week;193321;71259732
+24602382;Angel;Rodriguez San Juan;González López, Yaiza;Sesión individual psicología;18/06/2026 15:50;18/06/2026 16:50;11/04/2026;11/04/2026;;Scheduled;Week;74094;70504209
+8540637;Alicia;González Muñiz;Rodríguez Rodríguez, Sofía;Sesión psicología;18/06/2026 15:50;18/06/2026 16:50;13/04/2026;13/04/2026;;Scheduled;Week;193322;70560648
+13029293;Jorge;Abol;Torres Vega, Ruth;Sesión individual;18/06/2026 16:00;18/06/2026 17:00;31/03/2026;31/03/2026;;Scheduled;Week;74088;70014213
+23480676;Melissa;Oulkady Elmaghraoui;Miranda Trillo, Zoe;Sesión individual;18/06/2026 16:00;18/06/2026 17:00;07/04/2026;07/04/2026;;Scheduled;Week;125234;70254448
+8572111;Mario;Martín Miguel;Vigil Vázquez, Marta;Sesión individual psicología;18/06/2026 16:30;18/06/2026 17:30;23/04/2026;23/04/2026;;Scheduled;Week;74086;71222157
+13987542;Pelayo;Plagio;González López, Yaiza;Sesión individual psicología;18/06/2026 16:50;18/06/2026 17:50;11/04/2026;11/04/2026;;Scheduled;Week;74094;70504197
+22559905;Malik;Tea;Rodríguez Rodríguez, Sofía;Sesión psicología;18/06/2026 16:50;18/06/2026 17:50;13/04/2026;13/04/2026;;Scheduled;Week;193322;70560611
+21480073;Izán;López Sánchez;González López, Yaiza;Sesión individual logopedia;18/06/2026 17:50;18/06/2026 18:50;22/04/2026;22/04/2026;;Scheduled;Week;74094;71165386
+20020650;Zoe;Lorenzo;Torres Vega, Ruth;Sesión individual;18/06/2026 18:00;18/06/2026 19:00;08/04/2026;08/04/2026;;Scheduled;Week;74088;70339659
+22180309;Ana;Lucia;González López, Yaiza;Sesión individual psicología;18/06/2026 18:50;18/06/2026 19:50;11/04/2026;11/04/2026;;Scheduled;Week;74094;70504183
+13783230;David;Pacios Pérez;Torres Vega, Ruth;Sesión individual;18/06/2026 19:00;18/06/2026 20:00;31/03/2026;31/03/2026;;Scheduled;Week;74088;70014244
+23717344;Martin;Suarez;Rodríguez Rodríguez, Sofía;Consulta online;19/06/2026 14:00;19/06/2026 15:00;24/04/2026;24/04/2026;;Scheduled;Week;193321;71257780
+24969466;Ainara;Martínez Sánchez;González López, Yaiza;Sesión individual logopedia;19/06/2026 14:50;19/06/2026 15:50;22/04/2026;22/04/2026;;Scheduled;Week;74094;71165623
+24114684;Ianna;.;González López, Yaiza;Sesión individual logopedia;19/06/2026 15:50;19/06/2026 16:50;22/04/2026;22/04/2026;;Scheduled;Week;74094;71165649
+21154478;Diego Rubén;Sánchez;Miranda Trillo, Zoe;Sesión individual;19/06/2026 16:00;19/06/2026 17:00;13/04/2026;13/04/2026;;Scheduled;Week;125234;70599903
+22015894;Ezequiel;Ghobra Jiménez;González López, Yaiza;Sesión individual psicología;19/06/2026 16:50;19/06/2026 17:50;11/04/2026;11/04/2026;;Scheduled;Week;74094;70504233
+24766820;Zara;Gabriel Pico;Miranda Trillo, Zoe;Sesión individual;19/06/2026 17:00;19/06/2026 18:00;07/04/2026;07/04/2026;;Scheduled;Week;125234;70254497
+11452114;Alvaro;Moriyón Miyar;Chico García, Laura;Sesión individual logopedia;19/06/2026 17:00;19/06/2026 18:00;21/04/2026;21/04/2026;;Scheduled;Week;74090;71051472
+25800551;Grupo;Peques Sofi;Rodríguez Rodríguez, Sofía;Consulta online;19/06/2026 17:30;19/06/2026 18:30;09/04/2026;09/04/2026;;Scheduled;Week;193321;70412666
+22844213;Nicolás;Rodríguez Aceres;González López, Yaiza;Sesión individual logopedia;19/06/2026 17:50;19/06/2026 18:50;22/04/2026;22/04/2026;;Scheduled;Week;74094;71165671
+26547266;Valentina Olvido;Lopez Rodriguez;Vigil Vázquez, Marta;Sesión individual psicología;22/06/2026 13:00;22/06/2026 14:00;20/04/2026;20/04/2026;;Scheduled;Week;74086;70999452
+11693942;Esteban;Pablo;Vigil Vázquez, Marta;Sesión individual psicología;22/06/2026 14:30;22/06/2026 15:30;16/04/2026;16/04/2026;;Scheduled;Week;74086;70797958
+8720376;Rubén;de Pablos;Rodríguez Rodríguez, Sofía;Consulta online;22/06/2026 16:50;22/06/2026 17:50;13/04/2026;13/04/2026;;Scheduled;Week;193321;70560537
+23644111;Santiago;Lavandera Acebedo;González López, Yaiza;Sesión individual logopedia;22/06/2026 16:50;22/06/2026 17:50;20/04/2026;20/04/2026;;Scheduled;Week;74094;70937650
+16261398;Nael;Cabral Álvarez;González López, Yaiza;Sesión individual logopedia;22/06/2026 17:50;22/06/2026 18:50;20/04/2026;20/04/2026;;Scheduled;Week;74094;70937717
+22844213;Nicolás;Rodríguez Aceres;González López, Yaiza;Sesión individual logopedia;22/06/2026 18:50;22/06/2026 19:50;20/04/2026;20/04/2026;;Scheduled;Week;74094;70937805
+20169135;Mateo;Antúnez Fernández;González López, Yaiza;Sesión individual logopedia;23/06/2026 15:50;23/06/2026 16:50;21/04/2026;21/04/2026;;Scheduled;Week;74094;71063436
+14878339;Sara;Iglesias Florez;Rodríguez Rodríguez, Sofía;Consulta online;23/06/2026 16:00;23/06/2026 17:00;11/04/2026;11/04/2026;;Scheduled;Week;193321;70504535
+8539242;Ariel;Del Valle Primo;González López, Yaiza;Sesión individual logopedia;23/06/2026 16:50;23/06/2026 17:50;21/04/2026;21/04/2026;;Scheduled;Week;74094;71063545
+24701551;Marina;Rotacismo;Miranda Trillo, Zoe;Sesión individual;23/06/2026 17:00;23/06/2026 18:00;22/04/2026;22/04/2026;;Scheduled;Week;125234;71138240
+10143532;Ángel;Canada;González López, Yaiza;Sesión individual logopedia;23/06/2026 17:50;23/06/2026 18:50;21/04/2026;21/04/2026;;Scheduled;Week;74094;71063459
+16635915;Daniel (Sakina);.;González López, Yaiza;Sesión individual logopedia;23/06/2026 18:50;23/06/2026 19:50;22/04/2026;22/04/2026;;Scheduled;Week;74094;71165852
+14783603;Izan;Montes;González López, Yaiza;Sesión individual logopedia;24/06/2026 15:50;24/06/2026 16:50;22/04/2026;22/04/2026;;Scheduled;Week;74094;71165442
+23997597;Aitor;Diaz González;González López, Yaiza;Sesión individual;24/06/2026 16:50;24/06/2026 17:50;23/04/2026;23/04/2026;;Scheduled;Week;74094;71175133
+22164054;Dylan Fernando;Reyes Reyes;Rodríguez Rodríguez, Sofía;Consulta online;24/06/2026 17:50;24/06/2026 18:50;13/04/2026;13/04/2026;;Scheduled;Week;193321;70560575
+15279119;Miguel;Fernández Expósito;González López, Yaiza;Sesión individual logopedia;24/06/2026 17:50;24/06/2026 18:50;22/04/2026;22/04/2026;;Scheduled;Week;74094;71165349
+16968410;Martín;Vidal;Chico García, Laura;Sesión individual logopedia;24/06/2026 20:00;24/06/2026 21:00;27/04/2026;27/04/2026;;Scheduled;Week;74090;71362670
+26160849;Chloe;Fernández Gómez;González López, Yaiza;Sesión individual logopedia;25/06/2026 14:50;25/06/2026 15:50;22/04/2026;22/04/2026;;Scheduled;Week;74094;71165694
+18532788;Alan;Gordo López;Rodríguez Rodríguez, Sofía;Consulta online;25/06/2026 15:00;25/06/2026 16:00;24/04/2026;24/04/2026;;Scheduled;Week;193321;71259733
+8540637;Alicia;González Muñiz;Rodríguez Rodríguez, Sofía;Sesión psicología;25/06/2026 15:50;25/06/2026 16:50;13/04/2026;13/04/2026;;Scheduled;Week;193322;70560649
+22559905;Malik;Tea;Rodríguez Rodríguez, Sofía;Sesión psicología;25/06/2026 16:50;25/06/2026 17:50;13/04/2026;13/04/2026;;Scheduled;Week;193322;70560613
+21480073;Izán;López Sánchez;González López, Yaiza;Sesión individual logopedia;25/06/2026 17:50;25/06/2026 18:50;22/04/2026;22/04/2026;;Scheduled;Week;74094;71165387
+23717344;Martin;Suarez;Rodríguez Rodríguez, Sofía;Consulta online;26/06/2026 14:00;26/06/2026 15:00;24/04/2026;24/04/2026;;Scheduled;Week;193321;71257781
+24969466;Ainara;Martínez Sánchez;González López, Yaiza;Sesión individual logopedia;26/06/2026 14:50;26/06/2026 15:50;22/04/2026;22/04/2026;;Scheduled;Week;74094;71165624
+24114684;Ianna;.;González López, Yaiza;Sesión individual logopedia;26/06/2026 15:50;26/06/2026 16:50;22/04/2026;22/04/2026;;Scheduled;Week;74094;71165650
+11452114;Alvaro;Moriyón Miyar;Chico García, Laura;Sesión individual logopedia;26/06/2026 17:00;26/06/2026 18:00;21/04/2026;21/04/2026;;Scheduled;Week;74090;71051473
+22844213;Nicolás;Rodríguez Aceres;González López, Yaiza;Sesión individual logopedia;26/06/2026 17:50;26/06/2026 18:50;22/04/2026;22/04/2026;;Scheduled;Week;74094;71165672
+16261398;Nael;Cabral Álvarez;González López, Yaiza;Sesión individual logopedia;29/06/2026 17:50;29/06/2026 18:50;20/04/2026;20/04/2026;;Scheduled;Week;74094;70937718
+22844213;Nicolás;Rodríguez Aceres;González López, Yaiza;Sesión individual logopedia;29/06/2026 18:50;29/06/2026 19:50;20/04/2026;20/04/2026;;Scheduled;Week;74094;70937806
+20486396;Aiden;Mon Fernández;Miranda Trillo, Zoe;Sesión individual;30/06/2026 17:00;30/06/2026 18:00;22/04/2026;22/04/2026;;Scheduled;Week;125234;71138264
+16635915;Daniel (Sakina);.;González López, Yaiza;Sesión individual logopedia;30/06/2026 18:50;30/06/2026 19:50;22/04/2026;22/04/2026;;Scheduled;Week;74094;71165853
+14783603;Izan;Montes;González López, Yaiza;Sesión individual logopedia;01/07/2026 15:50;01/07/2026 16:50;22/04/2026;22/04/2026;;Scheduled;Week;74094;71165443
+23997597;Aitor;Diaz González;González López, Yaiza;Sesión individual;01/07/2026 16:50;01/07/2026 17:50;23/04/2026;23/04/2026;;Scheduled;Week;74094;71175134
+15279119;Miguel;Fernández Expósito;González López, Yaiza;Sesión individual logopedia;01/07/2026 17:50;01/07/2026 18:50;22/04/2026;22/04/2026;;Scheduled;Week;74094;71165350
+16968410;Martín;Vidal;Chico García, Laura;Sesión individual logopedia;01/07/2026 20:00;01/07/2026 21:00;27/04/2026;27/04/2026;;Scheduled;Week;74090;71362671
+18532788;Alan;Gordo López;Rodríguez Rodríguez, Sofía;Consulta online;02/07/2026 15:00;02/07/2026 16:00;24/04/2026;24/04/2026;;Scheduled;Week;193321;71259734
+8572111;Mario;Martín Miguel;Vigil Vázquez, Marta;Sesión individual psicología;02/07/2026 16:30;02/07/2026 17:30;23/04/2026;23/04/2026;;Scheduled;Week;74086;71222158
+22559905;Malik;Tea;Rodríguez Rodríguez, Sofía;Sesión psicología;02/07/2026 16:50;02/07/2026 17:50;13/04/2026;13/04/2026;;Scheduled;Week;193322;70560614
+21480073;Izán;López Sánchez;González López, Yaiza;Sesión individual logopedia;02/07/2026 17:50;02/07/2026 18:50;22/04/2026;22/04/2026;;Scheduled;Week;74094;71165388
+16261398;Nael;Cabral Álvarez;González López, Yaiza;Sesión individual logopedia;06/07/2026 17:50;06/07/2026 18:50;20/04/2026;20/04/2026;;Scheduled;Week;74094;70937719
+22844213;Nicolás;Rodríguez Aceres;González López, Yaiza;Sesión individual logopedia;06/07/2026 18:50;06/07/2026 19:50;20/04/2026;20/04/2026;;Scheduled;Week;74094;70937807
+24701551;Marina;Rotacismo;Miranda Trillo, Zoe;Sesión individual;07/07/2026 17:00;07/07/2026 18:00;22/04/2026;22/04/2026;;Scheduled;Week;125234;71138241
+14783603;Izan;Montes;González López, Yaiza;Sesión individual logopedia;08/07/2026 15:50;08/07/2026 16:50;22/04/2026;22/04/2026;;Scheduled;Week;74094;71165444
+23997597;Aitor;Diaz González;González López, Yaiza;Sesión individual;08/07/2026 16:50;08/07/2026 17:50;23/04/2026;23/04/2026;;Scheduled;Week;74094;71175135
+15279119;Miguel;Fernández Expósito;González López, Yaiza;Sesión individual logopedia;08/07/2026 17:50;08/07/2026 18:50;22/04/2026;22/04/2026;;Scheduled;Week;74094;71165351
+16261398;Nael;Cabral Álvarez;González López, Yaiza;Sesión individual logopedia;13/07/2026 17:50;13/07/2026 18:50;20/04/2026;20/04/2026;;Scheduled;Week;74094;70937720
+22844213;Nicolás;Rodríguez Aceres;González López, Yaiza;Sesión individual logopedia;13/07/2026 18:50;13/07/2026 19:50;20/04/2026;20/04/2026;;Scheduled;Week;74094;70937808
+20486396;Aiden;Mon Fernández;Miranda Trillo, Zoe;Sesión individual;14/07/2026 17:00;14/07/2026 18:00;22/04/2026;22/04/2026;;Scheduled;Week;125234;71138265
+8572111;Mario;Martín Miguel;Vigil Vázquez, Marta;Sesión individual psicología;16/07/2026 16:30;16/07/2026 17:30;23/04/2026;23/04/2026;;Scheduled;Week;74086;71222159
+16261398;Nael;Cabral Álvarez;González López, Yaiza;Sesión individual logopedia;20/07/2026 17:50;20/07/2026 18:50;20/04/2026;20/04/2026;;Scheduled;Week;74094;70937721
+22844213;Nicolás;Rodríguez Aceres;González López, Yaiza;Sesión individual logopedia;20/07/2026 18:50;20/07/2026 19:50;20/04/2026;20/04/2026;;Scheduled;Week;74094;70937809
+24701551;Marina;Rotacismo;Miranda Trillo, Zoe;Sesión individual;21/07/2026 17:00;21/07/2026 18:00;22/04/2026;22/04/2026;;Scheduled;Week;125234;71138242
+16261398;Nael;Cabral Álvarez;González López, Yaiza;Sesión individual logopedia;27/07/2026 17:50;27/07/2026 18:50;20/04/2026;20/04/2026;;Scheduled;Week;74094;70937722
+22844213;Nicolás;Rodríguez Aceres;González López, Yaiza;Sesión individual logopedia;27/07/2026 18:50;27/07/2026 19:50;20/04/2026;20/04/2026;;Scheduled;Week;74094;70937810
+20486396;Aiden;Mon Fernández;Miranda Trillo, Zoe;Sesión individual;28/07/2026 17:00;28/07/2026 18:00;22/04/2026;22/04/2026;;Scheduled;Week;125234;71138266
+8572111;Mario;Martín Miguel;Vigil Vázquez, Marta;Sesión individual psicología;30/07/2026 16:30;30/07/2026 17:30;23/04/2026;23/04/2026;;Scheduled;Week;74086;71222160
+16261398;Nael;Cabral Álvarez;González López, Yaiza;Sesión individual logopedia;03/08/2026 17:50;03/08/2026 18:50;20/04/2026;20/04/2026;;Scheduled;Week;74094;70937723
+22844213;Nicolás;Rodríguez Aceres;González López, Yaiza;Sesión individual logopedia;03/08/2026 18:50;03/08/2026 19:50;20/04/2026;20/04/2026;;Scheduled;Week;74094;70937811
+24701551;Marina;Rotacismo;Miranda Trillo, Zoe;Sesión individual;04/08/2026 17:00;04/08/2026 18:00;22/04/2026;22/04/2026;;Scheduled;Week;125234;71138243
+16261398;Nael;Cabral Álvarez;González López, Yaiza;Sesión individual logopedia;10/08/2026 17:50;10/08/2026 18:50;20/04/2026;20/04/2026;;Scheduled;Week;74094;70937724
+22844213;Nicolás;Rodríguez Aceres;González López, Yaiza;Sesión individual logopedia;10/08/2026 18:50;10/08/2026 19:50;20/04/2026;20/04/2026;;Scheduled;Week;74094;70937812
+20486396;Aiden;Mon Fernández;Miranda Trillo, Zoe;Sesión individual;11/08/2026 17:00;11/08/2026 18:00;22/04/2026;22/04/2026;;Scheduled;Week;125234;71138267
+8572111;Mario;Martín Miguel;Vigil Vázquez, Marta;Sesión individual psicología;13/08/2026 16:30;13/08/2026 17:30;23/04/2026;23/04/2026;;Scheduled;Week;74086;71222161
+16261398;Nael;Cabral Álvarez;González López, Yaiza;Sesión individual logopedia;17/08/2026 17:50;17/08/2026 18:50;20/04/2026;20/04/2026;;Scheduled;Week;74094;70937725
+22844213;Nicolás;Rodríguez Aceres;González López, Yaiza;Sesión individual logopedia;17/08/2026 18:50;17/08/2026 19:50;20/04/2026;20/04/2026;;Scheduled;Week;74094;70937813
+24701551;Marina;Rotacismo;Miranda Trillo, Zoe;Sesión individual;18/08/2026 17:00;18/08/2026 18:00;22/04/2026;22/04/2026;;Scheduled;Week;125234;71138244
+16261398;Nael;Cabral Álvarez;González López, Yaiza;Sesión individual logopedia;24/08/2026 17:50;24/08/2026 18:50;20/04/2026;20/04/2026;;Scheduled;Week;74094;70937726
+22844213;Nicolás;Rodríguez Aceres;González López, Yaiza;Sesión individual logopedia;24/08/2026 18:50;24/08/2026 19:50;20/04/2026;20/04/2026;;Scheduled;Week;74094;70937814
+20486396;Aiden;Mon Fernández;Miranda Trillo, Zoe;Sesión individual;25/08/2026 17:00;25/08/2026 18:00;22/04/2026;22/04/2026;;Scheduled;Week;125234;71138268
+8572111;Mario;Martín Miguel;Vigil Vázquez, Marta;Sesión individual psicología;27/08/2026 16:30;27/08/2026 17:30;23/04/2026;23/04/2026;;Scheduled;Week;74086;71222162
+16261398;Nael;Cabral Álvarez;González López, Yaiza;Sesión individual logopedia;31/08/2026 17:50;31/08/2026 18:50;20/04/2026;20/04/2026;;Scheduled;Week;74094;70937727
+22844213;Nicolás;Rodríguez Aceres;González López, Yaiza;Sesión individual logopedia;31/08/2026 18:50;31/08/2026 19:50;20/04/2026;20/04/2026;;Scheduled;Week;74094;70937815
+24701551;Marina;Rotacismo;Miranda Trillo, Zoe;Sesión individual;01/09/2026 17:00;01/09/2026 18:00;22/04/2026;22/04/2026;;Scheduled;Week;125234;71138245
+20486396;Aiden;Mon Fernández;Miranda Trillo, Zoe;Sesión individual;08/09/2026 17:00;08/09/2026 18:00;22/04/2026;22/04/2026;;Scheduled;Week;125234;71138269

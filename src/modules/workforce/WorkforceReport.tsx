@@ -251,7 +251,7 @@ const WorkforceReport: React.FC = () => {
                 const therapistsToRecord = therapists.filter(t => t.id !== 'all');
                 
                 if (therapistsToRecord.length === 0) {
-                    showToast("No se han encontrado terapeutas en la lista para asignar el festivo.", "warning");
+                    showToast("No se han encontrado terapeutas en la lista para asignar el festivo.", "info");
                     return;
                 }
 

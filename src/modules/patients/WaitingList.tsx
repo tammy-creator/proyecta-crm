@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { supabase } from '../../lib/supabase';
+// import { supabase } from '../../lib/supabase'; // Unused
 import { getWaitingList, removeFromWaitingList, addToWaitingList, updateWaitingList, getPatients } from './service';
 import { type WaitingListEntry, type Patient } from './types';
-import { Plus, Trash2, Calendar, Clock, Edit2, Search, X as XIcon, Star, Timer, ClipboardList } from 'lucide-react';
+import { Plus, Trash2, Calendar, Clock, Edit2, Search, X as XIcon, Star, ClipboardList } from 'lucide-react';
 import Card from '../../components/ui/Card';
 import './WaitingList.css';
 import { toast } from 'react-hot-toast';

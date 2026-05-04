@@ -1,7 +1,7 @@
 import React from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { getIllustrativeAvatar } from '../../modules/therapists/utils';
-import { ShieldCheck, UserRound } from 'lucide-react';
+// import { ShieldCheck, UserRound } from 'lucide-react'; // Unused
 import './IdentitySelector.css';
 
 const IdentitySelector: React.FC = () => {

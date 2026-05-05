@@ -25,8 +25,8 @@ import {
     Send,
     CalendarClock
 } from 'lucide-react';
-import { getAppointments } from './service';
-import { getTransactions } from '../billing/service';
+import { getAppointments, updateAppointment } from './service';
+import { getTransactions, createTransaction } from '../billing/service';
 import { type Transaction } from '../billing/types';
 import { type Appointment, type AppointmentStatus } from './types';
 import { useAuth } from '../../context/AuthContext';
@@ -44,8 +44,8 @@ const AppointmentRegistry: React.FC = () => {
     const [transactions, setTransactions] = useState<Transaction[]>([]);
     
     // Filters
-    const [startDate, setStartDate] = useState(format(startOfMonth(new Date()), 'yyyy-MM-dd'));
-    const [endDate, setEndDate] = useState(format(endOfMonth(new Date()), 'yyyy-MM-dd'));
+    const [startDate, setStartDate] = useState(format(new Date(), 'yyyy-MM-dd'));
+    const [endDate, setEndDate] = useState(format(new Date(), 'yyyy-MM-dd'));
     const [searchTerm, setSearchTerm] = useState('');
     const [statusFilter, setStatusFilter] = useState<string>('ALL');
     const [therapistFilter, setTherapistFilter] = useState<string>('ALL');
@@ -175,6 +175,117 @@ const AppointmentRegistry: React.FC = () => {
 
 
 
+    const handleAmountChange = async (appt: Appointment, newAmount: number) => {
+        try {
+            await updateAppointment({ ...appt, price: newAmount });
+            setAppointments(prev => prev.map(a => a.id === appt.id ? { ...a, price: newAmount } : a));
+            showToast(`Importe actualizado a ${newAmount}€`, 'success');
+        } catch (error) {
+            console.error("Error updating amount:", error);
+            showToast("Error al actualizar el importe", 'error');
+        }
+    };
+
+    const handlePaymentChange = async (appt: Appointment, method: string) => {
+        try {
+            if (method === 'PENDIENTE') {
+                // 1. Delete transactions for this appt
+                const txToDelete = transactions.filter(t => t.appointmentId === appt.id);
+                for (const tx of txToDelete) {
+                    await supabase.from('transactions').delete().eq('id', tx.id);
+                }
+
+                // 2. Mark appt as unpaid
+                await updateAppointment({ ...appt, isPaid: false });
+
+                setAppointments(prev => prev.map(a => a.id === appt.id ? { ...a, isPaid: false } : a));
+                showToast("Cobro eliminado", 'info');
+            } else {
+                // 1. Check if transaction already exists to update it, or create new one
+                const existingTx = transactions.find(t => t.appointmentId === appt.id);
+                
+                if (existingTx) {
+                    await supabase.from('transactions').update({ 
+                        method, 
+                        amount: appt.price || 60 
+                    }).eq('id', existingTx.id);
+                } else {
+                    await createTransaction({
+                        appointmentId: appt.id,
+                        patientId: appt.patientId || '',
+                        patientName: appt.patientName || '',
+                        therapistId: appt.therapistId || '',
+                        therapistName: appt.therapistName || '',
+                        amount: appt.price || 60,
+                        method: method as any,
+                        date: new Date().toISOString(),
+                        status: 'Pagado',
+                        notes: `Gestionado desde Registro de Citas`
+                    });
+                }
+
+                // 2. Mark as paid
+                const newStatus = appt.status === 'Finalizada' ? 'Cobrada' : appt.status;
+                await updateAppointment({ ...appt, isPaid: true, status: newStatus });
+
+                setAppointments(prev => prev.map(a => a.id === appt.id ? { ...a, isPaid: true, status: newStatus } : a));
+                showToast(`Cobro actualizado: ${method}`, 'success');
+            }
+            
+            // Refresh transactions
+            const txData = await getTransactions(isRole('THERAPIST') ? user?.name : undefined);
+            setTransactions(txData);
+        } catch (error) {
+            console.error("Error updating payment:", error);
+            showToast("Error al procesar el cobro", 'error');
+        }
+    };
+
+    const handleStatusChange = async (appt: Appointment, newStatus: AppointmentStatus) => {
+        try {
+            await updateAppointment({ ...appt, status: newStatus });
+            setAppointments(prev => prev.map(a => a.id === appt.id ? { ...a, status: newStatus } : a));
+            showToast(`Estado actualizado a ${newStatus}`, 'success');
+        } catch (error) {
+            console.error("Error updating status:", error);
+            showToast("Error al actualizar el estado", 'error');
+        }
+    };
+
+    const handlePayment = async (appt: Appointment, method: any) => {
+        try {
+            // 1. Create transaction
+            await createTransaction({
+                appointmentId: appt.id,
+                patientId: appt.patientId || '',
+                patientName: appt.patientName || '',
+                therapistId: appt.therapistId || '',
+                therapistName: appt.therapistName || '',
+                amount: appt.price || 60, // Use appt price or default to 60
+                method: method,
+                date: new Date().toISOString(),
+                status: 'Pagado',
+                notes: `Cobrado desde Registro de Citas`
+            });
+
+            // 2. Mark appointment as paid (and 'Cobrada' if it was 'Finalizada')
+            const newStatus = appt.status === 'Finalizada' ? 'Cobrada' : appt.status;
+            await updateAppointment({ ...appt, isPaid: true, status: newStatus });
+
+            // 3. Update local state
+            setAppointments(prev => prev.map(a => a.id === appt.id ? { ...a, isPaid: true, status: newStatus } : a));
+            
+            // 4. Refresh transactions to update the UI
+            const txData = await getTransactions(isRole('THERAPIST') ? user?.name : undefined);
+            setTransactions(txData);
+
+            showToast(`Pago registrado con ${method}`, 'success');
+        } catch (error) {
+            console.error("Error recording payment:", error);
+            showToast("Error al registrar el pago", 'error');
+        }
+    };
+
     const handleViewInCalendar = (appt: Appointment) => {
         const date = appt.start.split('T')[0];
         navigate('/calendar', { state: { openAppointmentId: appt.id, date } });
@@ -260,6 +371,7 @@ const AppointmentRegistry: React.FC = () => {
                                 </div>
                             </th>
                             <th>Servicio</th>
+                            <th style={{ width: '100px' }}>Importe</th>
                             <th>
                                 <div className="header-with-filter">
                                     <span>Estado</span>
@@ -295,14 +407,14 @@ const AppointmentRegistry: React.FC = () => {
                     <tbody>
                         {loading ? (
                             <tr>
-                                <td colSpan={6} className="text-center p-8">
+                                <td colSpan={8} className="text-center p-8">
                                     <div className="loading-spinner-small"></div>
                                     <p className="mt-2 text-secondary">Cargando citas...</p>
                                 </td>
                             </tr>
                         ) : filteredAppointments.length === 0 ? (
                             <tr>
-                                <td colSpan={6} className="text-center p-12">
+                                <td colSpan={8} className="text-center p-12">
                                     <div className="empty-state-icon">
                                         <Search size={48} />
                                     </div>
@@ -339,18 +451,64 @@ const AppointmentRegistry: React.FC = () => {
                                         <div className="service-tag">{appt.type}</div>
                                     </td>
                                     <td>
-                                        <span className={`badge ${getStatusBadgeClass(getEffectiveStatus(appt))}`}>
-                                            {getEffectiveStatus(appt)}
-                                        </span>
+                                        {isRole('ADMIN') ? (
+                                            <div className="flex items-center gap-1">
+                                                <input 
+                                                    type="number" 
+                                                    className="registry-amount-input"
+                                                    defaultValue={appt.price || 60}
+                                                    onBlur={(e) => handleAmountChange(appt, Number(e.target.value))}
+                                                />
+                                                <span className="text-secondary text-xs">€</span>
+                                            </div>
+                                        ) : (
+                                            <span className="font-bold">{appt.price || 60}€</span>
+                                        )}
+                                    </td>
+                                    <td>
+                                        {isRole('ADMIN') ? (
+                                            <select 
+                                                className={`registry-status-select ${getStatusBadgeClass(getEffectiveStatus(appt))}`}
+                                                value={appt.status}
+                                                onChange={(e) => handleStatusChange(appt, e.target.value as AppointmentStatus)}
+                                            >
+                                                <option value="Programada">Programada</option>
+                                                <option value="En Sesión">En Sesión</option>
+                                                <option value="Finalizada">Finalizada</option>
+                                                <option value="Cobrada">Cobrada</option>
+                                                <option value="Cancelada">Cancelada</option>
+                                                <option value="Ausente">Ausente</option>
+                                                <option value="Bloqueada">Bloqueada</option>
+                                            </select>
+                                        ) : (
+                                            <span className={`badge ${getStatusBadgeClass(getEffectiveStatus(appt))}`}>
+                                                {getEffectiveStatus(appt)}
+                                            </span>
+                                        )}
                                     </td>
                                     <td>
                                         {(() => {
                                             const payInfo = getPaymentInfo(appt);
-                                            if (!payInfo) return <span className="text-slate-300">—</span>;
                                             
-                                            if (payInfo.isPaid) {
+                                            if (isRole('ADMIN')) {
                                                 return (
-                                                    <div className="flex items-center gap-2 text-emerald-600 font-bold text-xs uppercase">
+                                                    <select 
+                                                        className={`registry-payment-select ${payInfo?.isPaid ? 'paid' : 'unpaid'}`}
+                                                        value={payInfo?.isPaid ? payInfo.method : 'PENDIENTE'}
+                                                        onChange={(e) => handlePaymentChange(appt, e.target.value)}
+                                                    >
+                                                        <option value="PENDIENTE">⚠️ Pendiente</option>
+                                                        <option value="Tarjeta">💳 Tarjeta</option>
+                                                        <option value="Efectivo">💵 Efectivo</option>
+                                                        <option value="Transferencia">🏦 Transferencia</option>
+                                                        <option value="Fin de mes">📅 Fin de mes</option>
+                                                    </select>
+                                                );
+                                            }
+
+                                            if (payInfo?.isPaid) {
+                                                return (
+                                                    <div className="flex items-center gap-2 text-emerald-600 font-bold text-xs uppercase bg-emerald-50 px-2 py-1 rounded-lg border border-emerald-100">
                                                         {payInfo.method === 'Tarjeta' && <CreditCard size={14} />}
                                                         {payInfo.method === 'Efectivo' && <Wallet size={14} />}
                                                         {payInfo.method === 'Transferencia' && <Send size={14} />}
@@ -360,9 +518,9 @@ const AppointmentRegistry: React.FC = () => {
                                                 );
                                             } else {
                                                 return (
-                                                    <div className="flex items-center gap-1.5 text-amber-600 font-bold text-xs uppercase">
+                                                    <div className="flex items-center gap-1.5 text-amber-600 font-bold text-xs uppercase px-2 py-1 bg-amber-50 rounded-lg border border-amber-100">
                                                         <AlertTriangle size={14} />
-                                                        {payInfo.label}
+                                                        {payInfo?.label || 'Pendiente'}
                                                     </div>
                                                 );
                                             }

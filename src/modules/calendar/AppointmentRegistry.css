@@ -423,3 +423,85 @@
     color: #e2e8f0;
     margin-bottom: 1rem;
 }
+.registry-status-select {
+    padding: 0.25rem 0.5rem;
+    border-radius: 6px;
+    font-size: 0.75rem;
+    font-weight: 700;
+    cursor: pointer;
+    outline: none;
+    border: 1px solid transparent;
+    transition: all 0.2s ease;
+    width: auto;
+    appearance: none;
+    -webkit-appearance: none;
+    text-align: center;
+}
+
+.registry-status-select:hover {
+    filter: brightness(0.95);
+    border-color: rgba(0,0,0,0.1);
+}
+
+.registry-status-select:focus {
+    box-shadow: 0 0 0 2px rgba(0,0,0,0.05);
+}
+
+.registry-amount-input {
+    width: 60px;
+    padding: 0.25rem 0.5rem;
+    border: 1px solid #e2e8f0;
+    border-radius: 6px;
+    font-size: 0.85rem;
+    font-weight: 700;
+    color: #1e293b;
+    outline: none;
+    transition: all 0.2s;
+    text-align: right;
+}
+
+.registry-amount-input:focus {
+    border-color: #1A5F7A;
+    box-shadow: 0 0 0 2px rgba(26, 95, 122, 0.1);
+}
+
+.registry-payment-select {
+    padding: 0.4rem 0.75rem;
+    border-radius: 8px;
+    font-size: 0.75rem;
+    font-weight: 700;
+    cursor: pointer;
+    outline: none;
+    border: 1px solid transparent;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    width: 140px;
+    text-transform: uppercase;
+    box-shadow: 0 1px 2px rgba(0,0,0,0.05);
+}
+
+.registry-payment-select.unpaid {
+    background-color: #fffbeb;
+    color: #92400e;
+    border-color: #fde68a;
+}
+
+.registry-payment-select.paid {
+    background-color: #ecfdf5;
+    color: #065f46;
+    border-color: #a7f3d0;
+}
+
+.registry-payment-select:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+}
+
+@media print {
+    .registry-amount-input, .registry-payment-select, .registry-status-select {
+        border: none !important;
+        background: transparent !important;
+        appearance: none !important;
+        -webkit-appearance: none !important;
+        padding: 0 !important;
+    }
+}

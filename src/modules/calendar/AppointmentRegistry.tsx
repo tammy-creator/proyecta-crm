@@ -112,36 +112,6 @@ const AppointmentRegistry: React.FC = () => {
         return null;
     };
 
-    const filteredAppointments = appointments.filter(appt => {
-        // Search term (Patient, Therapist, Type, or Notes)
-        const searchLower = searchTerm.toLowerCase();
-        const matchesSearch = 
-            appt.patientName?.toLowerCase().includes(searchLower) ||
-            appt.therapistName?.toLowerCase().includes(searchLower) ||
-            appt.type?.toLowerCase().includes(searchLower) ||
-            appt.notes?.toLowerCase().includes(searchLower);
-
-        // Status filter
-        const effectiveStatus = getEffectiveStatus(appt);
-        const matchesStatus = statusFilter === 'ALL' || effectiveStatus === statusFilter;
-
-        // Therapist filter
-        const matchesTherapist = therapistFilter === 'ALL' || appt.therapistId === therapistFilter;
-
-        // Payment filter
-        const payInfo = getPaymentInfo(appt);
-        let matchesPayment = paymentFilter === 'ALL';
-        if (paymentFilter === 'PAGADO') {
-            matchesPayment = !!payInfo?.isPaid;
-        } else if (paymentFilter === 'PENDIENTE') {
-            matchesPayment = !!(payInfo && !payInfo.isPaid);
-        } else if (paymentFilter !== 'ALL') {
-            matchesPayment = payInfo?.method === paymentFilter;
-        }
-
-        return matchesSearch && matchesStatus && matchesTherapist && matchesPayment;
-    }).sort((a, b) => a.start.localeCompare(b.start)); // Oldest first
-
     const getStatusBadgeClass = (status: AppointmentStatus) => {
         switch (status) {
             case 'Programada': return 'badge-info';
@@ -172,6 +142,38 @@ const AppointmentRegistry: React.FC = () => {
 
         return appt.status;
     };
+
+    const filteredAppointments = appointments.filter(appt => {
+        // Search term (Patient, Therapist, Type, or Notes)
+        const searchLower = searchTerm.toLowerCase();
+        const matchesSearch = 
+            appt.patientName?.toLowerCase().includes(searchLower) ||
+            appt.therapistName?.toLowerCase().includes(searchLower) ||
+            appt.type?.toLowerCase().includes(searchLower) ||
+            appt.notes?.toLowerCase().includes(searchLower);
+
+        // Status filter
+        const effectiveStatus = getEffectiveStatus(appt);
+        const matchesStatus = statusFilter === 'ALL' || effectiveStatus === statusFilter;
+
+        // Therapist filter
+        const matchesTherapist = therapistFilter === 'ALL' || appt.therapistId === therapistFilter;
+
+        // Payment filter
+        const payInfo = getPaymentInfo(appt);
+        let matchesPayment = paymentFilter === 'ALL';
+        if (paymentFilter === 'PAGADO') {
+            matchesPayment = !!payInfo?.isPaid;
+        } else if (paymentFilter === 'PENDIENTE') {
+            matchesPayment = !!(payInfo && !payInfo.isPaid);
+        } else if (paymentFilter !== 'ALL') {
+            matchesPayment = payInfo?.method === paymentFilter;
+        }
+
+        return matchesSearch && matchesStatus && matchesTherapist && matchesPayment;
+    }).sort((a, b) => a.start.localeCompare(b.start)); // Oldest first
+
+
 
     const handleViewInCalendar = (appt: Appointment) => {
         const date = appt.start.split('T')[0];

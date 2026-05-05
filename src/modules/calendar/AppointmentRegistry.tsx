@@ -10,7 +10,6 @@ import {
 import { es } from 'date-fns/locale';
 import { 
     Search, 
-    Filter, 
     Calendar as CalendarIcon, 
     User, 
     Clock, 

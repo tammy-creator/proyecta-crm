@@ -14,6 +14,7 @@ export interface Transaction {
     category: string; // e.g., 'Terapia', 'Evaluación Material'
     invoiceId?: string; // Link to generated invoice of this transaction
     isReconciled?: boolean; // For bank transfer reconciliation
+    notes?: string;
 }
 
 export interface FinanceSummary {

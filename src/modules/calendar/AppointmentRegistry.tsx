@@ -242,9 +242,10 @@ const AppointmentRegistry: React.FC = () => {
             // Refresh transactions
             const txData = await getTransactions(isRole('THERAPIST') ? user?.name : undefined);
             setTransactions(txData);
-        } catch (error) {
-            console.error("Error updating payment:", error);
-            showToast("Error al procesar el cobro. Revisa la consola.", 'error');
+        } catch (error: any) {
+            console.error("Error updating payment full detail:", error);
+            const msg = error.message || error.details || "Error desconocido";
+            showToast(`Error al procesar el cobro: ${msg}`, 'error');
         }
     };
 

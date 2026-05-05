@@ -3,11 +3,10 @@ import { useNavigate } from 'react-router-dom';
 import { 
     format, 
     parseISO, 
-    startOfMonth, 
-    endOfMonth, 
     isValid
 } from 'date-fns';
 import { es } from 'date-fns/locale';
+import { supabase } from '../../lib/supabase';
 import { 
     Search, 
     Calendar as CalendarIcon, 
@@ -214,12 +213,12 @@ const AppointmentRegistry: React.FC = () => {
                         appointmentId: appt.id,
                         patientId: appt.patientId || '',
                         patientName: appt.patientName || '',
-                        therapistId: appt.therapistId || '',
                         therapistName: appt.therapistName || '',
                         amount: appt.price || 60,
                         method: method as any,
                         date: new Date().toISOString(),
                         status: 'Pagado',
+                        category: 'Terapia',
                         notes: `Gestionado desde Registro de Citas`
                     });
                 }
@@ -252,39 +251,7 @@ const AppointmentRegistry: React.FC = () => {
         }
     };
 
-    const handlePayment = async (appt: Appointment, method: any) => {
-        try {
-            // 1. Create transaction
-            await createTransaction({
-                appointmentId: appt.id,
-                patientId: appt.patientId || '',
-                patientName: appt.patientName || '',
-                therapistId: appt.therapistId || '',
-                therapistName: appt.therapistName || '',
-                amount: appt.price || 60, // Use appt price or default to 60
-                method: method,
-                date: new Date().toISOString(),
-                status: 'Pagado',
-                notes: `Cobrado desde Registro de Citas`
-            });
 
-            // 2. Mark appointment as paid (and 'Cobrada' if it was 'Finalizada')
-            const newStatus = appt.status === 'Finalizada' ? 'Cobrada' : appt.status;
-            await updateAppointment({ ...appt, isPaid: true, status: newStatus });
-
-            // 3. Update local state
-            setAppointments(prev => prev.map(a => a.id === appt.id ? { ...a, isPaid: true, status: newStatus } : a));
-            
-            // 4. Refresh transactions to update the UI
-            const txData = await getTransactions(isRole('THERAPIST') ? user?.name : undefined);
-            setTransactions(txData);
-
-            showToast(`Pago registrado con ${method}`, 'success');
-        } catch (error) {
-            console.error("Error recording payment:", error);
-            showToast("Error al registrar el pago", 'error');
-        }
-    };
 
     const handleViewInCalendar = (appt: Appointment) => {
         const date = appt.start.split('T')[0];

@@ -1984,7 +1984,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({ mode: initialMode, therapis
                                 </div>
                             )}
 
-                            {(selectedAppt.status === 'Finalizada' || selectedAppt.status === 'Cobrada') && (
+                            {(selectedAppt.status === 'Finalizada' || selectedAppt.status === 'Cobrada' || (selectedAppt.start && isAfter(new Date(), parseISO(selectedAppt.start)) && selectedAppt.status === 'Programada')) && (
                                 <div className="form-group diary-group">
                                     <div className="flex justify-between items-center mb-1">
                                         <label className="flex items-center gap-2 m-0">
@@ -2003,7 +2003,14 @@ const CalendarView: React.FC<CalendarViewProps> = ({ mode: initialMode, therapis
                                     <textarea
                                         required
                                         value={selectedAppt.sessionDiary || ''}
-                                        onChange={e => setSelectedAppt({ ...selectedAppt, sessionDiary: e.target.value })}
+                                        onChange={e => {
+                                            const updates: any = { sessionDiary: e.target.value };
+                                            // Si escribe el diario y estaba en Programada, asumimos que se realizó
+                                            if (selectedAppt.status === 'Programada') {
+                                                updates.status = 'Finalizada';
+                                            }
+                                            setSelectedAppt({ ...selectedAppt, ...updates });
+                                        }}
                                         placeholder="Escribe el progreso de la sesión..."
                                         rows={3}
                                         style={{ width: '100%', minHeight: '80px', padding: '0.75rem', borderRadius: '8px', border: '1px solid #ddd', fontFamily: 'inherit', fontSize: '0.875rem' }}

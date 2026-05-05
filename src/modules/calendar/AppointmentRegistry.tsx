@@ -122,7 +122,8 @@ const AppointmentRegistry: React.FC = () => {
             appt.notes?.toLowerCase().includes(searchLower);
 
         // Status filter
-        const matchesStatus = statusFilter === 'ALL' || appt.status === statusFilter;
+        const effectiveStatus = getEffectiveStatus(appt);
+        const matchesStatus = statusFilter === 'ALL' || effectiveStatus === statusFilter;
 
         // Therapist filter
         const matchesTherapist = therapistFilter === 'ALL' || appt.therapistId === therapistFilter;
@@ -152,6 +153,24 @@ const AppointmentRegistry: React.FC = () => {
             case 'Bloqueada': return 'badge-neutral';
             default: return '';
         }
+    };
+
+    const getEffectiveStatus = (appt: Appointment): AppointmentStatus => {
+        if (['Cancelada', 'Cobrada', 'Ausente', 'Bloqueada'].includes(appt.status)) {
+            return appt.status;
+        }
+
+        const now = new Date();
+        const start = parseISO(appt.start);
+        const end = parseISO(appt.end);
+
+        if ((now >= start) && (now < end)) {
+            if (appt.status === 'Programada') return 'En Sesión';
+        } else if (now >= end) {
+            if (appt.status === 'Programada' || appt.status === 'En Sesión') return 'Finalizada';
+        }
+
+        return appt.status;
     };
 
     const handleViewInCalendar = (appt: Appointment) => {
@@ -318,8 +337,8 @@ const AppointmentRegistry: React.FC = () => {
                                         <div className="service-tag">{appt.type}</div>
                                     </td>
                                     <td>
-                                        <span className={`badge ${getStatusBadgeClass(appt.status)}`}>
-                                            {appt.status}
+                                        <span className={`badge ${getStatusBadgeClass(getEffectiveStatus(appt))}`}>
+                                            {getEffectiveStatus(appt)}
                                         </span>
                                     </td>
                                     <td>

@@ -1,5 +1,5 @@
 export type TransactionStatus = 'Pagado' | 'Pendiente' | 'Deuda';
-export type PaymentMethod = 'Efectivo' | 'Tarjeta' | 'Transferencia';
+export type PaymentMethod = 'Efectivo' | 'Tarjeta' | 'Transferencia' | 'Fin de mes';
 
 export interface Transaction {
     id: string;

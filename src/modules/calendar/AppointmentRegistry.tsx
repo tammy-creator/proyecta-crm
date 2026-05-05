@@ -20,9 +20,15 @@ import {
     ExternalLink,
     Lock,
     Stethoscope,
-    FileText
+    FileText,
+    CreditCard,
+    Wallet,
+    Send,
+    CalendarClock
 } from 'lucide-react';
 import { getAppointments } from './service';
+import { getTransactions } from '../billing/service';
+import { type Transaction } from '../billing/types';
 import { type Appointment, type AppointmentStatus } from './types';
 import { useAuth } from '../../context/AuthContext';
 import { useToast } from '../../hooks/useToast';
@@ -36,6 +42,7 @@ const AppointmentRegistry: React.FC = () => {
     
     const [loading, setLoading] = useState(true);
     const [appointments, setAppointments] = useState<Appointment[]>([]);
+    const [transactions, setTransactions] = useState<Transaction[]>([]);
     
     // Filters
     const [startDate, setStartDate] = useState(format(startOfMonth(new Date()), 'yyyy-MM-dd'));
@@ -43,6 +50,7 @@ const AppointmentRegistry: React.FC = () => {
     const [searchTerm, setSearchTerm] = useState('');
     const [statusFilter, setStatusFilter] = useState<string>('ALL');
     const [therapistFilter, setTherapistFilter] = useState<string>('ALL');
+    const [paymentFilter, setPaymentFilter] = useState<string>('ALL');
     
     // Modal
     const [selectedAppt, setSelectedAppt] = useState<Appointment | null>(null);
@@ -65,14 +73,44 @@ const AppointmentRegistry: React.FC = () => {
             }
 
             const effectiveTherapistId = isRole('THERAPIST') ? user?.therapistId : undefined;
-            const data = await getAppointments(start, end, effectiveTherapistId);
+            const effectiveTherapistName = isRole('THERAPIST') ? user?.name : undefined;
+            
+            const [data, txData] = await Promise.all([
+                getAppointments(start, end, effectiveTherapistId),
+                getTransactions(effectiveTherapistName)
+            ]);
+            
             setAppointments(data);
+            setTransactions(txData);
         } catch (error) {
             console.error("Error fetching appointments:", error);
             showToast("Error al cargar el registro de citas", "error");
         } finally {
             setLoading(false);
         }
+    };
+
+    const getPaymentInfo = (appt: Appointment) => {
+        const tx = transactions.find(t => t.appointmentId === appt.id);
+        if (tx && tx.status === 'Pagado') {
+            return {
+                method: tx.method,
+                label: tx.method || 'Pagado',
+                isPaid: true
+            };
+        }
+        
+        // Solo mostrar como pendiente si la cita ya pasó y no es cancelación/bloqueo
+        const now = new Date();
+        const apptStart = parseISO(appt.start);
+        if (apptStart < now && appt.status !== 'Cancelada' && appt.status !== 'Bloqueada') {
+            return {
+                label: 'Pendiente de pago',
+                isPaid: false
+            };
+        }
+        
+        return null;
     };
 
     const filteredAppointments = appointments.filter(appt => {
@@ -90,8 +128,19 @@ const AppointmentRegistry: React.FC = () => {
         // Therapist filter
         const matchesTherapist = therapistFilter === 'ALL' || appt.therapistId === therapistFilter;
 
-        return matchesSearch && matchesStatus && matchesTherapist;
-    }).sort((a, b) => b.start.localeCompare(a.start)); // Newest first
+        // Payment filter
+        const payInfo = getPaymentInfo(appt);
+        let matchesPayment = paymentFilter === 'ALL';
+        if (paymentFilter === 'PAGADO') {
+            matchesPayment = !!payInfo?.isPaid;
+        } else if (paymentFilter === 'PENDIENTE') {
+            matchesPayment = !!(payInfo && !payInfo.isPaid);
+        } else if (paymentFilter !== 'ALL') {
+            matchesPayment = payInfo?.method === paymentFilter;
+        }
+
+        return matchesSearch && matchesStatus && matchesTherapist && matchesPayment;
+    }).sort((a, b) => a.start.localeCompare(b.start)); // Oldest first
 
     const getStatusBadgeClass = (status: AppointmentStatus) => {
         switch (status) {
@@ -145,7 +194,7 @@ const AppointmentRegistry: React.FC = () => {
                         <Search size={16} className="text-slate-400" />
                         <input 
                             type="text" 
-                            placeholder="Buscar paciente, terapeuta, descripción..." 
+                            placeholder="Buscar paciente, descripción..." 
                             value={searchTerm}
                             onChange={e => setSearchTerm(e.target.value)}
                         />
@@ -168,32 +217,6 @@ const AppointmentRegistry: React.FC = () => {
                             onChange={e => setEndDate(e.target.value)} 
                         />
                     </div>
-
-                    <div className="filter-group-inline">
-                        <Filter size={14} className="text-slate-400" />
-                        <select value={statusFilter} onChange={e => setStatusFilter(e.target.value)}>
-                            <option value="ALL">Cualquier Estado</option>
-                            <option value="Programada">Programada</option>
-                            <option value="En Sesión">En Sesión</option>
-                            <option value="Finalizada">Finalizada</option>
-                            <option value="Cobrada">Cobrada</option>
-                            <option value="Cancelada">Cancelada</option>
-                            <option value="Ausente">Ausente</option>
-                            <option value="Bloqueada">Bloqueada</option>
-                        </select>
-                    </div>
-
-                    {!isRole('THERAPIST') && (
-                        <div className="filter-group-inline">
-                            <User size={14} className="text-slate-400" />
-                            <select value={therapistFilter} onChange={e => setTherapistFilter(e.target.value)}>
-                                <option value="ALL">Cualquier Profesional</option>
-                                {uniqueTherapists.map(t => (
-                                    <option key={t.id} value={t.id}>{t.name}</option>
-                                ))}
-                            </select>
-                        </div>
-                    )}
                 </div>
             </Card>
 
@@ -203,9 +226,49 @@ const AppointmentRegistry: React.FC = () => {
                         <tr>
                             <th>Fecha y Hora</th>
                             <th>Paciente / Descripción</th>
-                            <th>Terapeuta</th>
+                            <th>
+                                <div className="header-with-filter">
+                                    <span>Terapeuta</span>
+                                    {!isRole('THERAPIST') && (
+                                        <select className="header-select" value={therapistFilter} onChange={e => setTherapistFilter(e.target.value)}>
+                                            <option value="ALL">Todos</option>
+                                            {uniqueTherapists.map(t => (
+                                                <option key={t.id} value={t.id}>{t.name}</option>
+                                            ))}
+                                        </select>
+                                    )}
+                                </div>
+                            </th>
                             <th>Servicio</th>
-                            <th>Estado</th>
+                            <th>
+                                <div className="header-with-filter">
+                                    <span>Estado</span>
+                                    <select className="header-select" value={statusFilter} onChange={e => setStatusFilter(e.target.value)}>
+                                        <option value="ALL">Todos</option>
+                                        <option value="Programada">Programada</option>
+                                        <option value="En Sesión">En Sesión</option>
+                                        <option value="Finalizada">Finalizada</option>
+                                        <option value="Cobrada">Cobrada</option>
+                                        <option value="Cancelada">Cancelada</option>
+                                        <option value="Ausente">Ausente</option>
+                                        <option value="Bloqueada">Bloqueada</option>
+                                    </select>
+                                </div>
+                            </th>
+                            <th>
+                                <div className="header-with-filter">
+                                    <span>Forma de Pago</span>
+                                    <select className="header-select" value={paymentFilter} onChange={e => setPaymentFilter(e.target.value)}>
+                                        <option value="ALL">Todos</option>
+                                        <option value="PAGADO">Cobrado (Cualquiera)</option>
+                                        <option value="PENDIENTE">Pendiente</option>
+                                        <option value="Efectivo">Efectivo</option>
+                                        <option value="Tarjeta">Tarjeta</option>
+                                        <option value="Transferencia">Transferencia</option>
+                                        <option value="Fin de mes">Fin de mes</option>
+                                    </select>
+                                </div>
+                            </th>
                             <th className="text-right">Acciones</th>
                         </tr>
                     </thead>
@@ -259,6 +322,31 @@ const AppointmentRegistry: React.FC = () => {
                                         <span className={`badge ${getStatusBadgeClass(appt.status)}`}>
                                             {appt.status}
                                         </span>
+                                    </td>
+                                    <td>
+                                        {(() => {
+                                            const payInfo = getPaymentInfo(appt);
+                                            if (!payInfo) return <span className="text-slate-300">—</span>;
+                                            
+                                            if (payInfo.isPaid) {
+                                                return (
+                                                    <div className="flex items-center gap-2 text-emerald-600 font-bold text-xs uppercase">
+                                                        {payInfo.method === 'Tarjeta' && <CreditCard size={14} />}
+                                                        {payInfo.method === 'Efectivo' && <Wallet size={14} />}
+                                                        {payInfo.method === 'Transferencia' && <Send size={14} />}
+                                                        {payInfo.method === 'Fin de mes' && <CalendarClock size={14} />}
+                                                        {payInfo.label}
+                                                    </div>
+                                                );
+                                            } else {
+                                                return (
+                                                    <div className="flex items-center gap-1.5 text-amber-600 font-bold text-xs uppercase">
+                                                        <AlertTriangle size={14} />
+                                                        {payInfo.label}
+                                                    </div>
+                                                );
+                                            }
+                                        })()}
                                     </td>
                                     <td className="text-right">
                                         <div className="flex justify-end gap-2">

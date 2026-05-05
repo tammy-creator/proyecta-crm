@@ -168,6 +168,39 @@
     font-size: 0.75rem;
     letter-spacing: 0.05em;
     border-bottom: 1.5px solid #e2e8f0;
+    vertical-align: middle;
+}
+
+.header-with-filter {
+    display: flex;
+    flex-direction: column;
+    gap: 0.4rem;
+}
+
+.header-select {
+    background: #ffffff;
+    border: 1px solid #e2e8f0;
+    border-radius: 6px;
+    padding: 2px 4px;
+    font-size: 0.7rem;
+    font-weight: 600;
+    color: #475569;
+    outline: none;
+    cursor: pointer;
+    text-transform: none;
+    letter-spacing: normal;
+    width: fit-content;
+    max-width: 100%;
+}
+
+.header-select:hover {
+    border-color: #cbd5e1;
+    background: #f8fafc;
+}
+
+.header-select:focus {
+    border-color: #1A5F7A;
+    box-shadow: 0 0 0 2px rgba(26, 95, 122, 0.1);
 }
 
 .registry-table td {

@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { getTransactions, recordPayment, updateTransaction, createTransaction, toggleReconciliation } from './service';
 import { type Transaction, type PaymentMethod } from './types';
 import Card from '../../components/ui/Card';
-import { DollarSign, Clock, CheckCircle, CreditCard, Wallet, Send, Download, Calendar as CalendarIcon, Edit2, X, FileText, Receipt, Filter, TrendingUp, AlertTriangle, Banknote, User } from 'lucide-react';
+import { DollarSign, Clock, CheckCircle, CreditCard, Wallet, Send, Download, Calendar as CalendarIcon, Edit2, X, FileText, Receipt, Filter, TrendingUp, AlertTriangle, Banknote, User, CalendarClock } from 'lucide-react';
 import { format, parseISO, startOfDay, endOfDay, isValid, isSameMonth } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { getPatients } from '../patients/service';
@@ -35,7 +35,7 @@ const BillingView: React.FC = () => {
     const [loading, setLoading] = useState(true);
     const [selectedDate, setSelectedDate] = useState<string>(format(new Date(), 'yyyy-MM-dd'));
     const [statusFilter, setStatusFilter] = useState<'ALL' | 'Pendiente' | 'Pagado'>('ALL');
-    const [methodFilter, setMethodFilter] = useState<'ALL' | 'Efectivo' | 'Tarjeta' | 'Transferencia'>('ALL');
+    const [methodFilter, setMethodFilter] = useState<'ALL' | 'Efectivo' | 'Tarjeta' | 'Transferencia' | 'Fin de mes'>('ALL');
     const [reconciledFilter, setReconciledFilter] = useState<'ALL' | 'VERIFIED' | 'PENDING'>('ALL');
 
 
@@ -431,6 +431,7 @@ const BillingView: React.FC = () => {
                                     <option value="Efectivo">Efectivo</option>
                                     <option value="Tarjeta">Tarjeta</option>
                                     <option value="Transferencia">Transferencia</option>
+                                    <option value="Fin de mes">Fin de mes</option>
                                 </select>
                             </div>
                             {!isTherapist && (
@@ -637,6 +638,7 @@ const BillingView: React.FC = () => {
                                                     <button className="btn-payment-method" onClick={() => handleChargeAppointment(appt, 'Efectivo')} title="Cobrar Efectivo"><Wallet size={14} /></button>
                                                     <button className="btn-payment-method" onClick={() => handleChargeAppointment(appt, 'Tarjeta')} title="Cobrar Tarjeta"><CreditCard size={14} /></button>
                                                     <button className="btn-payment-method" onClick={() => handleChargeAppointment(appt, 'Transferencia')} title="Cobrar Transferencia"><Send size={14} /></button>
+                                                    <button className="btn-payment-method" onClick={() => handleChargeAppointment(appt, 'Fin de mes')} title="Cobrar Fin de Mes"><CalendarClock size={14} /></button>
                                                 </div>
                                             </td>
                                         </tr>
@@ -674,6 +676,7 @@ const BillingView: React.FC = () => {
                                                         {t.method === 'Tarjeta' && <CreditCard size={12} />}
                                                         {t.method === 'Efectivo' && <Wallet size={12} />}
                                                         {t.method === 'Transferencia' && <Send size={12} />}
+                                                        {t.method === 'Fin de mes' && <CalendarClock size={12} />}
                                                         {t.method}
                                                     </span>
                                                 ) : '—'}
@@ -691,6 +694,8 @@ const BillingView: React.FC = () => {
                                                         <div className="payment-actions flex gap-1">
                                                             <button className="btn-payment-method" onClick={() => handlePayment(t.id, 'Efectivo')} title="Efectivo"><Wallet size={14} /></button>
                                                             <button className="btn-payment-method" onClick={() => handlePayment(t.id, 'Tarjeta')} title="Tarjeta"><CreditCard size={14} /></button>
+                                                            <button className="btn-payment-method" onClick={() => handlePayment(t.id, 'Transferencia')} title="Transferencia"><Send size={14} /></button>
+                                                            <button className="btn-payment-method" onClick={() => handlePayment(t.id, 'Fin de mes')} title="Fin de Mes"><CalendarClock size={14} /></button>
                                                         </div>
                                                     )}
                                                 </div>
@@ -757,6 +762,7 @@ const BillingView: React.FC = () => {
                                         <option value="Efectivo">Efectivo</option>
                                         <option value="Tarjeta">Tarjeta</option>
                                         <option value="Transferencia">Transferencia</option>
+                                        <option value="Fin de mes">Fin de mes</option>
                                     </select>
                                 </div>
                             )}
@@ -803,7 +809,7 @@ const BillingView: React.FC = () => {
                             <div className="breakdown-section mb-6">
                                 <h4 className="border-bottom pb-2 mb-3">Desglose por Forma de Pago</h4>
                                 <div className="grid grid-cols-3 gap-4">
-                                    {['Efectivo', 'Tarjeta', 'Transferencia'].map(method => {
+                                    {['Efectivo', 'Tarjeta', 'Transferencia', 'Fin de mes'].map(method => {
                                         const total = txForDay
                                             .filter((t: Transaction) => t.method === method && t.status === 'Pagado')
                                             .reduce((acc: number, t: Transaction) => acc + t.amount, 0);
@@ -900,6 +906,13 @@ const BillingView: React.FC = () => {
                                                             title="Cobrar Transferencia"
                                                         >
                                                             <Send size={14} />
+                                                        </button>
+                                                        <button
+                                                            className="btn-payment-method"
+                                                            onClick={() => t._rawAppt ? handleChargeAppointment(t._rawAppt, 'Fin de mes') : handlePayment(t.id, 'Fin de mes')}
+                                                            title="Cobrar Fin de Mes"
+                                                        >
+                                                            <CalendarClock size={14} />
                                                         </button>
                                                     </div>
                                                 </td>

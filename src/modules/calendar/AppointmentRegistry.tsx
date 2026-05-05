@@ -90,11 +90,12 @@ const AppointmentRegistry: React.FC = () => {
 
     const getPaymentInfo = (appt: Appointment) => {
         const tx = transactions.find(t => t.appointmentId === appt.id);
-        if (tx && tx.status === 'Pagado') {
+        if (tx) {
             return {
                 method: tx.method,
-                label: tx.method || 'Pagado',
-                isPaid: true
+                label: tx.method || (tx.status === 'Pagado' ? 'Pagado' : 'Pendiente'),
+                isPaid: tx.status === 'Pagado',
+                status: tx.status
             };
         }
         
@@ -104,7 +105,8 @@ const AppointmentRegistry: React.FC = () => {
         if (apptStart < now && appt.status !== 'Cancelada' && appt.status !== 'Bloqueada') {
             return {
                 label: 'Pendiente de pago',
-                isPaid: false
+                isPaid: false,
+                method: 'PENDIENTE'
             };
         }
         
@@ -200,22 +202,20 @@ const AppointmentRegistry: React.FC = () => {
 
                 setAppointments(prev => prev.map(a => a.id === appt.id ? { ...a, isPaid: false } : a));
                 showToast("Cobro eliminado", 'info');
-            } else {
-                // 1. Validate we have a patient
-                if (!appt.patientId) {
-                    showToast("No se puede cobrar una cita sin paciente asignado", 'error');
-                    return;
-                }
+                // 2. Determine status and isPaid
+                const txStatus = method === 'Fin de mes' ? 'Pendiente' : 'Pagado';
+                const isPaid = method !== 'Fin de mes';
 
-                // 2. Check if transaction already exists to update it, or create new one
+                // 3. Check if transaction already exists to update it, or create new one
                 const existingTx = transactions.find(t => t.appointmentId === appt.id);
                 
                 if (existingTx) {
-                    await recordPayment(existingTx.id, method as any);
-                    // Also update amount if it changed
-                    if (existingTx.amount !== (appt.price || 60)) {
-                        await updateTransaction({ ...existingTx, amount: appt.price || 60, method: method as any });
-                    }
+                    await updateTransaction({ 
+                        ...existingTx, 
+                        status: txStatus, 
+                        method: method as any,
+                        amount: appt.price || 60 
+                    });
                 } else {
                     await createTransaction({
                         appointmentId: appt.id,
@@ -224,19 +224,19 @@ const AppointmentRegistry: React.FC = () => {
                         therapistName: appt.therapistName || '',
                         amount: appt.price || 60,
                         method: method as any,
-                        date: appt.start, // Use appt start time
-                        status: 'Pagado',
+                        date: appt.start,
+                        status: txStatus,
                         category: appt.type || 'Sesión',
                         notes: `Gestionado desde Registro de Citas`
                     });
                 }
 
-                // 3. Mark as paid
-                const newStatus = appt.status === 'Finalizada' ? 'Cobrada' : appt.status;
-                await updateAppointment({ ...appt, isPaid: true, status: newStatus });
+                // 4. Mark appointment status
+                const newStatus = (isPaid && appt.status === 'Finalizada') ? 'Cobrada' : appt.status;
+                await updateAppointment({ ...appt, isPaid, status: newStatus });
 
-                setAppointments(prev => prev.map(a => a.id === appt.id ? { ...a, isPaid: true, status: newStatus } : a));
-                showToast(`Cobro registrado: ${method}`, 'success');
+                setAppointments(prev => prev.map(a => a.id === appt.id ? { ...a, isPaid, status: newStatus } : a));
+                showToast(isPaid ? `Cobro registrado: ${method}` : `Asignado a: ${method} (Pendiente)`, 'success');
             }
             
             // Refresh transactions
@@ -467,10 +467,12 @@ const AppointmentRegistry: React.FC = () => {
                                             const payInfo = getPaymentInfo(appt);
                                             
                                             if (isRole('ADMIN')) {
+                                                const currentMethod = payInfo?.method || 'PENDIENTE';
+                                                const isPaid = payInfo?.isPaid || false;
                                                 return (
                                                     <select 
-                                                        className={`registry-payment-select ${payInfo?.isPaid ? 'paid' : 'unpaid'}`}
-                                                        value={payInfo?.isPaid ? payInfo.method : 'PENDIENTE'}
+                                                        className={`registry-payment-select ${isPaid ? 'paid' : 'unpaid'} ${currentMethod === 'Fin de mes' ? 'delayed' : ''}`}
+                                                        value={currentMethod}
                                                         onChange={(e) => handlePaymentChange(appt, e.target.value)}
                                                     >
                                                         <option value="PENDIENTE">⚠️ Pendiente</option>

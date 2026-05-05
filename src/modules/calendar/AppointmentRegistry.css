@@ -485,6 +485,12 @@
     border-color: #fde68a;
 }
 
+.registry-payment-select.delayed {
+    background-color: #eff6ff;
+    color: #1e40af;
+    border-color: #bfdbfe;
+}
+
 .registry-payment-select.paid {
     background-color: #ecfdf5;
     color: #065f46;

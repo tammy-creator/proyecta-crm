@@ -25,7 +25,7 @@ import {
     CalendarClock
 } from 'lucide-react';
 import { getAppointments, updateAppointment } from './service';
-import { getTransactions, createTransaction } from '../billing/service';
+import { getTransactions, createTransaction, recordPayment, updateTransaction } from '../billing/service';
 import { type Transaction } from '../billing/types';
 import { type Appointment, type AppointmentStatus } from './types';
 import { useAuth } from '../../context/AuthContext';
@@ -191,7 +191,8 @@ const AppointmentRegistry: React.FC = () => {
                 // 1. Delete transactions for this appt
                 const txToDelete = transactions.filter(t => t.appointmentId === appt.id);
                 for (const tx of txToDelete) {
-                    await supabase.from('transactions').delete().eq('id', tx.id);
+                    const { error } = await supabase.from('transactions').delete().eq('id', tx.id);
+                    if (error) throw error;
                 }
 
                 // 2. Mark appt as unpaid
@@ -200,35 +201,42 @@ const AppointmentRegistry: React.FC = () => {
                 setAppointments(prev => prev.map(a => a.id === appt.id ? { ...a, isPaid: false } : a));
                 showToast("Cobro eliminado", 'info');
             } else {
-                // 1. Check if transaction already exists to update it, or create new one
+                // 1. Validate we have a patient
+                if (!appt.patientId) {
+                    showToast("No se puede cobrar una cita sin paciente asignado", 'error');
+                    return;
+                }
+
+                // 2. Check if transaction already exists to update it, or create new one
                 const existingTx = transactions.find(t => t.appointmentId === appt.id);
                 
                 if (existingTx) {
-                    await supabase.from('transactions').update({ 
-                        method, 
-                        amount: appt.price || 60 
-                    }).eq('id', existingTx.id);
+                    await recordPayment(existingTx.id, method as any);
+                    // Also update amount if it changed
+                    if (existingTx.amount !== (appt.price || 60)) {
+                        await updateTransaction({ ...existingTx, amount: appt.price || 60, method: method as any });
+                    }
                 } else {
                     await createTransaction({
                         appointmentId: appt.id,
-                        patientId: appt.patientId || '',
+                        patientId: appt.patientId,
                         patientName: appt.patientName || '',
                         therapistName: appt.therapistName || '',
                         amount: appt.price || 60,
                         method: method as any,
-                        date: new Date().toISOString(),
+                        date: appt.start, // Use appt start time
                         status: 'Pagado',
-                        category: 'Terapia',
+                        category: appt.type || 'Sesión',
                         notes: `Gestionado desde Registro de Citas`
                     });
                 }
 
-                // 2. Mark as paid
+                // 3. Mark as paid
                 const newStatus = appt.status === 'Finalizada' ? 'Cobrada' : appt.status;
                 await updateAppointment({ ...appt, isPaid: true, status: newStatus });
 
                 setAppointments(prev => prev.map(a => a.id === appt.id ? { ...a, isPaid: true, status: newStatus } : a));
-                showToast(`Cobro actualizado: ${method}`, 'success');
+                showToast(`Cobro registrado: ${method}`, 'success');
             }
             
             // Refresh transactions
@@ -236,7 +244,7 @@ const AppointmentRegistry: React.FC = () => {
             setTransactions(txData);
         } catch (error) {
             console.error("Error updating payment:", error);
-            showToast("Error al procesar el cobro", 'error');
+            showToast("Error al procesar el cobro. Revisa la consola.", 'error');
         }
     };
 

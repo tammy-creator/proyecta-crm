@@ -202,6 +202,13 @@ const AppointmentRegistry: React.FC = () => {
 
                 setAppointments(prev => prev.map(a => a.id === appt.id ? { ...a, isPaid: false } : a));
                 showToast("Cobro eliminado", 'info');
+            } else {
+                // 1. Validate we have a patient
+                if (!appt.patientId) {
+                    showToast("No se puede cobrar una cita sin paciente asignado", 'error');
+                    return;
+                }
+
                 // 2. Determine status and isPaid
                 const txStatus = method === 'Fin de mes' ? 'Pendiente' : 'Pagado';
                 const isPaid = method !== 'Fin de mes';
@@ -232,7 +239,13 @@ const AppointmentRegistry: React.FC = () => {
                 }
 
                 // 4. Mark appointment status
-                const newStatus = (isPaid && appt.status === 'Finalizada') ? 'Cobrada' : appt.status;
+                // We only set to 'Cobrada' if it's a FINALIZED session being PAID now.
+                // If it's 'Fin de mes' (isPaid=false), we keep the status as is (usually 'Finalizada').
+                let newStatus = appt.status;
+                if (isPaid && (appt.status === 'Finalizada' || getEffectiveStatus(appt) === 'Finalizada')) {
+                    newStatus = 'Cobrada';
+                }
+
                 await updateAppointment({ ...appt, isPaid, status: newStatus });
 
                 setAppointments(prev => prev.map(a => a.id === appt.id ? { ...a, isPaid, status: newStatus } : a));

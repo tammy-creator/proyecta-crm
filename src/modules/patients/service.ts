@@ -286,7 +286,10 @@ export const uploadPatientFileContent = async (patientId: string, fileName: stri
     const cleanFileName = sanitizePath(fileName);
     const filePath = `${patientId}/${cleanFileName}`;
 
-    // 2. Subimos al Storage
+    console.warn("[Storage Migration] Supabase Storage upload is disabled. Redirecting to new server logic is pending.");
+    throw new Error("La subida de archivos a Supabase ha sido desactivada. Por favor, contacta con soporte para habilitar el nuevo servidor de archivos.");
+    
+    /* 
     const { error: storageError } = await supabase.storage
         .from('patient-docs')
         .upload(filePath, fileContent, {
@@ -295,6 +298,7 @@ export const uploadPatientFileContent = async (patientId: string, fileName: stri
         });
 
     if (storageError) throw storageError;
+    */
 
     // 3. Registramos en la base de datos
     const { data, error: dbError } = await supabase
@@ -328,16 +332,12 @@ export const uploadPatientFile = async (patientId: string, file: Omit<PatientFil
 };
 
 export const getPatientFileUrl = async (patientId: string, fileName: string): Promise<string> => {
-    // Sanitize path like we did in import
     const sanitizePath = (str: string) => str.normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/\s+/g, '_').replace(/[^a-zA-Z0-9._-]/g, '');
     const cleanFileName = sanitizePath(fileName);
-    const filePath = `${patientId}/${cleanFileName}`;
     
-    const { data } = supabase.storage
-        .from('patient-docs')
-        .getPublicUrl(filePath);
-    
-    return data.publicUrl;
+    // Nueva URL apuntando al servidor propio
+    const baseUrl = import.meta.env.VITE_DOCS_SERVER_URL || '';
+    return `${baseUrl}${patientId}/${cleanFileName}`;
 };
 
 export const deletePatientFile = async (fileId: string, patientId?: string, fileName?: string): Promise<void> => {
@@ -348,20 +348,8 @@ export const deletePatientFile = async (fileId: string, patientId?: string, file
         .eq('id', fileId);
     if (dbError) throw dbError;
 
-    // 2. Si tenemos info para el Storage, borrar también de forma silenciosa
-    if (patientId && fileName) {
-        const sanitizePath = (str: string) => str.normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/\s+/g, '_').replace(/[^a-zA-Z0-9._-]/g, '');
-        const cleanFileName = sanitizePath(fileName);
-        const filePath = `${patientId}/${cleanFileName}`;
-
-        const { error: storageError } = await supabase.storage
-            .from('patient-docs')
-            .remove([filePath]);
-        
-        if (storageError) {
-            console.warn(`[Persistence] Could not delete file ${filePath} from storage:`, storageError);
-        }
-    }
+    // 2. El borrado en Storage (Supabase) ya no es necesario
+    console.log(`[Storage Migration] File record ${fileId} deleted from DB. Storage removal skipped as it is now on a custom server.`);
 };
 
 export const getPatientsWithPoorAttendance = async (): Promise<Patient[]> => {

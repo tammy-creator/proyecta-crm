@@ -1,19 +1,27 @@
 import { supabase } from '../../lib/supabase';
 import { type Therapist } from './types';
 
-const mapTherapist = (row: any): Therapist => ({
-    id: row.id,
-    fullName: row.full_name,
-    specialty: row.specialty,
-    licenseNumber: row.license_number,
-    dni: row.dni,
-    email: row.email,
-    phone: row.phone,
-    color: row.color ?? '#BCE4EA',
-    avatarUrl: row.avatar_url,
-    sessionStartOffset: row.session_start_offset ?? 0,
-    schedule: row.schedule ?? [],
-});
+const mapTherapist = (row: any): Therapist => {
+    let avatarUrl = row.avatar_url;
+    if (avatarUrl && !avatarUrl.startsWith('http')) {
+        const baseUrl = import.meta.env.VITE_AVATARS_SERVER_URL || '';
+        avatarUrl = `${baseUrl}${avatarUrl}`;
+    }
+
+    return {
+        id: row.id,
+        fullName: row.full_name,
+        specialty: row.specialty,
+        licenseNumber: row.license_number,
+        dni: row.dni,
+        email: row.email,
+        phone: row.phone,
+        color: row.color ?? '#BCE4EA',
+        avatarUrl: avatarUrl,
+        sessionStartOffset: row.session_start_offset ?? 0,
+        schedule: row.schedule ?? [],
+    };
+};
 
 export const getTherapists = async (): Promise<Therapist[]> => {
     const { data, error } = await supabase
@@ -99,7 +107,10 @@ export const uploadTherapistAvatar = async (therapistId: string, file: File): Pr
     const fileName = `${therapistId}_${Date.now()}.${fileExt}`;
     const filePath = `${fileName}`; // Ya estamos en un bucket específico
 
-    // Subimos al Storage usando el bucket dedicado 'therapist-avatars'
+    console.warn("[Storage Migration] Therapist avatar upload is disabled. Supabase bucket is gone.");
+    throw new Error("La subida de avatares a Supabase ha sido desactivada. Por favor, usa el nuevo servidor.");
+    
+    /* 
     const { error: uploadError } = await supabase.storage
         .from('therapist-avatars') 
         .upload(filePath, file, {
@@ -117,5 +128,6 @@ export const uploadTherapistAvatar = async (therapistId: string, file: File): Pr
         .getPublicUrl(filePath);
 
     return data.publicUrl;
+    */
 };
 

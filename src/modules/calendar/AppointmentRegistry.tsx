@@ -25,7 +25,7 @@ import {
     CalendarClock
 } from 'lucide-react';
 import { getAppointments, updateAppointment } from './service';
-import { getTransactions, createTransaction, recordPayment, updateTransaction } from '../billing/service';
+import { getTransactions, createTransaction, updateTransaction } from '../billing/service';
 import { type Transaction } from '../billing/types';
 import { type Appointment, type AppointmentStatus } from './types';
 import { useAuth } from '../../context/AuthContext';

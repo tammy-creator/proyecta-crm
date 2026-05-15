@@ -282,9 +282,9 @@ export const deletePatient = async (id: string): Promise<void> => {
 
 export const uploadPatientFileContent = async (patientId: string, fileName: string, fileContent: Blob | ArrayBuffer, type: string): Promise<PatientFile> => {
     // 1. Saneamos el nombre para el almacenamiento
-    const sanitizePath = (str: string) => str.normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/\s+/g, '_').replace(/[^a-zA-Z0-9._-]/g, '');
-    const cleanFileName = sanitizePath(fileName);
-    const filePath = `${patientId}/${cleanFileName}`;
+    // const sanitizePath = (str: string) => str.normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/\s+/g, '_').replace(/[^a-zA-Z0-9._-]/g, '');
+    // const cleanFileName = sanitizePath(fileName);
+    // const filePath = `${patientId}/${cleanFileName}`;
 
     console.warn("[Storage Migration] Supabase Storage upload is disabled. Redirecting to new server logic is pending.");
     throw new Error("La subida de archivos a Supabase ha sido desactivada. Por favor, contacta con soporte para habilitar el nuevo servidor de archivos.");
@@ -301,13 +301,14 @@ export const uploadPatientFileContent = async (patientId: string, fileName: stri
     */
 
     // 3. Registramos en la base de datos
+    const sizeInBytes = (fileContent as any).size ?? (fileContent as any).byteLength ?? 0;
     const { data, error: dbError } = await supabase
         .from('patient_files')
         .insert({
             patient_id: patientId,
             name: fileName,
             type: type,
-            size: `${((fileContent instanceof Blob ? fileContent.size : (fileContent as ArrayBuffer).byteLength) / (1024 * 1024)).toFixed(2)} MB`
+            size: `${(sizeInBytes / (1024 * 1024)).toFixed(2)} MB`
         })
         .select()
         .single();
@@ -340,7 +341,7 @@ export const getPatientFileUrl = async (patientId: string, fileName: string): Pr
     return `${baseUrl}${patientId}/${cleanFileName}`;
 };
 
-export const deletePatientFile = async (fileId: string, patientId?: string, fileName?: string): Promise<void> => {
+export const deletePatientFile = async (fileId: string, _patientId?: string, _fileName?: string): Promise<void> => {
     // 1. Borrar de la base de datos
     const { error: dbError } = await supabase
         .from('patient_files')

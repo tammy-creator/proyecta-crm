@@ -101,12 +101,7 @@ export const adminResetPassword = async (therapistId: string, newPassword: strin
     }
 };
 
-export const uploadTherapistAvatar = async (therapistId: string, file: File): Promise<string> => {
-    // Saneamos el nombre para el almacenamiento
-    const fileExt = file.name.split('.').pop();
-    const fileName = `${therapistId}_${Date.now()}.${fileExt}`;
-    const filePath = `${fileName}`; // Ya estamos en un bucket específico
-
+export const uploadTherapistAvatar = async (_therapistId: string, _file: File): Promise<string> => {
     console.warn("[Storage Migration] Therapist avatar upload is disabled. Supabase bucket is gone.");
     throw new Error("La subida de avatares a Supabase ha sido desactivada. Por favor, usa el nuevo servidor.");
     

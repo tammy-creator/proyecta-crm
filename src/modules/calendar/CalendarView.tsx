@@ -238,6 +238,19 @@ const CalendarView: React.FC<CalendarViewProps> = ({ mode: initialMode, therapis
         };
     }, [isEmbedded, dynamicHours]);
 
+    // Auto-scroll to current hour when grid opens or dynamic hours update
+    useEffect(() => {
+        const timeout = setTimeout(() => {
+            const currentHour = new Date().getHours();
+            const element = document.getElementById(`time-row-${currentHour}`);
+            if (element && gridRef.current) {
+                // Scroll to the hour, minus half a slot to see the previous hour context
+                gridRef.current.scrollTop = element.offsetTop - (slotHeight / 2);
+            }
+        }, 300); // Small delay to ensure render is complete
+        return () => clearTimeout(timeout);
+    }, [dynamicHours]);
+
     // Handle navigation from Dashboard or Registry
     useEffect(() => {
         const state = location.state as { date?: string; openAppointmentId?: string } | null;
@@ -1295,7 +1308,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({ mode: initialMode, therapis
                     {/* --- BODY COLUMNS (Row 2) --- */}
                     <div className="time-column flex flex-col bg-white" style={{ gridRow: '2', gridColumn: '1', position: 'sticky', left: 0, zIndex: 90, borderRight: '1px solid #e2e8f0' }}>
                         {dynamicHours.map((h: number) => (
-                            <div key={h} className="time-cell-group flex flex-col items-center justify-start" style={{ height: `${slotHeight}px`, padding: isEmbedded ? '4px 0' : '6px 0' }}>
+                            <div key={h} id={`time-row-${h}`} className="time-cell-group flex flex-col items-center justify-start" style={{ height: `${slotHeight}px`, padding: isEmbedded ? '4px 0' : '6px 0' }}>
                                 <div className="font-semibold text-gray-500 text-[11px] w-full text-center">{h}:00</div>
                                 {!isEmbedded && (
                                     <div className="font-medium text-gray-400 text-[10px] w-full text-center mt-auto">{h}:30</div>

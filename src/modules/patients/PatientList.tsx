@@ -37,7 +37,6 @@ const PatientList: React.FC = () => {
 
     // Canvas signature state
     const [drawing, setDrawing] = useState(false);
-    const [ctx, setCtx] = useState<CanvasRenderingContext2D | null>(null);
 
     const fetchData = () => {
         setLoading(true);
@@ -241,46 +240,67 @@ const PatientList: React.FC = () => {
 
     const startDrawing = (e: React.MouseEvent<HTMLCanvasElement> | React.TouchEvent<HTMLCanvasElement>) => {
         const canvas = e.currentTarget;
-        canvas.setAttribute('data-signed', 'true');
-        const context = canvas.getContext('2d');
-        if (context) {
-            context.beginPath();
-            const rect = canvas.getBoundingClientRect();
-            const scaleX = canvas.width / rect.width;
-            const scaleY = canvas.height / rect.height;
-            
-            const clientX = 'touches' in e ? e.touches[0].clientX : e.clientX;
-            const clientY = 'touches' in e ? e.touches[0].clientY : e.clientY;
+        const role = canvas.getAttribute('data-role') || 'tutor';
+        
+        // Target only canvases inside the active modal
+        const modalBody = document.querySelector('.consent-form-modal .modal-body');
+        const canvases = modalBody 
+            ? Array.from(modalBody.querySelectorAll(`.signature-pad-canvas[data-role="${role}"]`)) as HTMLCanvasElement[]
+            : [canvas];
 
-            context.moveTo(
-                (clientX - rect.left) * scaleX, 
-                (clientY - rect.top) * scaleY
-            );
-            setCtx(context);
-            setDrawing(true);
-        }
+        const rect = canvas.getBoundingClientRect();
+        const clientX = 'touches' in e ? e.touches[0].clientX : e.clientX;
+        const clientY = 'touches' in e ? e.touches[0].clientY : e.clientY;
+
+        canvases.forEach(c => {
+            c.setAttribute('data-signed', 'true');
+            const context = c.getContext('2d');
+            if (context) {
+                const scaleX = c.width / rect.width;
+                const scaleY = c.height / rect.height;
+                context.beginPath();
+                context.moveTo(
+                    (clientX - rect.left) * scaleX, 
+                    (clientY - rect.top) * scaleY
+                );
+            }
+        });
+
+        setDrawing(true);
         if ('touches' in e) e.preventDefault(); // Prevent scrolling while signing
     };
 
     const draw = (e: React.MouseEvent<HTMLCanvasElement> | React.TouchEvent<HTMLCanvasElement>) => {
-        if (!drawing || !ctx) return;
+        if (!drawing) return;
         const canvas = e.currentTarget;
+        const role = canvas.getAttribute('data-role') || 'tutor';
+
+        const modalBody = document.querySelector('.consent-form-modal .modal-body');
+        const canvases = modalBody 
+            ? Array.from(modalBody.querySelectorAll(`.signature-pad-canvas[data-role="${role}"]`)) as HTMLCanvasElement[]
+            : [canvas];
+
         const rect = canvas.getBoundingClientRect();
-        const scaleX = canvas.width / rect.width;
-        const scaleY = canvas.height / rect.height;
-        
         const clientX = 'touches' in e ? e.touches[0].clientX : e.clientX;
         const clientY = 'touches' in e ? e.touches[0].clientY : e.clientY;
 
-        ctx.lineTo(
-            (clientX - rect.left) * scaleX, 
-            (clientY - rect.top) * scaleY
-        );
-        ctx.strokeStyle = '#2c3e50';
-        ctx.lineWidth = 2.5;
-        ctx.lineCap = 'round';
-        ctx.lineJoin = 'round';
-        ctx.stroke();
+        canvases.forEach(c => {
+            const context = c.getContext('2d');
+            if (context) {
+                const scaleX = c.width / rect.width;
+                const scaleY = c.height / rect.height;
+                context.lineTo(
+                    (clientX - rect.left) * scaleX, 
+                    (clientY - rect.top) * scaleY
+                );
+                context.strokeStyle = '#2c3e50';
+                context.lineWidth = 2.5;
+                context.lineCap = 'round';
+                context.lineJoin = 'round';
+                context.stroke();
+            }
+        });
+
         setIsSigned(true);
         if ('touches' in e) e.preventDefault();
     };
@@ -289,15 +309,23 @@ const PatientList: React.FC = () => {
         setDrawing(false);
     };
 
-    const clearSignature = () => {
-        const canvases = document.querySelectorAll('.signature-pad-canvas');
+    const clearSignature = (role?: 'tutor' | 'tutor2' | 'therapist') => {
+        const modalBody = document.querySelector('.consent-form-modal .modal-body');
+        if (!modalBody) return;
+        
+        const selector = role ? `.signature-pad-canvas[data-role="${role}"]` : '.signature-pad-canvas';
+        const canvases = modalBody.querySelectorAll(selector);
         canvases.forEach(c => {
             const canvas = c as HTMLCanvasElement;
             canvas.removeAttribute('data-signed');
             const context = canvas.getContext('2d');
             context?.clearRect(0, 0, canvas.width, canvas.height);
         });
-        setIsSigned(false);
+        
+        // Recalcular isSigned
+        const allCanvases = Array.from(modalBody.querySelectorAll('.signature-pad-canvas')) as HTMLCanvasElement[];
+        const anySigned = allCanvases.some(c => c.getAttribute('data-signed') === 'true');
+        setIsSigned(anySigned);
     };
     const handleSaveDraftConsent = async () => {
         if (!selectedPatient?.id) return;
@@ -340,12 +368,19 @@ const PatientList: React.FC = () => {
         try {
             showToast("Generando PDF de alta calidad. Espere por favor...", "info");
             
-            const tutorCanvas = document.querySelector('.signature-pad-canvas[data-role="tutor"]') as HTMLCanvasElement;
-            const tutor2Canvas = document.querySelector('.signature-pad-canvas[data-role="tutor2"]') as HTMLCanvasElement;
-            const therapistCanvas = document.querySelector('.signature-pad-canvas[data-role="therapist"]') as HTMLCanvasElement;
+            const modalBody = document.querySelector('.consent-form-modal .modal-body');
             
-            const tutorSignature = tutorCanvas?.getAttribute('data-signed') === 'true' ? tutorCanvas.toDataURL('image/png') : selectedPatient.consentSignature;
+            // Tutor 1
+            const tutorCanvases = modalBody ? Array.from(modalBody.querySelectorAll('.signature-pad-canvas[data-role="tutor"]')) as HTMLCanvasElement[] : [];
+            const signedTutorCanvas = tutorCanvases.find(c => c.getAttribute('data-signed') === 'true');
+            const tutorSignature = signedTutorCanvas ? signedTutorCanvas.toDataURL('image/png') : selectedPatient.consentSignature;
+
+            // Tutor 2
+            const tutor2Canvas = modalBody?.querySelector('.signature-pad-canvas[data-role="tutor2"]') as HTMLCanvasElement;
             const tutor2Signature = tutor2Canvas?.getAttribute('data-signed') === 'true' ? tutor2Canvas.toDataURL('image/png') : selectedPatient.tutor2Signature;
+
+            // Therapist
+            const therapistCanvas = modalBody?.querySelector('.signature-pad-canvas[data-role="therapist"]') as HTMLCanvasElement;
             const therapistSignature = therapistCanvas?.getAttribute('data-signed') === 'true' ? therapistCanvas.toDataURL('image/png') : selectedPatient.therapistSignature;
 
             const extraFields: Record<string, string> = {};
@@ -388,15 +423,21 @@ const PatientList: React.FC = () => {
                 }
             });
 
-            const tutorCanvas = document.querySelector('.signature-pad-canvas[data-role="tutor"]') as HTMLCanvasElement;
-            const isTutorSigned = tutorCanvas?.getAttribute('data-signed') === 'true';
-            const tutorSignature = isTutorSigned ? tutorCanvas?.toDataURL('image/png') : selectedPatient.consentSignature;
+            const modalBody = document.querySelector('.consent-form-modal .modal-body');
 
-            const tutor2Canvas = document.querySelector('.signature-pad-canvas[data-role="tutor2"]') as HTMLCanvasElement;
+            // Tutor 1
+            const tutorCanvases = modalBody ? Array.from(modalBody.querySelectorAll('.signature-pad-canvas[data-role="tutor"]')) as HTMLCanvasElement[] : [];
+            const signedTutorCanvas = tutorCanvases.find(c => c.getAttribute('data-signed') === 'true');
+            const isTutorSigned = !!signedTutorCanvas;
+            const tutorSignature = isTutorSigned ? signedTutorCanvas?.toDataURL('image/png') : selectedPatient.consentSignature;
+
+            // Tutor 2
+            const tutor2Canvas = modalBody?.querySelector('.signature-pad-canvas[data-role="tutor2"]') as HTMLCanvasElement;
             const isTutor2Signed = tutor2Canvas?.getAttribute('data-signed') === 'true';
             const tutor2Signature = isTutor2Signed ? tutor2Canvas?.toDataURL('image/png') : selectedPatient.tutor2Signature;
 
-            const therapistCanvas = document.querySelector('.signature-pad-canvas[data-role="therapist"]') as HTMLCanvasElement;
+            // Therapist
+            const therapistCanvas = modalBody?.querySelector('.signature-pad-canvas[data-role="therapist"]') as HTMLCanvasElement;
             const isTherapistSigned = therapistCanvas?.getAttribute('data-signed') === 'true';
             const therapistSignature = isTherapistSigned ? therapistCanvas?.toDataURL('image/png') : selectedPatient.therapistSignature;
 

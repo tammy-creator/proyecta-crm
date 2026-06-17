@@ -12,7 +12,7 @@ interface ConsentDocumentProps {
     startDrawing?: (e: any) => void;
     draw?: (e: any) => void;
     stopDrawing?: () => void;
-    clearSignature?: () => void;
+    clearSignature?: (role: 'tutor' | 'tutor2' | 'therapist') => void;
 }
 
 const EditableLine: React.FC<{ defaultValue?: string; placeholder?: string; minWidth?: string; fieldId?: string }> = ({ defaultValue = '', placeholder = '', minWidth = '100px', fieldId }) => (
@@ -216,26 +216,26 @@ const ConsentDocument: React.FC<ConsentDocumentProps> = ({
                         name={`${patient.tutor1?.firstName} ${patient.tutor1?.lastName}`} 
                         dni={patient.tutor1?.dni} 
                         signatureUrl={signatureUrl}
-                        isInteractive={true}
+                        isInteractive={!isViewMode && !!startDrawing}
                         isViewMode={isViewMode}
                         isSigned={isSigned}
                         startDrawing={startDrawing}
                         draw={draw}
                         stopDrawing={stopDrawing}
-                        clearSignature={clearSignature}
+                        clearSignature={() => clearSignature?.('tutor')}
                     />
                     <SignatureBox 
                         label="Firma 2:" 
                         name={`${patient.tutor2?.firstName || '..........................'} ${patient.tutor2?.lastName || ''}`} 
                         dni={patient.tutor2?.dni} 
                         signatureUrl={tutor2SignatureUrl}
-                        isInteractive={true}
+                        isInteractive={!isViewMode && !!startDrawing}
                         isViewMode={isViewMode}
                         isSigned={isSigned}
                         startDrawing={startDrawing}
                         draw={draw}
                         stopDrawing={stopDrawing}
-                        clearSignature={clearSignature}
+                        clearSignature={() => clearSignature?.('tutor2')}
                         role="tutor2"
                     />
                 </div>
@@ -257,13 +257,13 @@ const ConsentDocument: React.FC<ConsentDocumentProps> = ({
                     name={`${patient.tutor1?.firstName} ${patient.tutor1?.lastName}`}
                     dni={patient.tutor1?.dni}
                     signatureUrl={signatureUrl}
-                    isInteractive={true}
+                    isInteractive={!isViewMode && !!startDrawing}
                     isViewMode={isViewMode}
                     isSigned={isSigned}
                     startDrawing={startDrawing}
                     draw={draw}
                     stopDrawing={stopDrawing}
-                    clearSignature={clearSignature}
+                    clearSignature={() => clearSignature?.('tutor')}
                 />
             </div>
             
@@ -381,12 +381,12 @@ const ConsentDocument: React.FC<ConsentDocumentProps> = ({
                               name={`${patient.tutor1?.firstName} ${patient.tutor1?.lastName}`}
                               dni={patient.tutor1?.dni}
                               signatureUrl={signatureUrl}
-                              isInteractive={true}
+                              isInteractive={!isViewMode && !!startDrawing}
                               isViewMode={isViewMode}
                               startDrawing={startDrawing}
                               draw={draw}
                               stopDrawing={stopDrawing}
-                              clearSignature={clearSignature}
+                              clearSignature={() => clearSignature?.('tutor')}
                           />
                       </div>
                 </section>
@@ -448,13 +448,13 @@ const ConsentDocument: React.FC<ConsentDocumentProps> = ({
                         name="Centro Infantil Proyecta"
                         dni="B01758515"
                         signatureUrl={therapistSignatureUrl}
-                        isInteractive={true}
+                        isInteractive={!isViewMode && !!startDrawing}
                         isViewMode={isViewMode}
                         isSigned={isSigned}
                         startDrawing={startDrawing}
                         draw={draw}
                         stopDrawing={stopDrawing}
-                        clearSignature={clearSignature}
+                        clearSignature={() => clearSignature?.('therapist')}
                         role="therapist"
                     />
                 </div>

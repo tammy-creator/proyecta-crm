@@ -339,15 +339,40 @@ const PatientList: React.FC = () => {
                 }
             });
 
+            const modalBody = document.getElementById('consent-modal-body');
+            console.log("[Save Draft] modalBody found:", !!modalBody);
+
+            // Tutor 1
+            const tutorCanvases = modalBody ? Array.from(modalBody.querySelectorAll('.signature-pad-canvas[data-role="tutor"]')) as HTMLCanvasElement[] : [];
+            const signedTutorCanvas = tutorCanvases.find(c => c.getAttribute('data-signed') === 'true');
+            const isTutorSigned = !!signedTutorCanvas;
+            const tutorSignature = isTutorSigned ? signedTutorCanvas?.toDataURL('image/png') : selectedPatient.consentSignature;
+            console.log("[Save Draft] Tutor 1 signed:", isTutorSigned, "signature length:", tutorSignature?.length);
+
+            // Tutor 2
+            const tutor2Canvas = modalBody?.querySelector('.signature-pad-canvas[data-role="tutor2"]') as HTMLCanvasElement;
+            const isTutor2Signed = tutor2Canvas?.getAttribute('data-signed') === 'true';
+            const tutor2Signature = isTutor2Signed ? tutor2Canvas?.toDataURL('image/png') : selectedPatient.tutor2Signature;
+            console.log("[Save Draft] Tutor 2 canvas found:", !!tutor2Canvas, "signed:", isTutor2Signed, "signature length:", tutor2Signature?.length);
+
+            // Therapist
+            const therapistCanvas = modalBody?.querySelector('.signature-pad-canvas[data-role="therapist"]') as HTMLCanvasElement;
+            const isTherapistSigned = therapistCanvas?.getAttribute('data-signed') === 'true';
+            const therapistSignature = isTherapistSigned ? therapistCanvas?.toDataURL('image/png') : selectedPatient.therapistSignature;
+            console.log("[Save Draft] Therapist canvas found:", !!therapistCanvas, "signed:", isTherapistSigned, "signature length:", therapistSignature?.length);
+
             const updatedPatientData = { 
                 ...selectedPatient as Patient, 
+                consentSignature: tutorSignature,
+                tutor2Signature: tutor2Signature,
+                therapistSignature: therapistSignature,
                 schooling: extraFields.school_stage || extraFields.school_name || (selectedPatient as Patient).schooling,
                 allergies: extraFields.allergies_detail || (selectedPatient as Patient).allergies,
                 referralSource: extraFields.referral_detail || (selectedPatient as Patient).referralSource
             };
 
             await updatePatient(updatedPatientData);
-            showToast("Borrador guardado correctamente. Los cambios en los textos se han actualizado.", "success");
+            showToast("Borrador guardado correctamente. Los cambios se han actualizado.", "success");
             
             // Refresh local data efficiently
             const updated = await getPatientById(selectedPatient.id);

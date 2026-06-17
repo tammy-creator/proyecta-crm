@@ -62,6 +62,9 @@ const SignatureBox: React.FC<{
     // Estado local para permitir borrar y volver a firmar en modo edición
     const [showCanvas, setShowCanvas] = React.useState(!signatureUrl);
 
+    // Timestamp fijo de renderizado para evitar cacheo de respuesta 404
+    const tRef = React.useRef(Date.now());
+
     // Si cambia signatureUrl externamente, actualizamos el estado
     React.useEffect(() => {
         if (!signatureUrl) setShowCanvas(true);
@@ -72,6 +75,10 @@ const SignatureBox: React.FC<{
         if (clearSignature) clearSignature();
         setShowCanvas(true);
     };
+
+    const imgSrc = (signatureUrl && (signatureUrl.startsWith('http://') || signatureUrl.startsWith('https://')))
+        ? `${signatureUrl}?t=${tRef.current}`
+        : signatureUrl;
 
     return (
         <div className="signature-area" style={{ border: '1px solid #e2e8f0', borderRadius: '12px', padding: '1.5rem', backgroundColor: '#f8fafc', flex: 1 }} data-role={role}>
@@ -85,7 +92,7 @@ const SignatureBox: React.FC<{
 
             <div className="signature-pad-container" style={{ position: 'relative', border: '2px dashed #cbd5e1', height: '140px', backgroundColor: 'white', borderRadius: '8px', cursor: isInteractive ? 'crosshair' : 'default' }}>
                 {signatureUrl && !showCanvas ? (
-                    <img src={signatureUrl} alt="Firma" style={{ width: '100%', height: '100%', objectFit: 'contain', padding: '10px' }} />
+                    <img src={imgSrc} alt="Firma" style={{ width: '100%', height: '100%', objectFit: 'contain', padding: '10px' }} />
                 ) : isInteractive ? (
                     <canvas
                         className={`signature-pad-canvas signature-role-${role}`}

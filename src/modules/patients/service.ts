@@ -346,7 +346,7 @@ export const getPatientFileUrl = async (patientId: string, fileName: string): Pr
     
     // Nueva URL apuntando al servidor propio
     const baseUrl = import.meta.env.VITE_DOCS_SERVER_URL || '';
-    return `${baseUrl}${patientId}_${cleanFileName}`;
+    return `${baseUrl}${patientId}/${cleanFileName}`;
 };
 
 export const deletePatientFile = async (fileId: string, _patientId?: string, _fileName?: string): Promise<void> => {

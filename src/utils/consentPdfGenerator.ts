@@ -87,10 +87,24 @@ const printJustifiedText = (doc: jsPDF, text: string, x: number, startY: number,
     return startY + (lines.length * lineHeight);
 };
 
+const ensureBase64 = async (signature: string | null): Promise<string | null> => {
+    if (!signature) return null;
+    if (signature.startsWith('data:image/')) {
+        return signature;
+    }
+    try {
+        return await getBase64ImageFromUrl(signature);
+    } catch (e) {
+        console.error("Error al convertir la URL de la firma a Base64:", e, signature);
+        return null;
+    }
+};
+
 export const generateConsentPDF = async (
     patient: Patient,
     extraFields: Record<string, string>,
     tutorSignature: string | null,
+    tutor2Signature: string | null,
     therapistSignature: string | null
 ): Promise<jsPDF> => {
     const doc = new jsPDF({ orientation: 'p', unit: 'pt', format: 'a4', compress: true });
@@ -104,6 +118,10 @@ export const generateConsentPDF = async (
     } catch (e) {
         console.warn("Could not load logo", e);
     }
+
+    const tutor1SigBase64 = await ensureBase64(tutorSignature);
+    const tutor2SigBase64 = await ensureBase64(tutor2Signature);
+    const therapistSigBase64 = await ensureBase64(therapistSignature);
 
     const age = extraFields['age'] || calculateAge(patient.birthDate);
     const today = new Date();
@@ -284,9 +302,9 @@ export const generateConsentPDF = async (
     doc.text(`DNI.- ${patient.tutor1?.dni || '..........................'}`, margin + 10, y + 55);
     doc.text(`En Gijón, a ${day} de ${month} de ${yearStr}`, margin + 10, y + 70);
 
-    if (tutorSignature) {
+    if (tutor1SigBase64) {
         try {
-            doc.addImage(tutorSignature, 'PNG', margin + 20, y + 80, sigBoxWidth - 40, 60, 'tutorSig', 'FAST');
+            doc.addImage(tutor1SigBase64, 'PNG', margin + 20, y + 80, sigBoxWidth - 40, 60, 'tutor1Sig', 'FAST');
         } catch (e) {
             console.error(e);
         }
@@ -308,9 +326,9 @@ export const generateConsentPDF = async (
     doc.text(`DNI.- ${patient.tutor2?.dni || '..........................'}`, margin + sigBoxWidth + 30, y + 55);
     doc.text(`En Gijón, a ${day} de ${month} de ${yearStr}`, margin + sigBoxWidth + 30, y + 70);
 
-    if (patient.tutor2?.firstName && tutorSignature) {
+    if (tutor2SigBase64) {
         try {
-            doc.addImage(tutorSignature, 'PNG', margin + sigBoxWidth + 50, y + 80, sigBoxWidth - 40, 60, 'tutorSig', 'FAST');
+            doc.addImage(tutor2SigBase64, 'PNG', margin + sigBoxWidth + 50, y + 80, sigBoxWidth - 40, 60, 'tutor2Sig', 'FAST');
         } catch (e) {
             console.error(e);
         }
@@ -353,9 +371,9 @@ export const generateConsentPDF = async (
     doc.text(`DNI.- ${patient.tutor1?.dni || '..........................'}`, margin + 15, y + 55);
     doc.text(`En Gijón, a ${day} de ${month} de ${yearStr}`, margin + 15, y + 70);
 
-    if (tutorSignature) {
+    if (tutor1SigBase64) {
         try {
-            doc.addImage(tutorSignature, 'PNG', margin + 150, y + 30, 200, 100, 'tutorSig', 'FAST');
+            doc.addImage(tutor1SigBase64, 'PNG', margin + 150, y + 30, 200, 100, 'tutor1Sig', 'FAST');
         } catch (e) {}
     }
 
@@ -505,9 +523,9 @@ export const generateConsentPDF = async (
     doc.setTextColor(100, 116, 139);
     doc.text(`D./Dª.- ${patient.tutor1?.firstName || ''} ${patient.tutor1?.lastName || ''}`, margin + 15, y + 40);
 
-    if (tutorSignature) {
+    if (tutor1SigBase64) {
         try {
-            doc.addImage(tutorSignature, 'PNG', margin + 150, y + 20, 200, 80, 'tutorSig', 'FAST');
+            doc.addImage(tutor1SigBase64, 'PNG', margin + 150, y + 20, 200, 80, 'tutor1Sig', 'FAST');
         } catch (e) {}
     }
 
@@ -611,9 +629,9 @@ export const generateConsentPDF = async (
     doc.text("Centro Infantil Proyecta", margin + 15, y + 40);
     doc.text("B01758515", margin + 15, y + 55);
 
-    if (therapistSignature) {
+    if (therapistSigBase64) {
         try {
-            doc.addImage(therapistSignature, 'PNG', margin + 150, y + 30, 200, 100, 'therapistSig', 'FAST');
+            doc.addImage(therapistSigBase64, 'PNG', margin + 150, y + 30, 200, 100, 'therapistSig', 'FAST');
         } catch (e) {}
     }
 

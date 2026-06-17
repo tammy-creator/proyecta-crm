@@ -23,7 +23,15 @@ const mapPatient = (row: any): Patient => {
         status: row.status,
         lastVisit: row.last_visit,
         notes: row.notes,
-        consentSignature: row.consent_signature,
+        consentSignature: row.consent_signature && row.consent_signature.trim().startsWith('{')
+            ? (JSON.parse(row.consent_signature).tutor1 || undefined)
+            : row.consent_signature,
+        tutor2Signature: row.consent_signature && row.consent_signature.trim().startsWith('{')
+            ? (JSON.parse(row.consent_signature).tutor2 || undefined)
+            : undefined,
+        therapistSignature: row.consent_signature && row.consent_signature.trim().startsWith('{')
+            ? (JSON.parse(row.consent_signature).therapist || undefined)
+            : undefined,
         consentLopd: row.consent_lopd,
         consentMarketing: row.consent_marketing,
         consentDate: row.consent_date,
@@ -165,6 +173,43 @@ export { markReviewClicked };
 export const updatePatient = async (patient: Patient): Promise<Patient> => {
     console.log(`[Persistence] Updating patient ${patient.id}...`);
 
+    // Procesar y subir firmas nuevas que estén en Base64
+    let tutor1Url = patient.consentSignature || '';
+    let tutor2Url = patient.tutor2Signature || '';
+    let therapistUrl = patient.therapistSignature || '';
+
+    if (tutor1Url && tutor1Url.startsWith('data:image/')) {
+        try {
+            tutor1Url = await uploadSignatureFile(patient.id, 'signature_tutor1.png', tutor1Url);
+        } catch (e) {
+            console.error("Error uploading tutor1 signature:", e);
+        }
+    }
+    if (tutor2Url && tutor2Url.startsWith('data:image/')) {
+        try {
+            tutor2Url = await uploadSignatureFile(patient.id, 'signature_tutor2.png', tutor2Url);
+        } catch (e) {
+            console.error("Error uploading tutor2 signature:", e);
+        }
+    }
+    if (therapistUrl && therapistUrl.startsWith('data:image/')) {
+        try {
+            therapistUrl = await uploadSignatureFile(patient.id, 'signature_therapist.png', therapistUrl);
+        } catch (e) {
+            console.error("Error uploading therapist signature:", e);
+        }
+    }
+
+    const consentSignatureObj = {
+        tutor1: tutor1Url || null,
+        tutor2: tutor2Url || null,
+        therapist: therapistUrl || null
+    };
+
+    const consentSignatureStr = (tutor1Url || tutor2Url || therapistUrl) 
+        ? JSON.stringify(consentSignatureObj) 
+        : null;
+
     // 1. Actualizar tabla base de Paciente
     const { error: rootError } = await supabase
         .from('patients')
@@ -182,7 +227,7 @@ export const updatePatient = async (patient: Patient): Promise<Patient> => {
             status: patient.status,
             last_visit: patient.lastVisit,
             notes: patient.notes,
-            consent_signature: patient.consentSignature,
+            consent_signature: consentSignatureStr,
             consent_lopd: patient.consentLopd,
             consent_marketing: patient.consentMarketing,
             consent_date: patient.consentDate,
@@ -278,6 +323,43 @@ export const deletePatient = async (id: string): Promise<void> => {
         console.error("[Persistence] Delete failed:", error);
         throw error;
     }
+};
+
+const dataURLtoBlob = (dataurl: string): Blob => {
+    const arr = dataurl.split(',');
+    const mime = arr[0].match(/:(.*?);/)?.[1] || 'image/png';
+    const bstr = atob(arr[1]);
+    let n = bstr.length;
+    const u8arr = new Uint8Array(n);
+    while (n--) {
+        u8arr[n] = bstr.charCodeAt(n);
+    }
+    return new Blob([u8arr], { type: mime });
+};
+
+export const uploadSignatureFile = async (patientId: string, fileName: string, base64Data: string): Promise<string> => {
+    const webhookUrl = import.meta.env.VITE_N8N_UPLOAD_WEBHOOK_URL;
+    if (!webhookUrl) {
+        throw new Error("La URL del webhook de n8n no está configurada.");
+    }
+
+    const blob = dataURLtoBlob(base64Data);
+    const formData = new FormData();
+    formData.append('file', blob, fileName);
+    formData.append('patientId', patientId);
+    formData.append('fileName', fileName);
+
+    const response = await fetch(webhookUrl, {
+        method: 'POST',
+        body: formData
+    });
+
+    if (!response.ok) {
+        const errText = await response.text();
+        throw new Error(`Error al subir la firma al servidor propio (${response.status}): ${errText}`);
+    }
+
+    return await getPatientFileUrl(patientId, fileName);
 };
 
 export const uploadPatientFileContent = async (patientId: string, fileName: string, fileContent: Blob | ArrayBuffer, type: string): Promise<PatientFile> => {

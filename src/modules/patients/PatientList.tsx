@@ -341,9 +341,11 @@ const PatientList: React.FC = () => {
             showToast("Generando PDF de alta calidad. Espere por favor...", "info");
             
             const tutorCanvas = document.querySelector('.signature-pad-canvas[data-role="tutor"]') as HTMLCanvasElement;
+            const tutor2Canvas = document.querySelector('.signature-pad-canvas[data-role="tutor2"]') as HTMLCanvasElement;
             const therapistCanvas = document.querySelector('.signature-pad-canvas[data-role="therapist"]') as HTMLCanvasElement;
             
             const tutorSignature = tutorCanvas?.getAttribute('data-signed') === 'true' ? tutorCanvas.toDataURL('image/png') : selectedPatient.consentSignature;
+            const tutor2Signature = tutor2Canvas?.getAttribute('data-signed') === 'true' ? tutor2Canvas.toDataURL('image/png') : selectedPatient.tutor2Signature;
             const therapistSignature = therapistCanvas?.getAttribute('data-signed') === 'true' ? therapistCanvas.toDataURL('image/png') : selectedPatient.therapistSignature;
 
             const extraFields: Record<string, string> = {};
@@ -358,6 +360,7 @@ const PatientList: React.FC = () => {
                 selectedPatient as Patient,
                 extraFields,
                 tutorSignature || null,
+                tutor2Signature || null,
                 therapistSignature || null
             );
             
@@ -389,19 +392,24 @@ const PatientList: React.FC = () => {
             const isTutorSigned = tutorCanvas?.getAttribute('data-signed') === 'true';
             const tutorSignature = isTutorSigned ? tutorCanvas?.toDataURL('image/png') : selectedPatient.consentSignature;
 
+            const tutor2Canvas = document.querySelector('.signature-pad-canvas[data-role="tutor2"]') as HTMLCanvasElement;
+            const isTutor2Signed = tutor2Canvas?.getAttribute('data-signed') === 'true';
+            const tutor2Signature = isTutor2Signed ? tutor2Canvas?.toDataURL('image/png') : selectedPatient.tutor2Signature;
+
             const therapistCanvas = document.querySelector('.signature-pad-canvas[data-role="therapist"]') as HTMLCanvasElement;
             const isTherapistSigned = therapistCanvas?.getAttribute('data-signed') === 'true';
             const therapistSignature = isTherapistSigned ? therapistCanvas?.toDataURL('image/png') : selectedPatient.therapistSignature;
 
-            if (tutorSignature || therapistSignature) {
+            if (tutorSignature || tutor2Signature || therapistSignature) {
                 const now = new Date().toISOString();
                 
                 const updatedPatientData = { 
                     ...selectedPatient as Patient, 
                     consentSignature: tutorSignature,
+                    tutor2Signature: tutor2Signature,
                     therapistSignature: therapistSignature,
                     consentLopd: true,
-                    consentDate: (isTutorSigned || isTherapistSigned) ? now : selectedPatient.consentDate || now,
+                    consentDate: (isTutorSigned || isTutor2Signed || isTherapistSigned) ? now : selectedPatient.consentDate || now,
                     schooling: extraFields.school_stage || extraFields.school_name || selectedPatient.schooling,
                     allergies: extraFields.allergies_detail || selectedPatient.allergies,
                     referralSource: extraFields.referral_detail || selectedPatient.referralSource
@@ -414,6 +422,7 @@ const PatientList: React.FC = () => {
                     updatedPatientData,
                     extraFields,
                     tutorSignature || null,
+                    tutor2Signature || null,
                     therapistSignature || null
                 );
 
@@ -1216,6 +1225,7 @@ const PatientList: React.FC = () => {
                                     patient={selectedPatient as Patient}
                                     isViewMode={isConsentViewMode}
                                     signatureUrl={selectedPatient.consentSignature}
+                                    tutor2SignatureUrl={selectedPatient.tutor2Signature}
                                     therapistSignatureUrl={selectedPatient.therapistSignature}
                                     isSigned={isSigned}
                                     startDrawing={startDrawing}
@@ -1281,6 +1291,8 @@ const PatientList: React.FC = () => {
                                 patient={selectedPatient as Patient}
                                 isViewMode={isConsentViewMode}
                                 signatureUrl={selectedPatient.consentSignature}
+                                tutor2SignatureUrl={selectedPatient.tutor2Signature}
+                                therapistSignatureUrl={selectedPatient.therapistSignature}
                                 isSigned={isSigned}
                             />
                         </PrintPortal>

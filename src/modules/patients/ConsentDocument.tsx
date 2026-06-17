@@ -6,6 +6,7 @@ interface ConsentDocumentProps {
     patient: Patient;
     isViewMode: boolean;
     signatureUrl?: string; // Firma del tutor
+    tutor2SignatureUrl?: string; // Firma del segundo tutor
     therapistSignatureUrl?: string; // Firma del terapeuta
     isSigned: boolean;
     startDrawing?: (e: any) => void;
@@ -56,7 +57,7 @@ const SignatureBox: React.FC<{
     draw?: (e: any) => void;
     stopDrawing?: () => void;
     clearSignature?: () => void;
-    role?: 'tutor' | 'therapist';
+    role?: 'tutor' | 'tutor2' | 'therapist';
 }> = ({ label, name, dni, signatureUrl, isInteractive, isSigned, startDrawing, draw, stopDrawing, clearSignature, role = 'tutor' }) => {
     // Estado local para permitir borrar y volver a firmar en modo edición
     const [showCanvas, setShowCanvas] = React.useState(!signatureUrl);
@@ -119,7 +120,7 @@ const SignatureBox: React.FC<{
 };
 
 const ConsentDocument: React.FC<ConsentDocumentProps> = ({ 
-    patient, isViewMode, signatureUrl, therapistSignatureUrl, isSigned,
+    patient, isViewMode, signatureUrl, tutor2SignatureUrl, therapistSignatureUrl, isSigned,
     startDrawing, draw, stopDrawing, clearSignature
 }) => {
     const today = new Date();
@@ -227,7 +228,7 @@ const ConsentDocument: React.FC<ConsentDocumentProps> = ({
                         label="Firma 2:" 
                         name={`${patient.tutor2?.firstName || '..........................'} ${patient.tutor2?.lastName || ''}`} 
                         dni={patient.tutor2?.dni} 
-                        signatureUrl={patient.tutor2?.firstName ? signatureUrl : undefined}
+                        signatureUrl={tutor2SignatureUrl}
                         isInteractive={true}
                         isViewMode={isViewMode}
                         isSigned={isSigned}
@@ -235,6 +236,7 @@ const ConsentDocument: React.FC<ConsentDocumentProps> = ({
                         draw={draw}
                         stopDrawing={stopDrawing}
                         clearSignature={clearSignature}
+                        role="tutor2"
                     />
                 </div>
             </div>

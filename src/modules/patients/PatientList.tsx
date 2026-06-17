@@ -243,7 +243,7 @@ const PatientList: React.FC = () => {
         const role = canvas.getAttribute('data-role') || 'tutor';
         
         // Target only canvases inside the active modal
-        const modalBody = document.querySelector('.consent-form-modal .modal-body');
+        const modalBody = document.getElementById('consent-modal-body');
         const canvases = modalBody 
             ? Array.from(modalBody.querySelectorAll(`.signature-pad-canvas[data-role="${role}"]`)) as HTMLCanvasElement[]
             : [canvas];
@@ -275,7 +275,7 @@ const PatientList: React.FC = () => {
         const canvas = e.currentTarget;
         const role = canvas.getAttribute('data-role') || 'tutor';
 
-        const modalBody = document.querySelector('.consent-form-modal .modal-body');
+        const modalBody = document.getElementById('consent-modal-body');
         const canvases = modalBody 
             ? Array.from(modalBody.querySelectorAll(`.signature-pad-canvas[data-role="${role}"]`)) as HTMLCanvasElement[]
             : [canvas];
@@ -310,7 +310,7 @@ const PatientList: React.FC = () => {
     };
 
     const clearSignature = (role?: 'tutor' | 'tutor2' | 'therapist') => {
-        const modalBody = document.querySelector('.consent-form-modal .modal-body');
+        const modalBody = document.getElementById('consent-modal-body');
         if (!modalBody) return;
         
         const selector = role ? `.signature-pad-canvas[data-role="${role}"]` : '.signature-pad-canvas';
@@ -368,20 +368,24 @@ const PatientList: React.FC = () => {
         try {
             showToast("Generando PDF de alta calidad. Espere por favor...", "info");
             
-            const modalBody = document.querySelector('.consent-form-modal .modal-body');
+            const modalBody = document.getElementById('consent-modal-body');
+            console.log("[PDF Download] modalBody found:", !!modalBody);
             
             // Tutor 1
             const tutorCanvases = modalBody ? Array.from(modalBody.querySelectorAll('.signature-pad-canvas[data-role="tutor"]')) as HTMLCanvasElement[] : [];
             const signedTutorCanvas = tutorCanvases.find(c => c.getAttribute('data-signed') === 'true');
             const tutorSignature = signedTutorCanvas ? signedTutorCanvas.toDataURL('image/png') : selectedPatient.consentSignature;
+            console.log("[PDF Download] Tutor 1 signed:", !!signedTutorCanvas, "signature length:", tutorSignature?.length);
 
             // Tutor 2
             const tutor2Canvas = modalBody?.querySelector('.signature-pad-canvas[data-role="tutor2"]') as HTMLCanvasElement;
             const tutor2Signature = tutor2Canvas?.getAttribute('data-signed') === 'true' ? tutor2Canvas.toDataURL('image/png') : selectedPatient.tutor2Signature;
+            console.log("[PDF Download] Tutor 2 canvas found:", !!tutor2Canvas, "signed:", tutor2Canvas?.getAttribute('data-signed') === 'true', "signature length:", tutor2Signature?.length);
 
             // Therapist
             const therapistCanvas = modalBody?.querySelector('.signature-pad-canvas[data-role="therapist"]') as HTMLCanvasElement;
             const therapistSignature = therapistCanvas?.getAttribute('data-signed') === 'true' ? therapistCanvas.toDataURL('image/png') : selectedPatient.therapistSignature;
+            console.log("[PDF Download] Therapist canvas found:", !!therapistCanvas, "signed:", therapistCanvas?.getAttribute('data-signed') === 'true', "signature length:", therapistSignature?.length);
 
             const extraFields: Record<string, string> = {};
             document.querySelectorAll('[data-field-id]').forEach(el => {
@@ -423,23 +427,28 @@ const PatientList: React.FC = () => {
                 }
             });
 
-            const modalBody = document.querySelector('.consent-form-modal .modal-body');
+            const modalBody = document.getElementById('consent-modal-body');
+            console.log("[Save Consent] modalBody found:", !!modalBody);
 
             // Tutor 1
             const tutorCanvases = modalBody ? Array.from(modalBody.querySelectorAll('.signature-pad-canvas[data-role="tutor"]')) as HTMLCanvasElement[] : [];
+            console.log("[Save Consent] Tutor canvases found count:", tutorCanvases.length);
             const signedTutorCanvas = tutorCanvases.find(c => c.getAttribute('data-signed') === 'true');
             const isTutorSigned = !!signedTutorCanvas;
             const tutorSignature = isTutorSigned ? signedTutorCanvas?.toDataURL('image/png') : selectedPatient.consentSignature;
+            console.log("[Save Consent] Tutor 1 signed:", isTutorSigned, "signature length:", tutorSignature?.length);
 
             // Tutor 2
             const tutor2Canvas = modalBody?.querySelector('.signature-pad-canvas[data-role="tutor2"]') as HTMLCanvasElement;
             const isTutor2Signed = tutor2Canvas?.getAttribute('data-signed') === 'true';
             const tutor2Signature = isTutor2Signed ? tutor2Canvas?.toDataURL('image/png') : selectedPatient.tutor2Signature;
+            console.log("[Save Consent] Tutor 2 canvas found:", !!tutor2Canvas, "signed:", isTutor2Signed, "signature length:", tutor2Signature?.length);
 
             // Therapist
             const therapistCanvas = modalBody?.querySelector('.signature-pad-canvas[data-role="therapist"]') as HTMLCanvasElement;
             const isTherapistSigned = therapistCanvas?.getAttribute('data-signed') === 'true';
             const therapistSignature = isTherapistSigned ? therapistCanvas?.toDataURL('image/png') : selectedPatient.therapistSignature;
+            console.log("[Save Consent] Therapist canvas found:", !!therapistCanvas, "signed:", isTherapistSigned, "signature length:", therapistSignature?.length);
 
             if (tutorSignature || tutor2Signature || therapistSignature) {
                 const now = new Date().toISOString();
@@ -1243,7 +1252,7 @@ const PatientList: React.FC = () => {
                         </div>
  
                         {/* Body - Scrollable */}
-                        <div className="modal-body" style={{ 
+                        <div id="consent-modal-body" className="modal-body" style={{ 
                             flex: 1, 
                             padding: '3rem 1rem', 
                             backgroundColor: '#64748b', 

@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useRef } from 'react';
-import { getPatients, getPatientById, createPatient, updatePatient, deletePatient, uploadPatientFile, deletePatientFile, uploadPatientFileContent } from './service';
+import { getPatients, getPatientById, createPatient, updatePatient, deletePatient, deletePatientFile, uploadPatientFileContent, getPatientFileUrl } from './service';
 import { supabase } from '../../lib/supabase';
 import { generateConsentPDF } from '../../utils/consentPdfGenerator';
 import { getAppointmentsByPatient } from '../calendar/service';
@@ -418,7 +418,7 @@ const PatientList: React.FC = () => {
                 );
 
                 const pdfBase64 = pdf.output('datauristring');
-                // const _pdfBlob = pdf.output('blob'); // Unused
+                const pdfBlob = pdf.output('blob');
                 const recipientEmail = updatedPatientData.tutor1?.email || updatedPatientData.email;
 
                 setProcessingStep('Guardando en archivos...');
@@ -434,11 +434,12 @@ const PatientList: React.FC = () => {
                             await deletePatientFile(oldFile.id, selectedPatient.id, oldFile.name);
                         }
 
-                        await uploadPatientFile(selectedPatient.id, {
-                            name: 'Ficha_Inscripcion_Firmada.pdf',
-                            type: 'application/pdf',
-                            size: '1.4 MB'
-                        });
+                        await uploadPatientFileContent(
+                            selectedPatient.id,
+                            'Ficha_Inscripcion_Firmada.pdf',
+                            pdfBlob,
+                            'application/pdf'
+                        );
                     } catch (uploadError) {
                         console.warn("Fallo al gestionar registro de archivo, pero se ignora:", uploadError);
                     }
@@ -546,12 +547,19 @@ const PatientList: React.FC = () => {
         }
     };
 
-    const handleViewFile = (file: PatientFile) => {
+    const handleViewFile = async (file: PatientFile) => {
         if (file.name === 'Ficha_Inscripcion_Firmada.pdf') {
             setIsConsentViewMode(true);
             setIsConsentModalOpen(true);
             setIsSigned(true);
-        } else {
+        } else if (selectedPatient?.id) {
+            try {
+                const url = await getPatientFileUrl(selectedPatient.id, file.name);
+                window.open(url, '_blank');
+            } catch (error) {
+                console.error("Error getting file URL:", error);
+                showToast("No se pudo obtener la URL del archivo", "error");
+            }
         }
     };
 

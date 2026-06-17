@@ -282,31 +282,39 @@ export const deletePatient = async (id: string): Promise<void> => {
 
 export const uploadPatientFileContent = async (patientId: string, fileName: string, fileContent: Blob | ArrayBuffer, type: string): Promise<PatientFile> => {
     // 1. Saneamos el nombre para el almacenamiento
-    // const sanitizePath = (str: string) => str.normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/\s+/g, '_').replace(/[^a-zA-Z0-9._-]/g, '');
-    // const cleanFileName = sanitizePath(fileName);
-    // const filePath = `${patientId}/${cleanFileName}`;
+    const sanitizePath = (str: string) => str.normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/\s+/g, '_').replace(/[^a-zA-Z0-9._-]/g, '');
+    const cleanFileName = sanitizePath(fileName);
 
-    console.warn("[Storage Migration] Supabase Storage upload is disabled. Redirecting to new server logic is pending.");
-    throw new Error("La subida de archivos a Supabase ha sido desactivada. Por favor, contacta con soporte para habilitar el nuevo servidor de archivos.");
-    
-    /* 
-    const { error: storageError } = await supabase.storage
-        .from('patient-docs')
-        .upload(filePath, fileContent, {
-            contentType: type,
-            upsert: true
-        });
+    const webhookUrl = import.meta.env.VITE_N8N_UPLOAD_WEBHOOK_URL;
+    if (!webhookUrl) {
+        throw new Error("La URL del webhook de n8n no está configurada en las variables de entorno.");
+    }
 
-    if (storageError) throw storageError;
-    */
+    // 2. Preparamos el FormData para el envío
+    const formData = new FormData();
+    const blob = fileContent instanceof Blob ? fileContent : new Blob([fileContent], { type });
+    formData.append('file', blob, cleanFileName);
+    formData.append('patientId', patientId);
+    formData.append('fileName', cleanFileName);
 
-    // 3. Registramos en la base de datos
+    // 3. Enviamos al webhook de n8n
+    const response = await fetch(webhookUrl, {
+        method: 'POST',
+        body: formData
+    });
+
+    if (!response.ok) {
+        const errText = await response.text();
+        throw new Error(`Error al subir el archivo al servidor propio (${response.status}): ${errText}`);
+    }
+
+    // 4. Registramos en la base de datos
     const sizeInBytes = (fileContent as any).size ?? (fileContent as any).byteLength ?? 0;
     const { data, error: dbError } = await supabase
         .from('patient_files')
         .insert({
             patient_id: patientId,
-            name: fileName,
+            name: cleanFileName,
             type: type,
             size: `${(sizeInBytes / (1024 * 1024)).toFixed(2)} MB`
         })

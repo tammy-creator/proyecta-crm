@@ -43,6 +43,7 @@ scratch_*
 *.json
 !package.json
 !package-lock.json
+!vercel.json
 !tsconfig*.json
 !composer.json
 !*.schema.json

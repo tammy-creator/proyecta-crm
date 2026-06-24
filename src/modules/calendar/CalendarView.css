@@ -294,9 +294,9 @@
 }
 
 .appointment-modal-narrow {
-    width: 480px !important;
+    width: 580px !important;
     max-width: 95vw !important;
-    padding: 1rem 1.25rem !important;
+    padding: 1.25rem 1.5rem !important;
 }
 
 .modal-footer {

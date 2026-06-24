@@ -1912,7 +1912,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({ mode: initialMode, therapis
                                 <div className="form-group"><label>Inicio</label><input type="time" required value={getModalStartTime()} onChange={e => handleModalTimeChange('start', e.target.value)} style={{ height: '36px', fontSize: '0.85rem' }} /></div>
                                 <div className="form-group"><label>Fin</label><input type="time" required value={getModalEndTime()} onChange={e => handleModalTimeChange('end', e.target.value)} style={{ height: '36px', fontSize: '0.85rem' }} /></div>
                             </div>
-                            <div className="form-grid">
+                            <div className="form-grid" style={{ gridTemplateColumns: selectedAppt.status !== 'Bloqueada' ? '1.5fr 1fr 1.2fr' : '1fr 1fr' }}>
                                 {selectedAppt.status !== 'Bloqueada' && (
                                     <div className="form-group">
                                         <label>Servicio Clínico</label>
@@ -1924,7 +1924,8 @@ const CalendarView: React.FC<CalendarViewProps> = ({ mode: initialMode, therapis
                                                 setSelectedAppt({
                                                     ...selectedAppt,
                                                     serviceId: e.target.value,
-                                                    type: s ? s.name : selectedAppt.type
+                                                    type: s ? s.name : selectedAppt.type,
+                                                    price: s ? s.price : undefined
                                                 });
                                             }}
                                             style={{ height: '36px', padding: '0 0.75rem', borderRadius: '8px', border: '1px solid #ddd', width: '100%', fontSize: '0.85rem' }}
@@ -1932,6 +1933,27 @@ const CalendarView: React.FC<CalendarViewProps> = ({ mode: initialMode, therapis
                                             <option value="">Seleccionar...</option>
                                             {services.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
                                         </select>
+                                    </div>
+                                )}
+                                {selectedAppt.status !== 'Bloqueada' && (
+                                    <div className="form-group">
+                                        <label>Precio Sesión (€)</label>
+                                        <input
+                                            type="number"
+                                            step="0.01"
+                                            min="0"
+                                            required
+                                            placeholder="Ej: 60.00"
+                                            value={selectedAppt.price !== undefined && selectedAppt.price !== null ? selectedAppt.price : ''}
+                                            onChange={e => {
+                                                const val = e.target.value;
+                                                setSelectedAppt({
+                                                    ...selectedAppt,
+                                                    price: val === '' ? undefined : Number(val)
+                                                });
+                                            }}
+                                            style={{ height: '36px', padding: '0 0.75rem', borderRadius: '8px', border: '1px solid #ddd', width: '100%', fontSize: '0.85rem' }}
+                                        />
                                     </div>
                                 )}
                                 <div className="form-group" style={{ gridColumn: selectedAppt.status === 'Bloqueada' ? 'span 2' : 'auto' }}>

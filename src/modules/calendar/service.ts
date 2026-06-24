@@ -12,7 +12,7 @@ const mapAppointment = (row: any): Appointment => ({
     end: row.end_time,
     status: row.status,
     type: row.type ?? '',
-    price: row.clinical_services?.price ?? undefined,
+    price: row.price ?? row.clinical_services?.price ?? undefined,
     notes: row.notes,
     sessionDiary: row.session_diary,
     isPaid: row.is_paid ?? false,
@@ -43,7 +43,7 @@ export const getAppointments = async (start: Date, end: Date, therapistId?: stri
 export const getAppointmentsByPatient = async (patientId: string): Promise<Appointment[]> => {
     const { data, error } = await supabase
         .from('appointments')
-        .select('*')
+        .select('*, clinical_services(price)')
         .eq('patient_id', patientId)
         .order('start_time', { ascending: false });
     if (error) throw error;
@@ -85,6 +85,7 @@ export const createAppointment = async (appointment: Omit<Appointment, 'id'>): P
             voice_note_url: appointment.voiceNoteUrl,
             recurrence: appointment.recurrence ?? null,
             notificacion_recordatorio_enviada: appointment.notificacionRecordatorioEnviada ?? false,
+            price: appointment.price ?? null,
         })
         .select()
         .single();
@@ -112,6 +113,7 @@ export const updateAppointment = async (appointment: Appointment): Promise<Appoi
             voice_note_url: appointment.voiceNoteUrl,
             recurrence: appointment.recurrence ?? null,
             notificacion_recordatorio_enviada: appointment.notificacionRecordatorioEnviada ?? false,
+            price: appointment.price ?? null,
         })
         .eq('id', appointment.id)
         .select()

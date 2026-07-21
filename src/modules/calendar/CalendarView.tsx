@@ -101,6 +101,26 @@ const CalendarView: React.FC<CalendarViewProps> = ({ mode: initialMode, therapis
     // Doctoralia Style States
     const [selectedTherapistIds, setSelectedTherapistIds] = useState<string[]>([]);
     const [therapistSearch, setTherapistSearch] = useState('');
+
+    const filteredTherapistList = therapists.filter(t => {
+        const normalizedName = t.fullName.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().replace(/\s+/g, ' ').trim();
+        const normalizedSearch = therapistSearch.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().replace(/\s+/g, ' ').trim();
+        return normalizedName.includes(normalizedSearch);
+    });
+
+    const handleSelectAllTherapists = () => {
+        const visibleIds = filteredTherapistList.map(t => t.id);
+        setSelectedTherapistIds(prev => {
+            const newSelection = new Set([...prev, ...visibleIds]);
+            return Array.from(newSelection);
+        });
+    };
+
+    const handleDeselectAllTherapists = () => {
+        const visibleIds = filteredTherapistList.map(t => t.id);
+        setSelectedTherapistIds(prev => prev.filter(id => !visibleIds.includes(id)));
+    };
+
     const [draggedApptId, setDraggedApptId] = useState<string | null>(null);
     const [viewMode, setViewMode] = useState<'day' | 'week'>(() => {
         if (initialMode) return initialMode === 'WEEKLY_SINGLE' ? 'week' : 'day';
@@ -1085,50 +1105,61 @@ const CalendarView: React.FC<CalendarViewProps> = ({ mode: initialMode, therapis
                                 onChange={e => setTherapistSearch(e.target.value)}
                             />
                         </div>
+                        <div className="calendar-select-actions">
+                            <button 
+                                type="button"
+                                className="calendar-action-link"
+                                onClick={handleSelectAllTherapists}
+                            >
+                                Marcar todos
+                            </button>
+                            <span className="calendar-action-separator">|</span>
+                            <button 
+                                type="button"
+                                className="calendar-action-link"
+                                onClick={handleDeselectAllTherapists}
+                            >
+                                Desmarcar todos
+                            </button>
+                        </div>
                     </div>
 
                     <div className="calendar-therapist-list">
-                        {therapists
-                            .filter(t => {
-                                const normalizedName = t.fullName.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().replace(/\s+/g, ' ').trim();
-                                const normalizedSearch = therapistSearch.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().replace(/\s+/g, ' ').trim();
-                                return normalizedName.includes(normalizedSearch);
-                            })
-                            .map(t => {
-                                const isSelected = selectedTherapistIds.includes(t.id);
-                                return (
-                                    <div 
-                                        key={t.id}
-                                        className={`calendar-therapist-item ${isSelected ? 'selected' : ''}`}
-                                        onClick={() => {
-                                            if (isSelected) {
-                                                setSelectedTherapistIds(prev => prev.filter(id => id !== t.id));
-                                            } else {
-                                                setSelectedTherapistIds(prev => [...prev, t.id]);
-                                            }
-                                        }}
-                                    >
-                                        <div className="calendar-checkbox-wrapper">
-                                            <input 
-                                                type="checkbox" 
-                                                checked={isSelected}
-                                                readOnly
-                                                className="calendar-checkbox"
-                                                onClick={e => e.stopPropagation()}
-                                                onChange={() => {
-                                                    if (isSelected) setSelectedTherapistIds(prev => prev.filter(id => id !== t.id));
-                                                    else setSelectedTherapistIds(prev => [...prev, t.id]);
-                                                }}
-                                            />
-                                        </div>
-                                        <img src={getIllustrativeAvatar(t)} alt={t.fullName} className="calendar-therapist-avatar" />
-                                        <div className="calendar-therapist-info">
-                                            <div className="calendar-therapist-name" title={t.fullName}>{t.fullName}</div>
-                                            <div className="calendar-therapist-spec" title={t.specialty || ''}>{t.specialty || 'Terapeuta'}</div>
-                                        </div>
+                        {filteredTherapistList.map(t => {
+                            const isSelected = selectedTherapistIds.includes(t.id);
+                            return (
+                                <div 
+                                    key={t.id}
+                                    className={`calendar-therapist-item ${isSelected ? 'selected' : ''}`}
+                                    onClick={() => {
+                                        if (isSelected) {
+                                            setSelectedTherapistIds(prev => prev.filter(id => id !== t.id));
+                                        } else {
+                                            setSelectedTherapistIds(prev => [...prev, t.id]);
+                                        }
+                                    }}
+                                >
+                                    <div className="calendar-checkbox-wrapper">
+                                        <input 
+                                            type="checkbox" 
+                                            checked={isSelected}
+                                            readOnly
+                                            className="calendar-checkbox"
+                                            onClick={e => e.stopPropagation()}
+                                            onChange={() => {
+                                                if (isSelected) setSelectedTherapistIds(prev => prev.filter(id => id !== t.id));
+                                                else setSelectedTherapistIds(prev => [...prev, t.id]);
+                                            }}
+                                        />
                                     </div>
-                                );
-                            })}
+                                    <img src={getIllustrativeAvatar(t)} alt={t.fullName} className="calendar-therapist-avatar" />
+                                    <div className="calendar-therapist-info">
+                                        <div className="calendar-therapist-name" title={t.fullName}>{t.fullName}</div>
+                                        <div className="calendar-therapist-spec" title={t.specialty || ''}>{t.specialty || 'Terapeuta'}</div>
+                                    </div>
+                                </div>
+                            );
+                        })}
                     </div>
                 </div>
             )}

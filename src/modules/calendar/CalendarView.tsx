@@ -32,7 +32,7 @@ import {
     startOfDay
 } from 'date-fns';
 import { es } from 'date-fns/locale';
-import { ChevronLeft, ChevronRight, Plus, X, User, UserPlus, Rocket, Puzzle, AlertTriangle, Clock as ClockIcon, DollarSign, Mic, Square, Info, Search, ArrowLeft, Check } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Plus, X, User, UserPlus, Rocket, Puzzle, AlertTriangle, Clock as ClockIcon, DollarSign, Mic, Square, Info, Search, ArrowLeft } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { getAppointments, createAppointment, updateAppointment, deleteAppointment } from './service';
 import { getPatients, getWaitingList } from '../patients/service';

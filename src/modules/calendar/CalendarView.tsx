@@ -121,6 +121,24 @@ const CalendarView: React.FC<CalendarViewProps> = ({ mode: initialMode, therapis
         setSelectedTherapistIds(prev => prev.filter(id => !visibleIds.includes(id)));
     };
 
+    const isAllSelected = filteredTherapistList.length > 0 && filteredTherapistList.every(t => selectedTherapistIds.includes(t.id));
+    const isSomeSelected = !isAllSelected && filteredTherapistList.some(t => selectedTherapistIds.includes(t.id));
+
+    const handleToggleAll = () => {
+        if (isAllSelected) {
+            handleDeselectAllTherapists();
+        } else {
+            handleSelectAllTherapists();
+        }
+    };
+
+    const masterCheckboxRef = useRef<HTMLInputElement>(null);
+    useEffect(() => {
+        if (masterCheckboxRef.current) {
+            masterCheckboxRef.current.indeterminate = isSomeSelected;
+        }
+    }, [isSomeSelected]);
+
     const [draggedApptId, setDraggedApptId] = useState<string | null>(null);
     const [viewMode, setViewMode] = useState<'day' | 'week'>(() => {
         if (initialMode) return initialMode === 'WEEKLY_SINGLE' ? 'week' : 'day';
@@ -1098,27 +1116,35 @@ const CalendarView: React.FC<CalendarViewProps> = ({ mode: initialMode, therapis
                                 onChange={e => setTherapistSearch(e.target.value)}
                             />
                         </div>
-                        <div className="calendar-select-actions">
-                            <button 
-                                type="button"
-                                className="calendar-action-btn select-all"
-                                onClick={handleSelectAllTherapists}
-                            >
-                                <Check size={12} className="btn-icon" />
-                                <span>Marcar todos</span>
-                            </button>
-                            <button 
-                                type="button"
-                                className="calendar-action-btn deselect-all"
-                                onClick={handleDeselectAllTherapists}
-                            >
-                                <X size={12} className="btn-icon" />
-                                <span>Desmarcar todos</span>
-                            </button>
-                        </div>
                     </div>
 
                     <div className="calendar-therapist-list">
+                        <div 
+                            className={`calendar-therapist-item master-toggle ${isAllSelected ? 'selected' : ''}`}
+                            onClick={handleToggleAll}
+                        >
+                            <div className="calendar-checkbox-wrapper">
+                                <input 
+                                    type="checkbox" 
+                                    ref={masterCheckboxRef}
+                                    checked={isAllSelected}
+                                    readOnly
+                                    className="calendar-checkbox"
+                                    onClick={e => e.stopPropagation()}
+                                    onChange={handleToggleAll}
+                                />
+                            </div>
+                            <div className="calendar-master-avatar shadow-sm">
+                                <User size={16} className="text-gray-500" />
+                            </div>
+                            <div className="calendar-therapist-info">
+                                <div className="calendar-therapist-name font-bold">Todos los profesionales</div>
+                                <div className="calendar-therapist-spec text-[11px] text-gray-500">
+                                    {isAllSelected ? 'Todos seleccionados' : isSomeSelected ? 'Selección parcial' : 'Ninguno seleccionado'}
+                                </div>
+                            </div>
+                        </div>
+
                         {filteredTherapistList.map(t => {
                             const isSelected = selectedTherapistIds.includes(t.id);
                             return (

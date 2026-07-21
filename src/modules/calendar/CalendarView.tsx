@@ -32,7 +32,7 @@ import {
     startOfDay
 } from 'date-fns';
 import { es } from 'date-fns/locale';
-import { ChevronLeft, ChevronRight, Plus, X, User, UserPlus, Rocket, Puzzle, AlertTriangle, Clock as ClockIcon, DollarSign, Mic, Square, Info, Search, ArrowLeft } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Plus, X, User, UserPlus, Rocket, Puzzle, AlertTriangle, Clock as ClockIcon, DollarSign, Mic, Square, Info, Search, ArrowLeft, Check } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { getAppointments, createAppointment, updateAppointment, deleteAppointment } from './service';
 import { getPatients, getWaitingList } from '../patients/service';
@@ -895,14 +895,8 @@ const CalendarView: React.FC<CalendarViewProps> = ({ mode: initialMode, therapis
                 return String(appt.therapistId) === String(effectiveTherapistId);
             }
 
-            // Si estamos en modo semanal (vista de equipo), respetar las selecciones laterales
-            if (effectiveMode === 'WEEKLY_SINGLE') {
-                if (selectedTherapistIds.length > 0) {
-                    return selectedTherapistIds.includes(appt.therapistId);
-                }
-            }
-            
-            return true;
+            // Respetar las selecciones laterales: solo mostrar citas si el terapeuta está seleccionado
+            return selectedTherapistIds.includes(appt.therapistId);
         });
     }, [appointments, effectiveTherapistId, effectiveMode, selectedTherapistIds]);
 
@@ -1029,9 +1023,8 @@ const CalendarView: React.FC<CalendarViewProps> = ({ mode: initialMode, therapis
         await updateAppointment(updatedAppt as Appointment);
     };
 
-    const visibleTherapists = therapists.filter(t => selectedTherapistIds.includes(t.id));
     const isMultiDay = effectiveMode !== 'TODAY_MULTI';
-    const columns = !isMultiDay ? visibleTherapists : days;
+    const columns = !isMultiDay ? therapists : days;
     
     // Configuración dinámica de columnas
     // Forzamos 100% para que el navegador intente ajustar las columnas al ancho disponible
@@ -1108,18 +1101,19 @@ const CalendarView: React.FC<CalendarViewProps> = ({ mode: initialMode, therapis
                         <div className="calendar-select-actions">
                             <button 
                                 type="button"
-                                className="calendar-action-link"
+                                className="calendar-action-btn select-all"
                                 onClick={handleSelectAllTherapists}
                             >
-                                Marcar todos
+                                <Check size={12} className="btn-icon" />
+                                <span>Marcar todos</span>
                             </button>
-                            <span className="calendar-action-separator">|</span>
                             <button 
                                 type="button"
-                                className="calendar-action-link"
+                                className="calendar-action-btn deselect-all"
                                 onClick={handleDeselectAllTherapists}
                             >
-                                Desmarcar todos
+                                <X size={12} className="btn-icon" />
+                                <span>Desmarcar todos</span>
                             </button>
                         </div>
                     </div>
@@ -1393,11 +1387,15 @@ const CalendarView: React.FC<CalendarViewProps> = ({ mode: initialMode, therapis
 
                             {absences
                                 .filter((a: any) => {
+                                    if (effectiveTherapistId) {
+                                        if (a.therapist_id !== effectiveTherapistId) return false;
+                                    } else {
+                                        if (!selectedTherapistIds.includes(a.therapist_id)) return false;
+                                    }
                                     if (effectiveMode === 'TODAY_MULTI') {
                                         return a.therapist_id === (col as Therapist).id;
                                     }
-                                    if (effectiveTherapistId) return a.therapist_id === effectiveTherapistId;
-                                    return selectedTherapistIds.includes(a.therapist_id);
+                                    return true;
                                 })
                                 .filter((a: any) => {
                                     const colDate = effectiveMode === 'TODAY_MULTI' ? currentDate : (col as Date);

@@ -3,11 +3,11 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import Card from '../components/ui/Card';
 import AppointmentDetailModal from '../components/ui/AppointmentDetailModal';
-import { Users, Calendar, DollarSign, AlertTriangle, FileText, Clock, BarChart3, ShieldCheck } from 'lucide-react';
+import { Users, Calendar, DollarSign, AlertTriangle, FileText, Clock, BarChart3, ShieldCheck, Check } from 'lucide-react';
 import { startOfDay, endOfDay, format, subDays, eachDayOfInterval, isSameDay, isSameMonth, startOfMonth, endOfMonth } from 'date-fns';
 import { es } from 'date-fns/locale';
-import { 
-    BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer 
+import {
+    BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer
 } from 'recharts';
 import { getAppointments } from '../modules/calendar/service';
 import { getTransactions } from '../modules/billing/service';
@@ -27,7 +27,7 @@ interface DashboardStats {
     weeklyOccupancy: { day: string; fullDate: string; count: number }[];
 }
 
-import { getAIActivity } from '../modules/notifications/service';
+import { getAIActivity, dismissNotification } from '../modules/notifications/service';
 
 const Dashboard: React.FC = () => {
     const navigate = useNavigate();
@@ -83,7 +83,7 @@ const Dashboard: React.FC = () => {
 
     useEffect(() => {
         loadDashboardData();
-        
+
         const handleRefresh = () => {
             loadDashboardData();
             loadAILogs();
@@ -96,6 +96,15 @@ const Dashboard: React.FC = () => {
     const loadAILogs = async () => {
         const logs = await getAIActivity(3);
         setAiLogs(logs);
+    };
+
+    const handleDismissLog = async (id: string) => {
+        try {
+            await dismissNotification(id, true);
+            setAiLogs(prev => prev.filter(log => log.id !== id));
+        } catch (error) {
+            console.error('Error descartando log de IA:', error);
+        }
     };
 
     const loadDashboardData = async () => {
@@ -160,7 +169,7 @@ const Dashboard: React.FC = () => {
             // 4. Ocupación Semanal (Últimos 7 días)
             const weekStart = subDays(today, 6);
             const weekAppts = await getAppointments(startOfDay(weekStart), endOfDay(today), effectiveTherapistId);
-            
+
             const days = eachDayOfInterval({ start: weekStart, end: today });
             const weeklyOccupancy = days.map(day => {
                 const count = weekAppts.filter(a => isSameDay(new Date(a.start), day)).length;
@@ -259,8 +268,8 @@ const Dashboard: React.FC = () => {
             </div>
 
             <div className="dashboard-content-grid chart-section top-row">
-                <Card 
-                    title="Ocupación Semanal (Citas por día)" 
+                <Card
+                    title="Ocupación Semanal (Citas por día)"
                     subtitle="Actividad de los últimos 7 días"
                     icon={<BarChart3 size={20} className="text-primary" />}
                     className="occupancy-chart"
@@ -269,35 +278,35 @@ const Dashboard: React.FC = () => {
                         <ResponsiveContainer width="100%" height="100%" minWidth={0}>
                             <BarChart data={stats.weeklyOccupancy} margin={{ top: 20, right: 10, left: -20, bottom: 0 }}>
                                 <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
-                                <XAxis 
-                                    dataKey="day" 
-                                    axisLine={false} 
-                                    tickLine={false} 
+                                <XAxis
+                                    dataKey="day"
+                                    axisLine={false}
+                                    tickLine={false}
                                     tick={{ fontSize: 12, fill: '#64748b', fontWeight: 600 }}
                                     dy={10}
                                 />
-                                <YAxis 
-                                    axisLine={false} 
-                                    tickLine={false} 
+                                <YAxis
+                                    axisLine={false}
+                                    tickLine={false}
                                     tick={{ fontSize: 12, fill: '#64748b' }}
                                     allowDecimals={false}
                                 />
-                                <Tooltip 
+                                <Tooltip
                                     cursor={{ fill: 'rgba(52, 152, 219, 0.05)', radius: 12 }}
-                                    contentStyle={{ 
-                                        borderRadius: '16px', 
-                                        border: 'none', 
+                                    contentStyle={{
+                                        borderRadius: '16px',
+                                        border: 'none',
                                         boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05)',
                                         padding: '12px'
                                     }}
                                     itemStyle={{ fontWeight: 'bold', color: '#1d4ed8' }}
                                     labelStyle={{ marginBottom: '4px', color: '#64748b' }}
                                 />
-                                <Bar 
-                                    dataKey="count" 
+                                <Bar
+                                    dataKey="count"
                                     name="Citas"
                                     radius={[8, 8, 0, 0]}
-                                    fill="#3b82f6" 
+                                    fill="#3b82f6"
                                     barSize={40}
                                 />
                             </BarChart>
@@ -316,6 +325,7 @@ const Dashboard: React.FC = () => {
                                         <th>Fecha</th>
                                         <th>Acción</th>
                                         <th>Detalles</th>
+                                        <th className="text-right" style={{ width: '60px' }}>Gestionar</th>
                                     </tr>
                                 </thead>
                                 <tbody>
@@ -324,6 +334,16 @@ const Dashboard: React.FC = () => {
                                             <td className="log-date">{format(log.date, 'dd/MM HH:mm')}</td>
                                             <td className="log-title">{log.title}</td>
                                             <td className="log-message">{log.message}</td>
+                                            <td className="text-right">
+                                                <button
+                                                    className="p-1 hover:bg-slate-100 rounded-md text-slate-400 hover:text-emerald-600 transition-colors"
+                                                    title="Marcar como gestionada"
+                                                    onClick={() => handleDismissLog(log.id)}
+                                                    style={{ border: 'none', background: 'transparent', cursor: 'pointer' }}
+                                                >
+                                                    <Check size={16} />
+                                                </button>
+                                            </td>
                                         </tr>
                                     ))}
                                 </tbody>
@@ -417,8 +437,8 @@ const Dashboard: React.FC = () => {
 
             {/* Nueva Sección de Auditoría Global */}
             <div className="mt-8">
-                <Card 
-                    title="Auditoría Clínica: Diarios Pendientes de Registro" 
+                <Card
+                    title="Auditoría Clínica: Diarios Pendientes de Registro"
                     subtitle={isRole('ADMIN') ? "Vista global del centro" : "Mis sesiones pendientes"}
                     icon={<FileText size={20} className="text-red-500" />}
                 >
@@ -455,7 +475,7 @@ const Dashboard: React.FC = () => {
                                             )}
                                             <td className="px-4 py-4 text-slate-500 italic">{appt.type}</td>
                                             <td className="px-4 py-4 text-right">
-                                                <button 
+                                                <button
                                                     className="text-primary hover:underline font-bold"
                                                     onClick={() => navigate(`/patients?id=${appt.patientId}&tab=history`)}
                                                 >

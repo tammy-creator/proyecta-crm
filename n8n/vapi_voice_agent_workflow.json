@@ -1,0 +1,1129 @@
+{
+  "name": "Vapi Voice Agent (Clara) Integration",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "vapi-proyecta-manager",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "webhook-trigger-vapi",
+      "name": "Vapi Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [
+        100,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "dataType": "string",
+        "value1": "={{ $json.body.message?.toolCalls?.[0]?.function?.args?.accion || $json.body.accion || '' }}",
+        "numberOutputs": 4,
+        "rules": {
+          "rules": [
+            {
+              "value2": "saludo",
+              "output": 0
+            },
+            {
+              "value2": "buscar_paciente",
+              "output": 0
+            },
+            {
+              "value2": "disponibilidad",
+              "output": 1
+            },
+            {
+              "value2": "confirmacion",
+              "output": 2
+            },
+            {
+              "value2": "cancelacion",
+              "output": 3
+            }
+          ]
+        }
+      },
+      "id": "switch-acciones",
+      "name": "Switch Acciones",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 1,
+      "position": [
+        800,
+        450
+      ]
+    },
+    {
+      "parameters": {
+        "url": "https://rmohexwayuazhoiocrcn.supabase.co/rest/v1/patients",
+        "authentication": "none",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "sb_publishable_lOfzkbcOAZNDSnKOLiEgPg_1_B0yAvi"
+            },
+            {
+              "name": "Authorization",
+              "value": "Bearer sb_publishable_lOfzkbcOAZNDSnKOLiEgPg_1_B0yAvi"
+            }
+          ]
+        },
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "select",
+              "value": "*"
+            },
+            {
+              "name": "phone",
+              "value": "=eq.{{ $('Bypass Sec Vapi').first().json.body.message?.toolCalls?.[0]?.function?.args?.telefono_origen || '000000000' }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "http-query-patients",
+      "name": "Query Patients by Phone",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        1280,
+        80
+      ],
+      "notesInFlow": true,
+      "notes": "Busca el teléfono del paciente en Supabase",
+      "settings": {
+        "alwaysOutputData": true
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const patients = $input.all();\nif (patients.length > 0 && patients[0].json && patients[0].json.id) {\n  return [{\n    json: {\n      registrado: true,\n      patient_id: patients[0].json.id,\n      nombre_niño: patients[0].json.first_name,\n      apellidos: patients[0].json.last_name || ''\n    }\n  }];\n} else {\n  return [{\n    json: {\n      registrado: false\n    }\n  }];\n}"
+      },
+      "id": "code-check-registration",
+      "name": "Check Registration Status",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1500,
+        80
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={\n  \"registrado\": {{$json.registrado}},\n  \"nombre_niño\": \"{{$json.nombre_niño || ''}}\"\n}",
+        "options": {}
+      },
+      "id": "webhook-response-saludo",
+      "name": "Respond Saludo",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [
+        1720,
+        80
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://rmohexwayuazhoiocrcn.supabase.co/rest/v1/system_notifications",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "sb_publishable_lOfzkbcOAZNDSnKOLiEgPg_1_B0yAvi"
+            },
+            {
+              "name": "Authorization",
+              "value": "Bearer sb_publishable_lOfzkbcOAZNDSnKOLiEgPg_1_B0yAvi"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "type",
+              "value": "AI_LOG"
+            },
+            {
+              "name": "title",
+              "value": "Solicitud de cita / disponibilidad (Por revisar)"
+            },
+            {
+              "name": "message",
+              "value": "={{ 'El contacto (' + ($('Bypass Sec Vapi').first().json.body.message?.toolCalls?.[0]?.function?.args?.telefono_origen || 'desconocido') + ') solicita cita para ' + ($json.first_name ? $json.first_name + ' ' + ($json.last_name || '') : 'el niño ' + ($('Bypass Sec Vapi').first().json.body.message?.toolCalls?.[0]?.function?.args?.datos_lead?.nombre_niño || 'desconocido') + ' (Padre/Madre: ' + ($('Bypass Sec Vapi').first().json.body.message?.toolCalls?.[0]?.function?.args?.datos_lead?.nombre_padre || 'desconocido') + ')') + ' con la terapeuta ' + ($('Bypass Sec Vapi').first().json.body.message?.toolCalls?.[0]?.function?.args?.terapeuta || 'cualquiera') + '. Preferencias: ' + ($('Bypass Sec Vapi').first().json.body.message?.toolCalls?.[0]?.function?.args?.preferencia_horaria || $('Bypass Sec Vapi').first().json.body.message?.toolCalls?.[0]?.function?.args?.fecha_hora || 'Por las tardes') + '.' }}"
+            }
+          ]
+        }
+      },
+      "id": "http-get-appointments",
+      "name": "Log Availability to Dashboard",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        550,
+        240
+      ],
+      "notesInFlow": true,
+      "notes": "Busca citas futuras del terapeuta",
+      "settings": {
+        "alwaysOutputData": true
+      }
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={\n  \"reply\": \"{{ 'Perfecto, he tomado nota de tu solicitud de disponibilidad con ' + ($('Bypass Sec Vapi').first().json.body.message?.toolCalls?.[0]?.function?.args?.terapeuta || 'el terapeuta') + ' para ' + ($('Bypass Sec Vapi').first().json.body.message?.toolCalls?.[0]?.function?.args?.preferencia_horaria || $('Bypass Sec Vapi').first().json.body.message?.toolCalls?.[0]?.function?.args?.fecha_hora || 'las tardes') + '. En dirección revisarán la agenda y te contactarán para confirmártelo.' }}\"\n}",
+        "options": {}
+      },
+      "id": "webhook-response-disponibilidad",
+      "name": "Respond Disponibilidad",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [
+        1000,
+        240
+      ]
+    },
+    {
+      "parameters": {
+        "url": "=https://rmohexwayuazhoiocrcn.supabase.co/rest/v1/patients?{{ ($('Bypass Sec Vapi').first().json.body.message?.toolCalls?.[0]?.function?.args?.patient_id) ? 'id=eq.' + $('Bypass Sec Vapi').first().json.body.message?.toolCalls?.[0]?.function?.args?.patient_id : 'id=eq.00000000-0000-0000-0000-000000000000' }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "sb_publishable_lOfzkbcOAZNDSnKOLiEgPg_1_B0yAvi"
+            },
+            {
+              "name": "Authorization",
+              "value": "Bearer sb_publishable_lOfzkbcOAZNDSnKOLiEgPg_1_B0yAvi"
+            }
+          ]
+        },
+        "sendQuery": true,
+        "options": {}
+      },
+      "id": "http-get-patient-confirm",
+      "name": "Get Patient for Confirmation",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        550,
+        400
+      ],
+      "settings": {
+        "alwaysOutputData": true
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://rmohexwayuazhoiocrcn.supabase.co/rest/v1/system_notifications",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "sb_publishable_lOfzkbcOAZNDSnKOLiEgPg_1_B0yAvi"
+            },
+            {
+              "name": "Authorization",
+              "value": "Bearer sb_publishable_lOfzkbcOAZNDSnKOLiEgPg_1_B0yAvi"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "type",
+              "value": "AI_LOG"
+            },
+            {
+              "name": "title",
+              "value": "Solicitud de reserva (Por confirmar)"
+            },
+            {
+              "name": "message",
+              "value": "={{ 'El contacto (' + ($('Bypass Sec Vapi').first().json.body.message?.toolCalls?.[0]?.function?.args?.telefono_origen || 'desconocido') + ') solicita reservar cita para ' + ($json.first_name ? $json.first_name + ' ' + ($json.last_name || '') : 'el niño ' + ($('Bypass Sec Vapi').first().json.body.message?.toolCalls?.[0]?.function?.args?.datos_lead?.nombre_niño || 'desconocido') + ' (Padre/Madre: ' + ($('Bypass Sec Vapi').first().json.body.message?.toolCalls?.[0]?.function?.args?.datos_lead?.nombre_padre || 'desconocido') + ')') + ' con la terapeuta ' + ($('Bypass Sec Vapi').first().json.body.message?.toolCalls?.[0]?.function?.args?.terapeuta || 'cualquiera') + ' el ' + ($('Bypass Sec Vapi').first().json.body.message?.toolCalls?.[0]?.function?.args?.fecha_hora || 'día solicitado') + '.' }}"
+            }
+          ]
+        }
+      },
+      "id": "http-create-appointment",
+      "name": "Log Booking Request to Dashboard",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        780,
+        400
+      ],
+      "settings": {
+        "alwaysOutputData": true
+      }
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={\n  \"reply\": \"{{ 'Excelente, ya he registrado tu solicitud para reservar la cita con ' + ($('Bypass Sec Vapi').first().json.body.message?.toolCalls?.[0]?.function?.args?.terapeuta || 'la terapeuta') + ' el ' + ($('Bypass Sec Vapi').first().json.body.message?.toolCalls?.[0]?.function?.args?.fecha_hora || 'día indicado') + '. El equipo de administración revisará la agenda hoy mismo y te contactará para confirmarla.' }}\"\n}",
+        "options": {}
+      },
+      "id": "webhook-response-confirm",
+      "name": "Respond Confirmacion",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [
+        1220,
+        400
+      ]
+    },
+    {
+      "parameters": {
+        "url": "=https://rmohexwayuazhoiocrcn.supabase.co/rest/v1/patients?{{ ($('Bypass Sec Vapi').first().json.body.message?.toolCalls?.[0]?.function?.args?.patient_id) ? 'id=eq.' + $('Bypass Sec Vapi').first().json.body.message?.toolCalls?.[0]?.function?.args?.patient_id : 'id=eq.00000000-0000-0000-0000-000000000000' }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "sb_publishable_lOfzkbcOAZNDSnKOLiEgPg_1_B0yAvi"
+            },
+            {
+              "name": "Authorization",
+              "value": "Bearer sb_publishable_lOfzkbcOAZNDSnKOLiEgPg_1_B0yAvi"
+            }
+          ]
+        },
+        "sendQuery": true,
+        "options": {}
+      },
+      "id": "http-get-patient-cancel",
+      "name": "Get Patient for Cancellation",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        550,
+        560
+      ],
+      "settings": {
+        "alwaysOutputData": true
+      }
+    },
+    {
+      "parameters": {
+        "url": "https://rmohexwayuazhoiocrcn.supabase.co/rest/v1/appointments",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "sb_publishable_lOfzkbcOAZNDSnKOLiEgPg_1_B0yAvi"
+            },
+            {
+              "name": "Authorization",
+              "value": "Bearer sb_publishable_lOfzkbcOAZNDSnKOLiEgPg_1_B0yAvi"
+            }
+          ]
+        },
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "patient_id",
+              "value": "=eq.{{$json.id}}"
+            },
+            {
+              "name": "status",
+              "value": "eq.Programada"
+            },
+            {
+              "name": "order",
+              "value": "start_time.asc"
+            },
+            {
+              "name": "limit",
+              "value": "1"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "http-get-active-appts",
+      "name": "Get Active Appointments",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        780,
+        560
+      ],
+      "settings": {
+        "alwaysOutputData": true
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://rmohexwayuazhoiocrcn.supabase.co/rest/v1/system_notifications",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "sb_publishable_lOfzkbcOAZNDSnKOLiEgPg_1_B0yAvi"
+            },
+            {
+              "name": "Authorization",
+              "value": "Bearer sb_publishable_lOfzkbcOAZNDSnKOLiEgPg_1_B0yAvi"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "type",
+              "value": "AI_LOG"
+            },
+            {
+              "name": "title",
+              "value": "Aviso de cancelación (Por revisar)"
+            },
+            {
+              "name": "message",
+              "value": "={{ 'El paciente ' + ($('Get Patient for Cancellation').first().json.first_name ? $('Get Patient for Cancellation').first().json.first_name + ' ' + ($('Get Patient for Cancellation').first().json.last_name || '') : 'desconocido') + ' (Teléfono: ' + ($('Bypass Sec Vapi').first().json.body.message?.toolCalls?.[0]?.function?.args?.telefono_origen || 'desconocido') + ') solicita cancelar su cita.' + ($json.start_time ? ' Cita encontrada en agenda para el ' + $json.start_time + ' con la terapeuta ' + ($json.therapist_name || 'no especificada') + '.' : ' No se encontró ninguna cita programada en la agenda.') }}"
+            }
+          ]
+        }
+      },
+      "id": "http-patch-cancel",
+      "name": "Log Cancelation to Dashboard",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        1000,
+        560
+      ],
+      "settings": {
+        "alwaysOutputData": true
+      }
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={\n  \"reply\": \"{{ (function(){\n  const appt = $('Get Active Appointments').first().json;\n  const patient = $('Get Patient for Cancellation').first().json;\n  if (appt && appt.start_time) {\n    const dateObj = new Date(appt.start_time);\n    const daySp = ['domingo', 'lunes', 'martes', 'miércoles', 'jueves', 'viernes', 'sábado'][dateObj.getDay()];\n    const hour = dateObj.getHours().toString().padStart(2, '0') + ':' + dateObj.getMinutes().toString().padStart(2, '0');\n    return `He tomado nota de tu solicitud para cancelar la próxima cita de ${patient.first_name || 'su hijo'} del ${daySp} a las ${hour} con ${appt.therapist_name || 'su terapeuta'}. El equipo de administración procederá a cancelarla y te contactará para confirmártelo.`;\n  }\n  return `He tomado nota de tu aviso de cancelación para ${patient.first_name || 'su hijo'}. No he localizado ninguna cita activa en la agenda virtual, pero la administración revisará tu caso manualmente hoy mismo y te confirmarán el estado.`;\n})() }}\"\n}",
+        "options": {}
+      },
+      "id": "webhook-response-cancel",
+      "name": "Respond Cancelacion",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [
+        1220,
+        560
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "let lead = {};\ntry {\n  const inputData = $input.first().json.body.message?.toolCalls?.[0]?.function?.args?.datos_lead || $input.first().json.body.datos_lead;\n  lead = typeof inputData === 'string' ? JSON.parse(inputData) : inputData;\n} catch (e) {\n  console.error(\"Error parsing datos_lead:\", e);\n}\n\nreturn [{\n  json: {\n    nombre_padre: lead?.nombre_padre || 'Interesado',\n    nombre_niño: lead?.nombre_niño || lead?.nombre_nino || 'Paciente Nuevo',\n    telefono: lead?.telefono || ($input.first().json.body.message?.toolCalls?.[0]?.function?.args?.telefono_origen || $input.first().json.body.message?.customer?.number || $input.first().json.body.telefono_origen || '').toString().slice(-9)\n  }\n}];"
+      },
+      "id": "code-parse-lead",
+      "name": "Parse Lead Data",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        550,
+        720
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://rmohexwayuazhoiocrcn.supabase.co/rest/v1/waiting_list",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "sb_publishable_lOfzkbcOAZNDSnKOLiEgPg_1_B0yAvi"
+            },
+            {
+              "name": "Authorization",
+              "value": "Bearer sb_publishable_lOfzkbcOAZNDSnKOLiEgPg_1_B0yAvi"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"patient_name\": \"{{$json.nombre_niño}}\",\n  \"notes\": \"Lead capturado por agente de voz Vapi (Clara). Padre/Tutor: {{$json.nombre_padre}} | Teléfono: {{$json.telefono}}\",\n  \"urgency\": \"Media\",\n  \"specialty\": \"Terapia Ocupacional\",\n  \"patient_id\": null\n}",
+        "options": {}
+      },
+      "id": "http-insert-lead",
+      "name": "Insert into Waiting List",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        780,
+        720
+      ],
+      "notesInFlow": true,
+      "notes": "Crea el lead como registro en la lista de espera existente",
+      "settings": {
+        "alwaysOutputData": true
+      }
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={\n  \"reply\": \"Perfecto, he tomado nota de tus datos. Te llamaremos en breve para coordinar tu primera cita. ¡Que tengas un gran día!\"\n}",
+        "options": {}
+      },
+      "id": "webhook-response-informacion",
+      "name": "Respond Informacion",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [
+        1000,
+        720
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://rmohexwayuazhoiocrcn.supabase.co/rest/v1/system_notifications",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "sb_publishable_lOfzkbcOAZNDSnKOLiEgPg_1_B0yAvi"
+            },
+            {
+              "name": "Authorization",
+              "value": "Bearer sb_publishable_lOfzkbcOAZNDSnKOLiEgPg_1_B0yAvi"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"type\": \"AI_LOG\",\n  \"title\": \"Llamada Vapi registrada\",\n  \"message\": \"Teléfono: {{$json.body.message?.customer?.number || 'Desconocido'}}. Motivo/Resumen: {{$json.body.message?.summary || 'No hay resumen'}}\",\n  \"is_dismissed\": false}",
+        "options": {}
+      },
+      "id": "http-log-call",
+      "name": "Log Call to Dashboard",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        550,
+        880
+      ],
+      "settings": {
+        "alwaysOutputData": true
+      }
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "{}",
+        "options": {}
+      },
+      "id": "webhook-response-log",
+      "name": "Respond Log",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [
+        780,
+        880
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const newItems = [];\nfor (let item of $input.all()) {\n  let newItem = JSON.parse(JSON.stringify(item.json));\n  try {\n    let toolCall = newItem.body?.message?.toolCalls?.[0];\n    if (toolCall && toolCall.function && toolCall.function.arguments) {\n      let argsStr = toolCall.function.arguments;\n      let args = typeof argsStr === 'string' ? JSON.parse(argsStr) : argsStr;\n      \n      // Normalizar nombre de terapeuta para base de datos (con tildes correctas)\n      if (args.terapeuta) {\n        let t = args.terapeuta.toLowerCase().normalize(\"NFD\").replace(/[\\u0300-\\u036f]/g, \"\");\n        t = t.trim();\n        if (t.includes(\"sofia\")) args.terapeuta = \"Sofía\";\n        else if (t.includes(\"angela\")) args.terapeuta = \"Ángela\";\n        else if (t.includes(\"ruth\") || t.includes(\"rut\") || t.includes(\"rus\") || t.includes(\"ruts\")) args.terapeuta = \"Ruth\";\n        else if (t.includes(\"marta\")) args.terapeuta = \"Marta\";\n        else if (t.includes(\"laura\")) args.terapeuta = \"Laura\";\n        else if (t.includes(\"yaiza\")) args.terapeuta = \"Yaiza\";\n        else if (t.includes(\"zoe\")) args.terapeuta = \"Zoe\";\n      }\n\n      // Renombramos los argumentos a 'args' para que el Switch lo pueda leer sin alarmas\n      toolCall.function.args = args;\n      \n      // Subimos la acción al panel principal\n      if (!newItem.body) newItem.body = {};\n      newItem.body.accion = args.accion;\n    }\n  } catch (err) {}\n  newItems.push({ json: newItem });\n}\nreturn newItems;"
+      },
+      "id": "code-bypass-vapi",
+      "name": "Bypass Sec Vapi",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        200,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "string": [
+            {
+              "value1": "={{ $json.body.message?.type || '' }}",
+              "value2": "end-of-call-report"
+            }
+          ]
+        }
+      },
+      "id": "if-end-call",
+      "name": "Es Cierre de Llamada?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [
+        300,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "string": [
+            {
+              "value1": "={{ $json.body.message?.toolCalls?.[0]?.function?.args?.accion || $json.body.accion || '' }}",
+              "value2": "informacion"
+            }
+          ]
+        }
+      },
+      "id": "if-informacion",
+      "name": "Es Info (Lead)?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [
+        500,
+        400
+      ]
+    },
+    {
+      "id": "log-lead-dashboard",
+      "name": "Log Lead to Dashboard",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 1,
+      "position": [
+        1100,
+        450
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "https://rmohexwayuazhoiocrcn.supabase.co/rest/v1/system_notifications",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "sb_publishable_lOfzkbcOAZNDSnKOLiEgPg_1_B0yAvi"
+            },
+            {
+              "name": "Authorization",
+              "value": "Bearer sb_publishable_lOfzkbcOAZNDSnKOLiEgPg_1_B0yAvi"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "type",
+              "value": "AI_LOG"
+            },
+            {
+              "name": "title",
+              "value": "Nuevo Paciente en Lista de Espera"
+            },
+            {
+              "name": "message",
+              "value": "={{ 'El asistente ha registrado a ' + ($('Bypass Sec Vapi').first().json.body.message?.toolCalls?.[0]?.function?.args?.datos_lead?.nombre_niño || 'un niño') + ' (Tutor/a: ' + ($('Bypass Sec Vapi').first().json.body.message?.toolCalls?.[0]?.function?.args?.datos_lead?.nombre_padre || 'desconocido') + ') en la lista de espera.' }}"
+            }
+          ]
+        }
+      },
+      "settings": {
+        "alwaysOutputData": true
+      }
+    },
+    {
+      "parameters": {
+        "url": "=https://rmohexwayuazhoiocrcn.supabase.co/rest/v1/patients?{{ ($('Bypass Sec Vapi').first().json.body.message?.toolCalls?.[0]?.function?.args?.patient_id) ? 'id=eq.' + $('Bypass Sec Vapi').first().json.body.message?.toolCalls?.[0]?.function?.args?.patient_id : 'id=eq.00000000-0000-0000-0000-000000000000' }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "sb_publishable_lOfzkbcOAZNDSnKOLiEgPg_1_B0yAvi"
+            },
+            {
+              "name": "Authorization",
+              "value": "Bearer sb_publishable_lOfzkbcOAZNDSnKOLiEgPg_1_B0yAvi"
+            }
+          ]
+        },
+        "sendQuery": true,
+        "options": {}
+      },
+      "id": "http-get-therapist-profile",
+      "name": "Get Patient for Availability",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        300,
+        240
+      ],
+      "settings": {
+        "alwaysOutputData": true
+      }
+    },
+    {
+      "parameters": {
+        "url": "https://rmohexwayuazhoiocrcn.supabase.co/rest/v1/patients",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "sb_publishable_lOfzkbcOAZNDSnKOLiEgPg_1_B0yAvi"
+            },
+            {
+              "name": "Authorization",
+              "value": "Bearer sb_publishable_lOfzkbcOAZNDSnKOLiEgPg_1_B0yAvi"
+            }
+          ]
+        },
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "select",
+              "value": "*"
+            },
+            {
+              "name": "or",
+              "value": "=({{ (function(){\n  const args = $('Bypass Sec Vapi').first().json.body.message?.toolCalls?.[0]?.function?.args || {};\n  const full = args.nombre_niño || '';\n  if (!full.trim()) return 'id.eq.00000000-0000-0000-0000-000000000000';\n  \n  const parts = full.trim().split(/\\s+/);\n  const first = parts[0].toLowerCase().normalize(\"NFD\").replace(/[\\u0300-\\u036f]/g, \"\");\n  const firstPattern = first.replace(/a/g, '[aáàäâ]').replace(/e/g, '[eéèëê]').replace(/i/g, '[iíìïî]').replace(/o/g, '[oóòöô]').replace(/u/g, '[uúùüû]');\n  \n  if (parts.length === 1) {\n    return `first_name.imatch.${firstPattern}`;\n  }\n  \n  const last = parts.slice(1).join(' ').toLowerCase().normalize(\"NFD\").replace(/[\\u0300-\\u036f]/g, \"\");\n  const lastPattern = last.replace(/a/g, '[aáàäâ]').replace(/e/g, '[eéèëê]').replace(/i/g, '[iíìïî]').replace(/o/g, '[oóòöô]').replace(/u/g, '[uúùüû]');\n  \n  return `and(first_name.imatch.${firstPattern},last_name.imatch.${lastPattern})`;\n})() }})"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "http-search-patient-name",
+      "name": "Search Patient by Name",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        1280,
+        220
+      ],
+      "settings": {
+        "alwaysOutputData": true
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const patients = $input.all();\nif (patients.length > 0 && patients[0].json && patients[0].json.id) {\n  return [{\n    json: {\n      encontrado: true,\n      patient_id: patients[0].json.id,\n      nombre_niño: patients[0].json.first_name,\n      apellidos: patients[0].json.last_name || '',\n      reply: `Perfecto, he encontrado la ficha de ${patients[0].json.first_name} ${patients[0].json.last_name || ''}. ¿Cómo puedo ayudarte hoy?`\n    }\n  }];\n} else {\n  return [{\n    json: {\n      encontrado: false,\n      reply: \"Lo siento, no he podido encontrar a ningún paciente con ese nombre y apellidos. ¿Me los podrías repetir más despacio, o prefieres darme los datos del padre o madre?\"\n    }\n  }];\n}"
+      },
+      "id": "code-check-search-result",
+      "name": "Check Search Result",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1500,
+        220
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={\n  \"encontrado\": {{$json.encontrado}},\n  \"patient_id\": \"{{$json.patient_id || ''}}\",\n  \"nombre_niño\": \"{{$json.nombre_niño || ''}}\",\n  \"apellidos\": \"{{$json.apellidos || ''}}\",\n  \"reply\": \"{{$json.reply}}\"\n}",
+        "options": {}
+      },
+      "id": "webhook-response-buscar-paciente",
+      "name": "Respond Buscar Paciente",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [
+        1720,
+        220
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "string": [
+            {
+              "value1": "={{ $json.body.message?.toolCalls?.[0]?.function?.args?.accion || $json.body.accion || '' }}",
+              "value2": "buscar_paciente"
+            }
+          ]
+        }
+      },
+      "id": "if-buscar-paciente",
+      "name": "Es Buscar Paciente?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [
+        1050,
+        140
+      ]
+    }
+  ],
+  "connections": {
+    "Vapi Webhook": {
+      "main": [
+        [
+          {
+            "node": "Bypass Sec Vapi",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Switch Acciones": {
+      "main": [
+        [
+          {
+            "node": "Es Buscar Paciente?",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Get Patient for Availability",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Get Patient for Confirmation",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Get Patient for Cancellation",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Query Patients by Phone": {
+      "main": [
+        [
+          {
+            "node": "Check Registration Status",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check Registration Status": {
+      "main": [
+        [
+          {
+            "node": "Respond Saludo",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Therapist Appointments": {
+      "main": [
+        [
+          {
+            "node": "Find Free Slots",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Find Free Slots": {
+      "main": [
+        [
+          {
+            "node": "Respond Disponibilidad",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Patient ID by Phone": {
+      "main": [
+        [
+          {
+            "node": "Create Appointment",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create Appointment": {
+      "main": [
+        [
+          {
+            "node": "Send WhatsApp Confirmation",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send WhatsApp Confirmation": {
+      "main": [
+        [
+          {
+            "node": "Respond Confirmacion",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Patient for Cancellation": {
+      "main": [
+        [
+          {
+            "node": "Get Active Appointments",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Active Appointments": {
+      "main": [
+        [
+          {
+            "node": "Log Cancelation to Dashboard",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse Lead Data": {
+      "main": [
+        [
+          {
+            "node": "Insert into Waiting List",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Insert into Waiting List": {
+      "main": [
+        [
+          {
+            "node": "Log Lead to Dashboard",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Log Call to Dashboard": {
+      "main": [
+        [
+          {
+            "node": "Respond Log",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Bypass Sec Vapi": {
+      "main": [
+        [
+          {
+            "node": "Es Cierre de Llamada?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Es Cierre de Llamada?": {
+      "main": [
+        [
+          {
+            "node": "Log Call to Dashboard",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Es Info (Lead)?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Es Info (Lead)?": {
+      "main": [
+        [
+          {
+            "node": "Parse Lead Data",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Switch Acciones",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Log Lead to Dashboard": {
+      "main": [
+        [
+          {
+            "node": "Respond Informacion",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Therapist Profile": {
+      "main": [
+        [
+          {
+            "node": "Get Therapist Appointments",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Patient for Availability": {
+      "main": [
+        [
+          {
+            "node": "Log Availability to Dashboard",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Log Availability to Dashboard": {
+      "main": [
+        [
+          {
+            "node": "Respond Disponibilidad",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Patient for Confirmation": {
+      "main": [
+        [
+          {
+            "node": "Log Booking Request to Dashboard",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Log Booking Request to Dashboard": {
+      "main": [
+        [
+          {
+            "node": "Respond Confirmacion",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Search Patient by Name": {
+      "main": [
+        [
+          {
+            "node": "Check Search Result",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check Search Result": {
+      "main": [
+        [
+          {
+            "node": "Respond Buscar Paciente",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Log Cancelation to Dashboard": {
+      "main": [
+        [
+          {
+            "node": "Respond Cancelacion",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Es Buscar Paciente?": {
+      "main": [
+        [
+          {
+            "node": "Search Patient by Name",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Query Patients by Phone",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {},
+  "active": false
+}

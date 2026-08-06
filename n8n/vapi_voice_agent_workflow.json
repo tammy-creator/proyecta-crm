@@ -610,14 +610,6 @@
       ]
     },
     {
-      "id": "log-lead-dashboard",
-      "name": "Log Lead to Dashboard",
-      "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 1,
-      "position": [
-        1100,
-        450
-      ],
       "parameters": {
         "method": "POST",
         "url": "https://rmohexwayuazhoiocrcn.supabase.co/rest/v1/system_notifications",
@@ -656,6 +648,14 @@
           ]
         }
       },
+      "id": "log-lead-dashboard",
+      "name": "Log Lead to Dashboard",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        1100,
+        450
+      ],
       "settings": {
         "alwaysOutputData": true
       }

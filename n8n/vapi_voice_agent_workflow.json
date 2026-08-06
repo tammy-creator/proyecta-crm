@@ -164,7 +164,7 @@
             },
             {
               "name": "message",
-              "value": "={{ 'El contacto (' + ($('Bypass Sec Vapi').first().json.body.message?.toolCalls?.[0]?.function?.args?.telefono_origen || 'desconocido') + ') solicita cita para ' + ($json.first_name ? $json.first_name + ' ' + ($json.last_name || '') : 'el niño ' + ($('Bypass Sec Vapi').first().json.body.message?.toolCalls?.[0]?.function?.args?.datos_lead?.nombre_niño || 'desconocido') + ' (Padre/Madre: ' + ($('Bypass Sec Vapi').first().json.body.message?.toolCalls?.[0]?.function?.args?.datos_lead?.nombre_padre || 'desconocido') + ')') + ' con la terapeuta ' + ($('Bypass Sec Vapi').first().json.body.message?.toolCalls?.[0]?.function?.args?.terapeuta || 'cualquiera') + '. Preferencias: ' + ($('Bypass Sec Vapi').first().json.body.message?.toolCalls?.[0]?.function?.args?.preferencia_horaria || $('Bypass Sec Vapi').first().json.body.message?.toolCalls?.[0]?.function?.args?.fecha_hora || 'Por las tardes') + '.' }}"
+              "value": "={{ 'El contacto (' + ($('Bypass Sec Vapi').first().json.body.message?.toolCalls?.[0]?.function?.args?.telefono_origen || 'desconocido') + ') solicita cita para ' + ($json.first_name ? $json.first_name + ' ' + ($json.last_name || '') : 'el niño ' + ($('Bypass Sec Vapi').first().json.body.message?.toolCalls?.[0]?.function?.args?.datos_lead?.nombre_niño || 'desconocido') + ' (Padre/Madre: ' + ($('Bypass Sec Vapi').first().json.body.message?.toolCalls?.[0]?.function?.args?.datos_lead?.nombre_padre || 'desconocido') + ')') + ' con la terapeuta ' + ($('Bypass Sec Vapi').first().json.body.message?.toolCalls?.[0]?.function?.args?.terapeuta || 'cualquiera') + '. Preferencias: ' + ($('Bypass Sec Vapi').first().json.body.message?.toolCalls?.[0]?.function?.args?.preferencia_horaria || $('Bypass Sec Vapi').first().json.body.message?.toolCalls?.[0]?.function?.args?.fecha_hora || 'Por las tardes') + ($('Bypass Sec Vapi').first().json.body.message?.toolCalls?.[0]?.function?.args?.motivo ? '. Motivo: ' + $('Bypass Sec Vapi').first().json.body.message?.toolCalls?.[0]?.function?.args?.motivo : '') + '.' }}"
             }
           ]
         }
@@ -263,7 +263,7 @@
             },
             {
               "name": "message",
-              "value": "={{ 'El contacto (' + ($('Bypass Sec Vapi').first().json.body.message?.toolCalls?.[0]?.function?.args?.telefono_origen || 'desconocido') + ') solicita reservar cita para ' + ($json.first_name ? $json.first_name + ' ' + ($json.last_name || '') : 'el niño ' + ($('Bypass Sec Vapi').first().json.body.message?.toolCalls?.[0]?.function?.args?.datos_lead?.nombre_niño || 'desconocido') + ' (Padre/Madre: ' + ($('Bypass Sec Vapi').first().json.body.message?.toolCalls?.[0]?.function?.args?.datos_lead?.nombre_padre || 'desconocido') + ')') + ' con la terapeuta ' + ($('Bypass Sec Vapi').first().json.body.message?.toolCalls?.[0]?.function?.args?.terapeuta || 'cualquiera') + ' el ' + ($('Bypass Sec Vapi').first().json.body.message?.toolCalls?.[0]?.function?.args?.fecha_hora || 'día solicitado') + '.' }}"
+              "value": "={{ 'El contacto (' + ($('Bypass Sec Vapi').first().json.body.message?.toolCalls?.[0]?.function?.args?.telefono_origen || 'desconocido') + ') solicita reservar cita para ' + ($json.first_name ? $json.first_name + ' ' + ($json.last_name || '') : 'el niño ' + ($('Bypass Sec Vapi').first().json.body.message?.toolCalls?.[0]?.function?.args?.datos_lead?.nombre_niño || 'desconocido') + ' (Padre/Madre: ' + ($('Bypass Sec Vapi').first().json.body.message?.toolCalls?.[0]?.function?.args?.datos_lead?.nombre_padre || 'desconocido') + ')') + ' con la terapeuta ' + ($('Bypass Sec Vapi').first().json.body.message?.toolCalls?.[0]?.function?.args?.terapeuta || 'cualquiera') + ' el ' + ($('Bypass Sec Vapi').first().json.body.message?.toolCalls?.[0]?.function?.args?.fecha_hora || 'día solicitado') + ($('Bypass Sec Vapi').first().json.body.message?.toolCalls?.[0]?.function?.args?.motivo ? '. Motivo: ' + $('Bypass Sec Vapi').first().json.body.message?.toolCalls?.[0]?.function?.args?.motivo : '') + '.' }}"
             }
           ]
         }
@@ -411,7 +411,7 @@
             },
             {
               "name": "message",
-              "value": "={{ 'El paciente ' + ($('Get Patient for Cancellation').first().json.first_name ? $('Get Patient for Cancellation').first().json.first_name + ' ' + ($('Get Patient for Cancellation').first().json.last_name || '') : 'desconocido') + ' (Teléfono: ' + ($('Bypass Sec Vapi').first().json.body.message?.toolCalls?.[0]?.function?.args?.telefono_origen || 'desconocido') + ') solicita cancelar su cita.' + ($json.start_time ? ' Cita encontrada en agenda para el ' + $json.start_time + ' con la terapeuta ' + ($json.therapist_name || 'no especificada') + '.' : ' No se encontró ninguna cita programada en la agenda.') }}"
+              "value": "={{ 'El paciente ' + ($('Get Patient for Cancellation').first().json.first_name ? $('Get Patient for Cancellation').first().json.first_name + ' ' + ($('Get Patient for Cancellation').first().json.last_name || '') : 'desconocido') + ' (Teléfono: ' + ($('Bypass Sec Vapi').first().json.body.message?.toolCalls?.[0]?.function?.args?.telefono_origen || 'desconocido') + ') solicita cancelar su cita.' + ($json.start_time ? ' Cita encontrada en agenda para el ' + $json.start_time + ' con la terapeuta ' + ($json.therapist_name || 'no especificada') + '.' : ' No se encontró ninguna cita programada en la agenda.') + ($('Bypass Sec Vapi').first().json.body.message?.toolCalls?.[0]?.function?.args?.motivo ? ' Motivo informado: ' + $('Bypass Sec Vapi').first().json.body.message?.toolCalls?.[0]?.function?.args?.motivo + '.' : '') }}"
             }
           ]
         }
@@ -445,7 +445,7 @@
     },
     {
       "parameters": {
-        "jsCode": "let lead = {};\ntry {\n  const inputData = $input.first().json.body.message?.toolCalls?.[0]?.function?.args?.datos_lead || $input.first().json.body.datos_lead;\n  lead = typeof inputData === 'string' ? JSON.parse(inputData) : inputData;\n} catch (e) {\n  console.error(\"Error parsing datos_lead:\", e);\n}\n\nreturn [{\n  json: {\n    nombre_padre: lead?.nombre_padre || 'Interesado',\n    nombre_niño: lead?.nombre_niño || lead?.nombre_nino || 'Paciente Nuevo',\n    telefono: lead?.telefono || ($input.first().json.body.message?.toolCalls?.[0]?.function?.args?.telefono_origen || $input.first().json.body.message?.customer?.number || $input.first().json.body.telefono_origen || '').toString().slice(-9)\n  }\n}];"
+        "jsCode": "let lead = {};\ntry {\n  const inputData = $input.first().json.body.message?.toolCalls?.[0]?.function?.args?.datos_lead || $input.first().json.body.datos_lead;\n  lead = typeof inputData === 'string' ? JSON.parse(inputData) : inputData;\n} catch (e) {\n  console.error(\"Error parsing datos_lead:\", e);\n}\n\nreturn [{\n  json: {\n    nombre_padre: lead?.nombre_padre || 'Interesado',\n    nombre_niño: lead?.nombre_niño || lead?.nombre_nino || 'Paciente Nuevo',\n    telefono: lead?.telefono || ($input.first().json.body.message?.toolCalls?.[0]?.function?.args?.telefono_origen || $input.first().json.body.message?.customer?.number || $input.first().json.body.telefono_origen || '').toString().slice(-9),\n    motivo: lead?.motivo || lead?.notas || lead?.observaciones || 'No especificado'\n  }\n}];"
       },
       "id": "code-parse-lead",
       "name": "Parse Lead Data",
@@ -475,7 +475,7 @@
         },
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={\n  \"patient_name\": \"{{$json.nombre_niño}}\",\n  \"notes\": \"Lead capturado por agente de voz Vapi (Clara). Padre/Tutor: {{$json.nombre_padre}} | Teléfono: {{$json.telefono}}\",\n  \"urgency\": \"Media\",\n  \"specialty\": \"Terapia Ocupacional\",\n  \"patient_id\": null\n}",
+        "jsonBody": "={\n  \"patient_name\": \"{{$json.nombre_niño}}\",\n  \"notes\": \"Lead capturado por agente de voz Vapi (Clara). Padre/Tutor: {{$json.nombre_padre}} | Teléfono: {{$json.telefono}} | Motivo: {{$json.motivo}}\",\n  \"urgency\": \"Media\",\n  \"specialty\": \"Terapia Ocupacional\",\n  \"patient_id\": null\n}",
         "options": {}
       },
       "id": "http-insert-lead",
@@ -651,7 +651,7 @@
             },
             {
               "name": "message",
-              "value": "={{ 'El asistente ha registrado a ' + ($('Bypass Sec Vapi').first().json.body.message?.toolCalls?.[0]?.function?.args?.datos_lead?.nombre_niño || 'un niño') + ' (Tutor/a: ' + ($('Bypass Sec Vapi').first().json.body.message?.toolCalls?.[0]?.function?.args?.datos_lead?.nombre_padre || 'desconocido') + ') en la lista de espera.' }}"
+              "value": "={{ 'El asistente ha registrado a ' + ($('Bypass Sec Vapi').first().json.body.message?.toolCalls?.[0]?.function?.args?.datos_lead?.nombre_niño || 'un niño') + ' (Tutor/a: ' + ($('Bypass Sec Vapi').first().json.body.message?.toolCalls?.[0]?.function?.args?.datos_lead?.nombre_padre || 'desconocido') + ') en la lista de espera. Motivo: ' + ($('Bypass Sec Vapi').first().json.body.message?.toolCalls?.[0]?.function?.args?.datos_lead?.motivo || 'no especificado') }}"
             }
           ]
         }

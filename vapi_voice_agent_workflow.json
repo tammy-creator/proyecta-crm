@@ -164,7 +164,7 @@
             },
             {
               "name": "message",
-              "value": "={{ 'El contacto (' + ($('Bypass Sec Vapi').first().json.body.message?.toolCalls?.[0]?.function?.args?.telefono_origen || 'desconocido') + ') solicita cita para ' + ($json.first_name ? $json.first_name + ' ' + ($json.last_name || '') : 'el niño ' + ($('Bypass Sec Vapi').first().json.body.message?.toolCalls?.[0]?.function?.args?.datos_lead?.nombre_niño || 'desconocido') + ' (Padre/Madre: ' + ($('Bypass Sec Vapi').first().json.body.message?.toolCalls?.[0]?.function?.args?.datos_lead?.nombre_padre || 'desconocido') + ')') + ' con la terapeuta ' + ($('Bypass Sec Vapi').first().json.body.message?.toolCalls?.[0]?.function?.args?.terapeuta || 'cualquiera') + '. Preferencias: ' + ($('Bypass Sec Vapi').first().json.body.message?.toolCalls?.[0]?.function?.args?.preferencia_horaria || $('Bypass Sec Vapi').first().json.body.message?.toolCalls?.[0]?.function?.args?.fecha_hora || 'Por las tardes') + ($('Bypass Sec Vapi').first().json.body.message?.toolCalls?.[0]?.function?.args?.motivo ? '. Motivo: ' + $('Bypass Sec Vapi').first().json.body.message?.toolCalls?.[0]?.function?.args?.motivo : '') + '.' }}"
+              "value": "={{ 'El contacto (' + ($('Bypass Sec Vapi').first().json.body.message?.toolCalls?.[0]?.function?.args?.telefono_origen || 'desconocido') + ') solicita cita para ' + ($('Bypass Sec Vapi').first().json.body.message?.toolCalls?.[0]?.function?.args?.nombre_niño || $('Bypass Sec Vapi').first().json.body.message?.toolCalls?.[0]?.function?.args?.datos_lead?.nombre_niño || 'un niño (nombre no indicado)') + ' con la terapeuta ' + ($('Bypass Sec Vapi').first().json.body.message?.toolCalls?.[0]?.function?.args?.terapeuta || 'cualquiera') + '. Preferencias: ' + ($('Bypass Sec Vapi').first().json.body.message?.toolCalls?.[0]?.function?.args?.preferencia_horaria || $('Bypass Sec Vapi').first().json.body.message?.toolCalls?.[0]?.function?.args?.fecha_hora || 'Por las tardes') + ($('Bypass Sec Vapi').first().json.body.message?.toolCalls?.[0]?.function?.args?.motivo ? '. Motivo: ' + $('Bypass Sec Vapi').first().json.body.message?.toolCalls?.[0]?.function?.args?.motivo : '') + '.' }}"
             }
           ]
         }
@@ -200,37 +200,6 @@
     },
     {
       "parameters": {
-        "url": "=https://rmohexwayuazhoiocrcn.supabase.co/rest/v1/patients?{{ ($('Bypass Sec Vapi').first().json.body.message?.toolCalls?.[0]?.function?.args?.patient_id) ? 'id=eq.' + $('Bypass Sec Vapi').first().json.body.message?.toolCalls?.[0]?.function?.args?.patient_id : 'id=eq.00000000-0000-0000-0000-000000000000' }}",
-        "sendHeaders": true,
-        "headerParameters": {
-          "parameters": [
-            {
-              "name": "apikey",
-              "value": "sb_publishable_lOfzkbcOAZNDSnKOLiEgPg_1_B0yAvi"
-            },
-            {
-              "name": "Authorization",
-              "value": "Bearer sb_publishable_lOfzkbcOAZNDSnKOLiEgPg_1_B0yAvi"
-            }
-          ]
-        },
-        "sendQuery": true,
-        "options": {}
-      },
-      "id": "http-get-patient-confirm",
-      "name": "Get Patient for Confirmation",
-      "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 4.4,
-      "position": [
-        550,
-        400
-      ],
-      "settings": {
-        "alwaysOutputData": true
-      }
-    },
-    {
-      "parameters": {
         "method": "POST",
         "url": "https://rmohexwayuazhoiocrcn.supabase.co/rest/v1/system_notifications",
         "sendHeaders": true,
@@ -263,7 +232,7 @@
             },
             {
               "name": "message",
-              "value": "={{ 'El contacto (' + ($('Bypass Sec Vapi').first().json.body.message?.toolCalls?.[0]?.function?.args?.telefono_origen || 'desconocido') + ') solicita reservar cita para ' + ($json.first_name ? $json.first_name + ' ' + ($json.last_name || '') : 'el niño ' + ($('Bypass Sec Vapi').first().json.body.message?.toolCalls?.[0]?.function?.args?.datos_lead?.nombre_niño || 'desconocido') + ' (Padre/Madre: ' + ($('Bypass Sec Vapi').first().json.body.message?.toolCalls?.[0]?.function?.args?.datos_lead?.nombre_padre || 'desconocido') + ')') + ' con la terapeuta ' + ($('Bypass Sec Vapi').first().json.body.message?.toolCalls?.[0]?.function?.args?.terapeuta || 'cualquiera') + ' el ' + ($('Bypass Sec Vapi').first().json.body.message?.toolCalls?.[0]?.function?.args?.fecha_hora || 'día solicitado') + ($('Bypass Sec Vapi').first().json.body.message?.toolCalls?.[0]?.function?.args?.motivo ? '. Motivo: ' + $('Bypass Sec Vapi').first().json.body.message?.toolCalls?.[0]?.function?.args?.motivo : '') + '.' }}"
+              "value": "={{ 'El contacto (' + ($('Bypass Sec Vapi').first().json.body.message?.toolCalls?.[0]?.function?.args?.telefono_origen || 'desconocido') + ') solicita reservar cita para ' + ($('Bypass Sec Vapi').first().json.body.message?.toolCalls?.[0]?.function?.args?.nombre_niño || $('Bypass Sec Vapi').first().json.body.message?.toolCalls?.[0]?.function?.args?.datos_lead?.nombre_niño || 'un niño (nombre no indicado)') + ' con la terapeuta ' + ($('Bypass Sec Vapi').first().json.body.message?.toolCalls?.[0]?.function?.args?.terapeuta || 'cualquiera') + ' el ' + ($('Bypass Sec Vapi').first().json.body.message?.toolCalls?.[0]?.function?.args?.fecha_hora || 'día solicitado') + ($('Bypass Sec Vapi').first().json.body.message?.toolCalls?.[0]?.function?.args?.motivo ? '. Motivo: ' + $('Bypass Sec Vapi').first().json.body.message?.toolCalls?.[0]?.function?.args?.motivo : '') + '.' }}"
             }
           ]
         }
@@ -294,88 +263,6 @@
         1220,
         400
       ]
-    },
-    {
-      "parameters": {
-        "url": "=https://rmohexwayuazhoiocrcn.supabase.co/rest/v1/patients?{{ ($('Bypass Sec Vapi').first().json.body.message?.toolCalls?.[0]?.function?.args?.patient_id) ? 'id=eq.' + $('Bypass Sec Vapi').first().json.body.message?.toolCalls?.[0]?.function?.args?.patient_id : 'id=eq.00000000-0000-0000-0000-000000000000' }}",
-        "sendHeaders": true,
-        "headerParameters": {
-          "parameters": [
-            {
-              "name": "apikey",
-              "value": "sb_publishable_lOfzkbcOAZNDSnKOLiEgPg_1_B0yAvi"
-            },
-            {
-              "name": "Authorization",
-              "value": "Bearer sb_publishable_lOfzkbcOAZNDSnKOLiEgPg_1_B0yAvi"
-            }
-          ]
-        },
-        "sendQuery": true,
-        "options": {}
-      },
-      "id": "http-get-patient-cancel",
-      "name": "Get Patient for Cancellation",
-      "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 4.4,
-      "position": [
-        550,
-        560
-      ],
-      "settings": {
-        "alwaysOutputData": true
-      }
-    },
-    {
-      "parameters": {
-        "url": "https://rmohexwayuazhoiocrcn.supabase.co/rest/v1/appointments",
-        "sendHeaders": true,
-        "headerParameters": {
-          "parameters": [
-            {
-              "name": "apikey",
-              "value": "sb_publishable_lOfzkbcOAZNDSnKOLiEgPg_1_B0yAvi"
-            },
-            {
-              "name": "Authorization",
-              "value": "Bearer sb_publishable_lOfzkbcOAZNDSnKOLiEgPg_1_B0yAvi"
-            }
-          ]
-        },
-        "sendQuery": true,
-        "queryParameters": {
-          "parameters": [
-            {
-              "name": "patient_id",
-              "value": "=eq.{{$json.id}}"
-            },
-            {
-              "name": "status",
-              "value": "eq.Programada"
-            },
-            {
-              "name": "order",
-              "value": "start_time.asc"
-            },
-            {
-              "name": "limit",
-              "value": "1"
-            }
-          ]
-        },
-        "options": {}
-      },
-      "id": "http-get-active-appts",
-      "name": "Get Active Appointments",
-      "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 4.4,
-      "position": [
-        780,
-        560
-      ],
-      "settings": {
-        "alwaysOutputData": true
-      }
     },
     {
       "parameters": {
@@ -411,7 +298,7 @@
             },
             {
               "name": "message",
-              "value": "={{ 'El paciente ' + ($('Get Patient for Cancellation').first().json.first_name ? $('Get Patient for Cancellation').first().json.first_name + ' ' + ($('Get Patient for Cancellation').first().json.last_name || '') : 'desconocido') + ' (Teléfono: ' + ($('Bypass Sec Vapi').first().json.body.message?.toolCalls?.[0]?.function?.args?.telefono_origen || 'desconocido') + ') solicita cancelar su cita.' + ($json.start_time ? ' Cita encontrada en agenda para el ' + $json.start_time + ' con la terapeuta ' + ($json.therapist_name || 'no especificada') + '.' : ' No se encontró ninguna cita programada en la agenda.') + ($('Bypass Sec Vapi').first().json.body.message?.toolCalls?.[0]?.function?.args?.motivo ? ' Motivo informado: ' + $('Bypass Sec Vapi').first().json.body.message?.toolCalls?.[0]?.function?.args?.motivo + '.' : '') }}"
+              "value": "={{ 'El paciente ' + ($('Bypass Sec Vapi').first().json.body.message?.toolCalls?.[0]?.function?.args?.nombre_niño || 'desconocido') + ' (Teléfono: ' + ($('Bypass Sec Vapi').first().json.body.message?.toolCalls?.[0]?.function?.args?.telefono_origen || 'desconocido') + ') solicita cancelar su cita.' + ($('Bypass Sec Vapi').first().json.body.message?.toolCalls?.[0]?.function?.args?.fecha_hora ? ' Fecha/Cita: ' + $('Bypass Sec Vapi').first().json.body.message?.toolCalls?.[0]?.function?.args?.fecha_hora : '') + ($('Bypass Sec Vapi').first().json.body.message?.toolCalls?.[0]?.function?.args?.terapeuta ? ' con la terapeuta ' + $('Bypass Sec Vapi').first().json.body.message?.toolCalls?.[0]?.function?.args?.terapeuta : '') + ($('Bypass Sec Vapi').first().json.body.message?.toolCalls?.[0]?.function?.args?.motivo ? '. Motivo informado: ' + $('Bypass Sec Vapi').first().json.body.message?.toolCalls?.[0]?.function?.args?.motivo : '') }}"
             }
           ]
         }
@@ -431,7 +318,7 @@
     {
       "parameters": {
         "respondWith": "json",
-        "responseBody": "={\n  \"reply\": \"{{ (function(){\n  const appt = $('Get Active Appointments').first().json;\n  const patient = $('Get Patient for Cancellation').first().json;\n  if (appt && appt.start_time) {\n    const dateObj = new Date(appt.start_time);\n    const daySp = ['domingo', 'lunes', 'martes', 'miércoles', 'jueves', 'viernes', 'sábado'][dateObj.getDay()];\n    const hour = dateObj.getHours().toString().padStart(2, '0') + ':' + dateObj.getMinutes().toString().padStart(2, '0');\n    return `He tomado nota de tu solicitud para cancelar la próxima cita de ${patient.first_name || 'su hijo'} del ${daySp} a las ${hour} con ${appt.therapist_name || 'su terapeuta'}. El equipo de administración procederá a cancelarla y te contactará para confirmártelo.`;\n  }\n  return `He tomado nota de tu aviso de cancelación para ${patient.first_name || 'su hijo'}. No he localizado ninguna cita activa en la agenda virtual, pero la administración revisará tu caso manualmente hoy mismo y te confirmarán el estado.`;\n})() }}\"\n}",
+        "responseBody": "={\n  \"reply\": \"{{ 'Perfecto, he tomado nota de tu solicitud para cancelar la cita. Mis compañeras de recepción verificarán la agenda y te contactarán hoy mismo para confirmar la cancelación.' }}\"\n}",
         "options": {}
       },
       "id": "webhook-response-cancel",
@@ -659,128 +546,6 @@
       "settings": {
         "alwaysOutputData": true
       }
-    },
-    {
-      "parameters": {
-        "url": "=https://rmohexwayuazhoiocrcn.supabase.co/rest/v1/patients?{{ ($('Bypass Sec Vapi').first().json.body.message?.toolCalls?.[0]?.function?.args?.patient_id) ? 'id=eq.' + $('Bypass Sec Vapi').first().json.body.message?.toolCalls?.[0]?.function?.args?.patient_id : 'id=eq.00000000-0000-0000-0000-000000000000' }}",
-        "sendHeaders": true,
-        "headerParameters": {
-          "parameters": [
-            {
-              "name": "apikey",
-              "value": "sb_publishable_lOfzkbcOAZNDSnKOLiEgPg_1_B0yAvi"
-            },
-            {
-              "name": "Authorization",
-              "value": "Bearer sb_publishable_lOfzkbcOAZNDSnKOLiEgPg_1_B0yAvi"
-            }
-          ]
-        },
-        "sendQuery": true,
-        "options": {}
-      },
-      "id": "http-get-therapist-profile",
-      "name": "Get Patient for Availability",
-      "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 4.4,
-      "position": [
-        300,
-        240
-      ],
-      "settings": {
-        "alwaysOutputData": true
-      }
-    },
-    {
-      "parameters": {
-        "url": "https://rmohexwayuazhoiocrcn.supabase.co/rest/v1/patients",
-        "sendHeaders": true,
-        "headerParameters": {
-          "parameters": [
-            {
-              "name": "apikey",
-              "value": "sb_publishable_lOfzkbcOAZNDSnKOLiEgPg_1_B0yAvi"
-            },
-            {
-              "name": "Authorization",
-              "value": "Bearer sb_publishable_lOfzkbcOAZNDSnKOLiEgPg_1_B0yAvi"
-            }
-          ]
-        },
-        "sendQuery": true,
-        "queryParameters": {
-          "parameters": [
-            {
-              "name": "select",
-              "value": "*"
-            },
-            {
-              "name": "or",
-              "value": "=({{ (function(){\n  const args = $('Bypass Sec Vapi').first().json.body.message?.toolCalls?.[0]?.function?.args || {};\n  const full = args.nombre_niño || '';\n  if (!full.trim()) return 'id.eq.00000000-0000-0000-0000-000000000000';\n  \n  const parts = full.trim().split(/\\s+/);\n  const first = parts[0].toLowerCase().normalize(\"NFD\").replace(/[\\u0300-\\u036f]/g, \"\");\n  const firstPattern = first.replace(/a/g, '[aáàäâ]').replace(/e/g, '[eéèëê]').replace(/i/g, '[iíìïî]').replace(/o/g, '[oóòöô]').replace(/u/g, '[uúùüû]');\n  \n  if (parts.length === 1) {\n    return `first_name.imatch.${firstPattern}`;\n  }\n  \n  const last = parts.slice(1).join(' ').toLowerCase().normalize(\"NFD\").replace(/[\\u0300-\\u036f]/g, \"\");\n  const lastPattern = last.replace(/a/g, '[aáàäâ]').replace(/e/g, '[eéèëê]').replace(/i/g, '[iíìïî]').replace(/o/g, '[oóòöô]').replace(/u/g, '[uúùüû]');\n  \n  return `and(first_name.imatch.${firstPattern},last_name.imatch.${lastPattern})`;\n})() }})"
-            }
-          ]
-        },
-        "options": {}
-      },
-      "id": "http-search-patient-name",
-      "name": "Search Patient by Name",
-      "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 4.4,
-      "position": [
-        1280,
-        220
-      ],
-      "settings": {
-        "alwaysOutputData": true
-      }
-    },
-    {
-      "parameters": {
-        "jsCode": "const patients = $input.all();\nif (patients.length > 0 && patients[0].json && patients[0].json.id) {\n  return [{\n    json: {\n      encontrado: true,\n      patient_id: patients[0].json.id,\n      nombre_niño: patients[0].json.first_name,\n      apellidos: patients[0].json.last_name || '',\n      reply: `Perfecto, he encontrado la ficha de ${patients[0].json.first_name} ${patients[0].json.last_name || ''}. ¿Cómo puedo ayudarte hoy?`\n    }\n  }];\n} else {\n  return [{\n    json: {\n      encontrado: false,\n      reply: \"Lo siento, no he podido encontrar a ningún paciente con ese nombre y apellidos. ¿Me los podrías repetir más despacio, o prefieres darme los datos del padre o madre?\"\n    }\n  }];\n}"
-      },
-      "id": "code-check-search-result",
-      "name": "Check Search Result",
-      "type": "n8n-nodes-base.code",
-      "typeVersion": 2,
-      "position": [
-        1500,
-        220
-      ]
-    },
-    {
-      "parameters": {
-        "respondWith": "json",
-        "responseBody": "={\n  \"encontrado\": {{$json.encontrado}},\n  \"patient_id\": \"{{$json.patient_id || ''}}\",\n  \"nombre_niño\": \"{{$json.nombre_niño || ''}}\",\n  \"apellidos\": \"{{$json.apellidos || ''}}\",\n  \"reply\": \"{{$json.reply}}\"\n}",
-        "options": {}
-      },
-      "id": "webhook-response-buscar-paciente",
-      "name": "Respond Buscar Paciente",
-      "type": "n8n-nodes-base.respondToWebhook",
-      "typeVersion": 1,
-      "position": [
-        1720,
-        220
-      ]
-    },
-    {
-      "parameters": {
-        "conditions": {
-          "string": [
-            {
-              "value1": "={{ $json.body.message?.toolCalls?.[0]?.function?.args?.accion || $json.body.accion || '' }}",
-              "value2": "buscar_paciente"
-            }
-          ]
-        }
-      },
-      "id": "if-buscar-paciente",
-      "name": "Es Buscar Paciente?",
-      "type": "n8n-nodes-base.if",
-      "typeVersion": 1,
-      "position": [
-        1050,
-        140
-      ]
     }
   ],
   "connections": {
@@ -797,30 +562,24 @@
     },
     "Switch Acciones": {
       "main": [
+        [],
         [
           {
-            "node": "Es Buscar Paciente?",
+            "node": "Log Availability to Dashboard",
             "type": "main",
             "index": 0
           }
         ],
         [
           {
-            "node": "Get Patient for Availability",
+            "node": "Log Booking Request to Dashboard",
             "type": "main",
             "index": 0
           }
         ],
         [
           {
-            "node": "Get Patient for Confirmation",
-            "type": "main",
-            "index": 0
-          }
-        ],
-        [
-          {
-            "node": "Get Patient for Cancellation",
+            "node": "Log Cancelation to Dashboard",
             "type": "main",
             "index": 0
           }
@@ -898,28 +657,6 @@
         [
           {
             "node": "Respond Confirmacion",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Get Patient for Cancellation": {
-      "main": [
-        [
-          {
-            "node": "Get Active Appointments",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Get Active Appointments": {
-      "main": [
-        [
-          {
-            "node": "Log Cancelation to Dashboard",
             "type": "main",
             "index": 0
           }
@@ -1028,33 +765,11 @@
         ]
       ]
     },
-    "Get Patient for Availability": {
-      "main": [
-        [
-          {
-            "node": "Log Availability to Dashboard",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
     "Log Availability to Dashboard": {
       "main": [
         [
           {
             "node": "Respond Disponibilidad",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Get Patient for Confirmation": {
-      "main": [
-        [
-          {
-            "node": "Log Booking Request to Dashboard",
             "type": "main",
             "index": 0
           }
@@ -1072,51 +787,11 @@
         ]
       ]
     },
-    "Search Patient by Name": {
-      "main": [
-        [
-          {
-            "node": "Check Search Result",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Check Search Result": {
-      "main": [
-        [
-          {
-            "node": "Respond Buscar Paciente",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
     "Log Cancelation to Dashboard": {
       "main": [
         [
           {
             "node": "Respond Cancelacion",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Es Buscar Paciente?": {
-      "main": [
-        [
-          {
-            "node": "Search Patient by Name",
-            "type": "main",
-            "index": 0
-          }
-        ],
-        [
-          {
-            "node": "Query Patients by Phone",
             "type": "main",
             "index": 0
           }

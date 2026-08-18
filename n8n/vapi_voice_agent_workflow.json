@@ -562,7 +562,13 @@
     },
     "Switch Acciones": {
       "main": [
-        [],
+        [
+          {
+            "node": "Query Patients by Phone",
+            "type": "main",
+            "index": 0
+          }
+        ],
         [
           {
             "node": "Log Availability to Dashboard",

@@ -21,7 +21,7 @@
       "parameters": {
         "dataType": "string",
         "value1": "={{ $json.body.message?.toolCalls?.[0]?.function?.args?.accion || $json.body.accion || '' }}",
-        "numberOutputs": 5,
+        "numberOutputs": 4,
         "rules": {
           "rules": [
             {
@@ -43,10 +43,6 @@
             {
               "value2": "cancelacion",
               "output": 3
-            },
-            {
-              "value2": "informacion_general",
-              "output": 4
             }
           ]
         }
@@ -1180,6 +1176,26 @@
         1280,
         360
       ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "string": [
+            {
+              "value1": "={{ $json.body.message?.toolCalls?.[0]?.function?.args?.accion || $json.body.accion || '' }}",
+              "value2": "informacion_general"
+            }
+          ]
+        }
+      },
+      "id": "es-info-general",
+      "name": "Es Info General?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [
+        650,
+        520
+      ]
     }
   ],
   "connections": {
@@ -1220,13 +1236,6 @@
         [
           {
             "node": "Log Cancelation to Dashboard",
-            "type": "main",
-            "index": 0
-          }
-        ],
-        [
-          {
-            "node": "OpenAI FAQ Responder",
             "type": "main",
             "index": 0
           }
@@ -1372,7 +1381,7 @@
         ],
         [
           {
-            "node": "Switch Acciones",
+            "node": "Es Info General?",
             "type": "main",
             "index": 0
           }
@@ -1512,6 +1521,24 @@
         [
           {
             "node": "Is Registered?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Es Info General?": {
+      "main": [
+        [
+          {
+            "node": "OpenAI FAQ Responder",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Switch Acciones",
             "type": "main",
             "index": 0
           }

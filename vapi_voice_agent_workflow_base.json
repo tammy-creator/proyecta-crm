@@ -186,7 +186,7 @@
     {
       "parameters": {
         "respondWith": "json",
-        "responseBody": "={\n  \"reply\": \"{{ 'Perfecto, he tomado nota de tu solicitud de disponibilidad con ' + ($('Bypass Sec Vapi').first().json.body.message?.toolCalls?.[0]?.function?.args?.terapeuta || 'el terapeuta') + ' para ' + ($('Bypass Sec Vapi').first().json.body.message?.toolCalls?.[0]?.function?.args?.preferencia_horaria || $('Bypass Sec Vapi').first().json.body.message?.toolCalls?.[0]?.function?.args?.fecha_hora || 'las tardes') + '. En dirección revisarán la agenda y te contactarán para confirmártelo.' }}\"\n}",
+        "responseBody": "={\n  \"reply\": \"Perfecto, he tomado nota de tu solicitud de disponibilidad con \" + ($('Bypass Sec Vapi').first().json.body.message?.toolCalls?.[0]?.function?.args?.terapeuta || 'el terapeuta') + \" para \" + ($('Bypass Sec Vapi').first().json.body.message?.toolCalls?.[0]?.function?.args?.preferencia_horaria || $('Bypass Sec Vapi').first().json.body.message?.toolCalls?.[0]?.function?.args?.fecha_hora || 'las tardes') + \". En dirección revisarán la agenda y te contactarán para confirmártelo.\"\n}",
         "options": {}
       },
       "id": "webhook-response-disponibilidad",
@@ -252,7 +252,7 @@
     {
       "parameters": {
         "respondWith": "json",
-        "responseBody": "={\n  \"reply\": \"{{ 'Excelente, ya he registrado tu solicitud para reservar la cita con ' + ($('Bypass Sec Vapi').first().json.body.message?.toolCalls?.[0]?.function?.args?.terapeuta || 'la terapeuta') + ' el ' + ($('Bypass Sec Vapi').first().json.body.message?.toolCalls?.[0]?.function?.args?.fecha_hora || 'día indicado') + '. El equipo de administración revisará la agenda hoy mismo y te contactará para confirmarla.' }}\"\n}",
+        "responseBody": "={\n  \"reply\": \"Excelente, ya he registrado tu solicitud para reservar la cita con \" + ($('Bypass Sec Vapi').first().json.body.message?.toolCalls?.[0]?.function?.args?.terapeuta || 'la terapeuta') + \" el \" + ($('Bypass Sec Vapi').first().json.body.message?.toolCalls?.[0]?.function?.args?.fecha_hora || 'día indicado') + \". El equipo de administración revisará la agenda hoy mismo y te contactará para confirmarla.\"\n}",
         "options": {}
       },
       "id": "webhook-response-confirm",
@@ -318,7 +318,7 @@
     {
       "parameters": {
         "respondWith": "json",
-        "responseBody": "={\n  \"reply\": \"{{ 'Perfecto, he tomado nota de tu solicitud para cancelar la cita. Mis compañeras de recepción verificarán la agenda y te contactarán hoy mismo para confirmar la cancelación.' }}\"\n}",
+        "responseBody": "={\n  \"reply\": \"Perfecto, he tomado nota de tu solicitud para cancelar la cita. Mis compañeras de recepción verificarán la agenda y te contactarán hoy mismo para confirmar la cancelación.\"\n}",
         "options": {}
       },
       "id": "webhook-response-cancel",

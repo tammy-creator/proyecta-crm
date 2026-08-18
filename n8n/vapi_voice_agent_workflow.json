@@ -117,6 +117,21 @@
     },
     {
       "parameters": {
+        "respondWith": "json",
+        "responseBody": "={\n  \"registrado\": {{$json.registrado}},\n  \"nombre_niño\": \"{{$json.nombre_niño || ''}}\"\n}",
+        "options": {}
+      },
+      "id": "webhook-response-saludo",
+      "name": "Respond Saludo",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [
+        1720,
+        80
+      ]
+    },
+    {
+      "parameters": {
         "method": "POST",
         "url": "https://rmohexwayuazhoiocrcn.supabase.co/rest/v1/system_notifications",
         "sendHeaders": true,
@@ -171,7 +186,7 @@
     {
       "parameters": {
         "respondWith": "json",
-        "responseBody": "={\n  \"reply\": \"{{ $json.choices[0].message.content }}\"\n}",
+        "responseBody": "={\n  \"reply\": \"{{ 'Perfecto, he tomado nota de tu solicitud de disponibilidad con ' + ($('Bypass Sec Vapi').first().json.body.message?.toolCalls?.[0]?.function?.args?.terapeuta || 'el terapeuta') + ' para ' + ($('Bypass Sec Vapi').first().json.body.message?.toolCalls?.[0]?.function?.args?.preferencia_horaria || $('Bypass Sec Vapi').first().json.body.message?.toolCalls?.[0]?.function?.args?.fecha_hora || 'las tardes') + '. En dirección revisarán la agenda y te contactarán para confirmártelo.' }}\"\n}",
         "options": {}
       },
       "id": "webhook-response-disponibilidad",
@@ -237,7 +252,7 @@
     {
       "parameters": {
         "respondWith": "json",
-        "responseBody": "={\n  \"reply\": \"{{ $json.choices[0].message.content }}\"\n}",
+        "responseBody": "={\n  \"reply\": \"{{ 'Excelente, ya he registrado tu solicitud para reservar la cita con ' + ($('Bypass Sec Vapi').first().json.body.message?.toolCalls?.[0]?.function?.args?.terapeuta || 'la terapeuta') + ' el ' + ($('Bypass Sec Vapi').first().json.body.message?.toolCalls?.[0]?.function?.args?.fecha_hora || 'día indicado') + '. El equipo de administración revisará la agenda hoy mismo y te contactará para confirmarla.' }}\"\n}",
         "options": {}
       },
       "id": "webhook-response-confirm",
@@ -303,7 +318,7 @@
     {
       "parameters": {
         "respondWith": "json",
-        "responseBody": "={\n  \"reply\": \"{{ $json.choices[0].message.content }}\"\n}",
+        "responseBody": "={\n  \"reply\": \"{{ 'Perfecto, he tomado nota de tu solicitud para cancelar la cita. Mis compañeras de recepción verificarán la agenda y te contactarán hoy mismo para confirmar la cancelación.' }}\"\n}",
         "options": {}
       },
       "id": "webhook-response-cancel",
@@ -531,176 +546,6 @@
       "settings": {
         "alwaysOutputData": true
       }
-    },
-    {
-      "parameters": {
-        "conditions": {
-          "boolean": [
-            {
-              "value1": "={{ $json.registrado }}",
-              "value2": true
-            }
-          ]
-        }
-      },
-      "id": "if-is-registered",
-      "name": "Is Registered?",
-      "type": "n8n-nodes-base.if",
-      "typeVersion": 1,
-      "position": [
-        1720,
-        80
-      ]
-    },
-    {
-      "parameters": {
-        "respondWith": "json",
-        "responseBody": "={\n  \"registrado\": true,\n  \"reply\": \"{{ $json.choices[0].message.content }}\"\n}",
-        "options": {}
-      },
-      "id": "webhook-response-saludo-registrado",
-      "name": "Respond Saludo Registrado",
-      "type": "n8n-nodes-base.respondToWebhook",
-      "typeVersion": 1,
-      "position": [
-        2180,
-        0
-      ]
-    },
-    {
-      "parameters": {
-        "respondWith": "json",
-        "responseBody": "={\n  \"registrado\": false,\n  \"reply\": \"Hola, gracias por llamar al Centro Proyecta. Soy Clara, ¿en qué os puedo ayudar hoy?\"\n}",
-        "options": {}
-      },
-      "id": "webhook-response-saludo-anonimo",
-      "name": "Respond Saludo Anonimo",
-      "type": "n8n-nodes-base.respondToWebhook",
-      "typeVersion": 1,
-      "position": [
-        1950,
-        160
-      ]
-    },
-    {
-      "parameters": {
-        "method": "POST",
-        "url": "https://api.openai.com/v1/chat/completions",
-        "sendHeaders": true,
-        "headerParameters": {
-          "parameters": [
-            {
-              "name": "Content-Type",
-              "value": "application/json"
-            },
-            {
-              "name": "Authorization",
-              "value": "=Bearer {{ $('Vapi Webhook').first().json.headers['x-openai-key'] || $env.OPENAI_API_KEY || 'REPLACE_WITH_YOUR_OPENAI_KEY-XA03AbgJiFNCCjQyFGJZyWkB-oNEERa-xtDkbMCjQkwc2LVyBNw5H8UT3BlbkFJ0vgylvWwiYQDtKnxirGbYHiKQWidTeWLZJzRejc8vP49NUZna6J5yF0f88_WdgH_3CftjoxcUIA' }}"
-            }
-          ]
-        },
-        "sendBody": true,
-        "specifyBody": "json",
-        "jsonBody": "{\"model\":\"gpt-4o-mini\",\"messages\":[{\"role\":\"system\",\"content\":\"Eres Clara, la recepcionista por voz del Centro Proyecta en Gijón. Escribe un saludo de bienvenida muy cálido, paciente y breve para la familia de un paciente que acaba de llamar. Dirígete a ellos en segunda persona del plural y menciona el nombre del niño/a paciente ({{ $json.nombre_niño }}). Mantén el saludo súper corto, de máximo 15 palabras y haz una pregunta amigable.\\n\\n⚠️ NORMAS IMPORTANTES:\\n- HORA EN ESPAÑA: {{ $now.setZone('Europe/Madrid').format('HH:mm') }}. Adapta tu saludo según esta hora: di 'buenos días' si es antes de las 14:00, di 'buenas tardes' si es entre las 14:00 y las 20:30, y 'buenas noches' en cualquier otra hora.\\n- Escribe una sola frase de saludo amigable, corta y directa. Máximo 15 palabras.\\n- NUNCA uses listas, viñetas ni guiones.\"},{\"role\":\"user\",\"content\":\"Paciente: {{ $json.nombre_niño }} {{ $json.apellidos }}.\"}],\"temperature\":0.4}"
-      },
-      "id": "openai-greeting-generator",
-      "name": "OpenAI Greeting Generator",
-      "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 4.1,
-      "position": [
-        1955,
-        0
-      ]
-    },
-    {
-      "parameters": {
-        "method": "POST",
-        "url": "https://api.openai.com/v1/chat/completions",
-        "sendHeaders": true,
-        "headerParameters": {
-          "parameters": [
-            {
-              "name": "Content-Type",
-              "value": "application/json"
-            },
-            {
-              "name": "Authorization",
-              "value": "=Bearer {{ $('Vapi Webhook').first().json.headers['x-openai-key'] || $env.OPENAI_API_KEY || 'REPLACE_WITH_YOUR_OPENAI_KEY-XA03AbgJiFNCCjQyFGJZyWkB-oNEERa-xtDkbMCjQkwc2LVyBNw5H8UT3BlbkFJ0vgylvWwiYQDtKnxirGbYHiKQWidTeWLZJzRejc8vP49NUZna6J5yF0f88_WdgH_3CftjoxcUIA' }}"
-            }
-          ]
-        },
-        "sendBody": true,
-        "specifyBody": "json",
-        "jsonBody": "{\"model\":\"gpt-4o-mini\",\"messages\":[{\"role\":\"system\",\"content\":\"Eres Clara, la recepcionista por voz del Centro Proyecta. Confirma de manera muy empática, natural y breve al usuario que has tomado nota de su solicitud de horario/disponibilidad para recepción. Explícales que mis compañeras de administración revisarán la agenda física y les llamarán o enviarán un mensaje hoy mismo para confirmarle el hueco definitivo. Escribe solo lo que vas a decir, máximo 2 frases, sin sonar robótica o mecánica. Evita explicaciones técnicas.\"},{\"role\":\"user\",\"content\":\"Datos de la solicitud:\\n- Niño/Paciente: {{ $('Bypass Sec Vapi').first().json.body.message?.toolCalls?.[0]?.function?.args?.nombre_niño || 'el niño' }}\\n- Terapeuta solicitado: {{ $('Bypass Sec Vapi').first().json.body.message?.toolCalls?.[0]?.function?.args?.terapeuta || 'cualquiera disponible' }}\\n- Horario deseado: {{ $('Bypass Sec Vapi').first().json.body.message?.toolCalls?.[0]?.function?.args?.preferencia_horaria || 'las tardes' }}\\n- Notas/Motivo: {{ $('Bypass Sec Vapi').first().json.body.message?.toolCalls?.[0]?.function?.args?.motivo || 'petición de cita' }}\"}],\"temperature\":0.4}"
-      },
-      "id": "openai-availability-responder",
-      "name": "OpenAI Availability Responder",
-      "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 4.1,
-      "position": [
-        850,
-        240
-      ]
-    },
-    {
-      "parameters": {
-        "method": "POST",
-        "url": "https://api.openai.com/v1/chat/completions",
-        "sendHeaders": true,
-        "headerParameters": {
-          "parameters": [
-            {
-              "name": "Content-Type",
-              "value": "application/json"
-            },
-            {
-              "name": "Authorization",
-              "value": "=Bearer {{ $('Vapi Webhook').first().json.headers['x-openai-key'] || $env.OPENAI_API_KEY || 'REPLACE_WITH_YOUR_OPENAI_KEY-XA03AbgJiFNCCjQyFGJZyWkB-oNEERa-xtDkbMCjQkwc2LVyBNw5H8UT3BlbkFJ0vgylvWwiYQDtKnxirGbYHiKQWidTeWLZJzRejc8vP49NUZna6J5yF0f88_WdgH_3CftjoxcUIA' }}"
-            }
-          ]
-        },
-        "sendBody": true,
-        "specifyBody": "json",
-        "jsonBody": "{\"model\":\"gpt-4o-mini\",\"messages\":[{\"role\":\"system\",\"content\":\"Eres Clara, la recepcionista por voz de Centro Proyecta. Confirma de forma muy atenta, empática y breve al usuario que ya has registrado su solicitud de reserva en el sistema. Explícales que el equipo de administración revisará la disponibilidad de la agenda física hoy mismo y se pondrá en contacto con ellos para confirmar la cita de forma definitiva. Escribe máximo 2 frases conversacionales.\"},{\"role\":\"user\",\"content\":\"Datos de la reserva:\\n- Niño/Paciente: {{ $('Bypass Sec Vapi').first().json.body.message?.toolCalls?.[0]?.function?.args?.nombre_niño || 'el niño' }}\\n- Terapeuta: {{ $('Bypass Sec Vapi').first().json.body.message?.toolCalls?.[0]?.function?.args?.terapeuta || 'cualquiera' }}\\n- Día/Hora solicitado: {{ $('Bypass Sec Vapi').first().json.body.message?.toolCalls?.[0]?.function?.args?.fecha_hora || 'el día solicitado' }}\\n- Motivo: {{ $('Bypass Sec Vapi').first().json.body.message?.toolCalls?.[0]?.function?.args?.motivo || 'no especificado' }}\"}],\"temperature\":0.4}"
-      },
-      "id": "openai-booking-responder",
-      "name": "OpenAI Booking Responder",
-      "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 4.1,
-      "position": [
-        1000,
-        400
-      ]
-    },
-    {
-      "parameters": {
-        "method": "POST",
-        "url": "https://api.openai.com/v1/chat/completions",
-        "sendHeaders": true,
-        "headerParameters": {
-          "parameters": [
-            {
-              "name": "Content-Type",
-              "value": "application/json"
-            },
-            {
-              "name": "Authorization",
-              "value": "=Bearer {{ $('Vapi Webhook').first().json.headers['x-openai-key'] || $env.OPENAI_API_KEY || 'REPLACE_WITH_YOUR_OPENAI_KEY-XA03AbgJiFNCCjQyFGJZyWkB-oNEERa-xtDkbMCjQkwc2LVyBNw5H8UT3BlbkFJ0vgylvWwiYQDtKnxirGbYHiKQWidTeWLZJzRejc8vP49NUZna6J5yF0f88_WdgH_3CftjoxcUIA' }}"
-            }
-          ]
-        },
-        "sendBody": true,
-        "specifyBody": "json",
-        "jsonBody": "{\"model\":\"gpt-4o-mini\",\"messages\":[{\"role\":\"system\",\"content\":\"Eres Clara, la recepcionista por voz de Centro Proyecta. Confirma al usuario de forma muy atenta, empática y comprensiva que has recibido su aviso de cancelación y que lo has registrado en el sistema. Dile que no es necesario que asistan a esa sesión y que el personal de recepción validará la cancelación física hoy mismo y les llamará o enviará un WhatsApp de confirmación. Máximo 2 frases de longitud regular.\"},{\"role\":\"user\",\"content\":\"Datos de la cancelación:\\n- Niño/Paciente: {{ $('Bypass Sec Vapi').first().json.body.message?.toolCalls?.[0]?.function?.args?.nombre_niño || 'el niño' }}\\n- Terapeuta: {{ $('Bypass Sec Vapi').first().json.body.message?.toolCalls?.[0]?.function?.args?.terapeuta || 'la terapeuta' }}\\n- Cita a cancelar: {{ $('Bypass Sec Vapi').first().json.body.message?.toolCalls?.[0]?.function?.args?.fecha_hora || 'la cita indicada' }}\\n- Motivo informado: {{ $('Bypass Sec Vapi').first().json.body.message?.toolCalls?.[0]?.function?.args?.motivo || 'aviso de cancelación' }}\"}],\"temperature\":0.4}"
-      },
-      "id": "openai-cancellation-responder",
-      "name": "OpenAI Cancellation Responder",
-      "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 4.1,
-      "position": [
-        1150,
-        560
-      ]
     }
   ],
   "connections": {
@@ -717,13 +562,7 @@
     },
     "Switch Acciones": {
       "main": [
-        [
-          {
-            "node": "Query Patients by Phone",
-            "type": "main",
-            "index": 0
-          }
-        ],
+        [],
         [
           {
             "node": "Log Availability to Dashboard",
@@ -752,6 +591,17 @@
         [
           {
             "node": "Check Registration Status",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check Registration Status": {
+      "main": [
+        [
+          {
+            "node": "Respond Saludo",
             "type": "main",
             "index": 0
           }
@@ -919,7 +769,7 @@
       "main": [
         [
           {
-            "node": "OpenAI Availability Responder",
+            "node": "Respond Disponibilidad",
             "type": "main",
             "index": 0
           }
@@ -930,79 +780,6 @@
       "main": [
         [
           {
-            "node": "OpenAI Booking Responder",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Log Cancelation to Dashboard": {
-      "main": [
-        [
-          {
-            "node": "OpenAI Cancellation Responder",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Check Registration Status": {
-      "main": [
-        [
-          {
-            "node": "Is Registered?",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Is Registered?": {
-      "main": [
-        [
-          {
-            "node": "OpenAI Greeting Generator",
-            "type": "main",
-            "index": 0
-          }
-        ],
-        [
-          {
-            "node": "Respond Saludo Anonimo",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "OpenAI Greeting Generator": {
-      "main": [
-        [
-          {
-            "node": "Respond Saludo Registrado",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "OpenAI Availability Responder": {
-      "main": [
-        [
-          {
-            "node": "Respond Disponibilidad",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "OpenAI Booking Responder": {
-      "main": [
-        [
-          {
             "node": "Respond Confirmacion",
             "type": "main",
             "index": 0
@@ -1010,7 +787,7 @@
         ]
       ]
     },
-    "OpenAI Cancellation Responder": {
+    "Log Cancelation to Dashboard": {
       "main": [
         [
           {

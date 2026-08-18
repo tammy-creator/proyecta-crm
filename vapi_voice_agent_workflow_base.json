@@ -382,7 +382,7 @@
     {
       "parameters": {
         "respondWith": "json",
-        "responseBody": "={\n  \"reply\": \"Perfecto, he tomado nota de tus datos. Te llamaremos en breve para coordinar tu primera cita. ¡Que tengas un gran día!\"\n}",
+        "responseBody": "{\n  \"reply\": \"Perfecto, he tomado nota de tus datos. Te llamaremos en breve para coordinar tu primera cita. ¡Que tengas un gran día!\"\n}",
         "options": {}
       },
       "id": "webhook-response-informacion",

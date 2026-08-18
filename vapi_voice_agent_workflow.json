@@ -104,7 +104,7 @@
     },
     {
       "parameters": {
-        "jsCode": "const patients = $input.all();\nif (patients.length > 0 && patients[0].json && patients[0].json.id) {\n  return [{\n    json: {\n      registrado: true,\n      patient_id: patients[0].json.id,\n      nombre_niño: patients[0].json.first_name,\n      apellidos: patients[0].json.last_name || ''\n    }\n  }];\n} else {\n  return [{\n    json: {\n      registrado: false\n    }\n  }];\n}"
+        "jsCode": "const patients = $input.all();\nif (patients.length > 0 && patients[0].json && patients[0].json.id) {\n  const nombre = patients[0].json.first_name;\n  return [{\n    json: {\n      registrado: true,\n      patient_id: patients[0].json.id,\n      nombre_niño: nombre,\n      apellidos: patients[0].json.last_name || '',\n      reply: `¡Hola! Bienvenido de nuevo al Centro Proyecta. Veo que nos llamas en relación a ${nombre}. ¿En qué os puedo ayudar hoy?`\n    }\n  }];\n} else {\n  return [{\n    json: {\n      registrado: false,\n      reply: \"Hola, bienvenido al Centro Proyecta. Soy Clara, ¿en qué os puedo ayudar hoy?\"\n    }\n  }];\n}"
       },
       "id": "code-check-registration",
       "name": "Check Registration Status",
@@ -118,7 +118,7 @@
     {
       "parameters": {
         "respondWith": "json",
-        "responseBody": "={\n  \"registrado\": {{$json.registrado}},\n  \"nombre_niño\": \"{{$json.nombre_niño || ''}}\"\n}",
+        "responseBody": "={\n  \"registrado\": {{$json.registrado}},\n  \"nombre_niño\": \"{{$json.nombre_niño || ''}}\",\n  \"reply\": \"{{$json.reply}}\"\n}",
         "options": {}
       },
       "id": "webhook-response-saludo",

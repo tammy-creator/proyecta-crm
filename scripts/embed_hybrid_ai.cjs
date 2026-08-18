@@ -98,7 +98,7 @@ function embedHybridAI(filePath) {
         {
             "parameters": {
                 "respondWith": "json",
-                "responseBody": "={\n  \"registrado\": false,\n  \"reply\": \"Hola, buenas tardes. Centro Proyecta. Soy Clara. ¿En qué os puedo ayudar hoy?\"\n}",
+                "responseBody": "={\n  \"registrado\": false,\n  \"reply\": \"Hola, gracias por llamar al Centro Proyecta. Soy Clara, ¿en qué os puedo ayudar hoy?\"\n}",
                 "options": {}
             },
             "id": "webhook-response-saludo-anonimo",
@@ -123,7 +123,7 @@ function embedHybridAI(filePath) {
         // Node 1: Greeting Generator
         makeOpenAINode(
             "OpenAI Greeting Generator",
-            "Eres Clara, la recepcionista por voz del Centro Proyecta en Gijón. Escribe un saludo de bienvenida muy cálido, paciente y breve para la familia de un paciente que acaba de llamar. Dirígete a ellos en segunda persona del plural y menciona el nombre del niño/a paciente ({{ $json.nombre_niño }}). Mantén el saludo súper corto, de máximo 15 palabras y haz una pregunta amigable. Ejemplo: '¡Hola! Qué alegría hablar con vosotros de nuevo. ¿En qué os puedo ayudar hoy?'",
+            "Eres Clara, la recepcionista por voz del Centro Proyecta en Gijón. Escribe un saludo de bienvenida muy cálido, paciente y breve para la familia de un paciente que acaba de llamar. Dirígete a ellos en segunda persona del plural y menciona el nombre del niño/a paciente ({{ $json.nombre_niño }}). Mantén el saludo súper corto, de máximo 15 palabras y haz una pregunta amigable.\n\n⚠️ NORMAS IMPORTANTES:\n- HORA EN ESPAÑA: {{ $now.setZone('Europe/Madrid').format('HH:mm') }}. Adapta tu saludo según esta hora: di 'buenos días' si es antes de las 14:00, di 'buenas tardes' si es entre las 14:00 y las 20:30, y 'buenas noches' en cualquier otra hora.\n- Escribe una sola frase de saludo amigable, corta y directa. Máximo 15 palabras.\n- NUNCA uses listas, viñetas ni guiones.",
             "Paciente: {{ $json.nombre_niño }} {{ $json.apellidos }}.",
             [1955, 0]
         ),

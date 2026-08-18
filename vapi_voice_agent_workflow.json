@@ -21,7 +21,7 @@
       "parameters": {
         "dataType": "string",
         "value1": "={{ $json.body.message?.toolCalls?.[0]?.function?.args?.accion || $json.body.accion || '' }}",
-        "numberOutputs": 4,
+        "numberOutputs": 5,
         "rules": {
           "rules": [
             {
@@ -43,6 +43,10 @@
             {
               "value2": "cancelacion",
               "output": 3
+            },
+            {
+              "value2": "informacion_general",
+              "output": 4
             }
           ]
         }
@@ -1196,6 +1200,221 @@
         650,
         520
       ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "boolean": [
+            {
+              "value1": "={{ $json.registrado }}",
+              "value2": true
+            }
+          ]
+        }
+      },
+      "id": "if-is-registered",
+      "name": "Is Registered?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [
+        1720,
+        80
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={\n  \"registrado\": true,\n  \"reply\": \"{{ $json.choices[0].message.content }}\"\n}",
+        "options": {}
+      },
+      "id": "webhook-response-saludo-registrado",
+      "name": "Respond Saludo Registrado",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [
+        2180,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={\n  \"registrado\": false,\n  \"reply\": \"Hola, gracias por llamar al Centro Proyecta. Soy Clara, ¿en qué os puedo ayudar hoy?\"\n}",
+        "options": {}
+      },
+      "id": "webhook-response-saludo-anonimo",
+      "name": "Respond Saludo Anonimo",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [
+        1950,
+        160
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={\n  \"reply\": \"{{ $json.choices[0].message.content }}\"\n}",
+        "options": {}
+      },
+      "id": "webhook-response-info-general",
+      "name": "Respond Informacion General",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [
+        1500,
+        360
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.openai.com/v1/chat/completions",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{ $('Vapi Webhook').first().json.headers['x-openai-key'] || $env.OPENAI_API_KEY || 'REPLACE_WITH_YOUR_OPENAI_KEY-XA03AbgJiFNCCjQyFGJZyWkB-oNEERa-xtDkbMCjQkwc2LVyBNw5H8UT3BlbkFJ0vgylvWwiYQDtKnxirGbYHiKQWidTeWLZJzRejc8vP49NUZna6J5yF0f88_WdgH_3CftjoxcUIA' }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "{\"model\":\"gpt-4o-mini\",\"messages\":[{\"role\":\"system\",\"content\":\"Eres Clara, la recepcionista por voz del Centro Proyecta en Gijón. Escribe un saludo de bienvenida muy cálido, paciente y breve para la familia de un paciente que acaba de llamar. Dirígete a ellos en segunda persona del plural y menciona el nombre del niño/a paciente ({{ $json.nombre_niño }}). Mantén el saludo súper corto, de máximo 15 palabras y haz una pregunta amigable.\\n\\n⚠️ NORMAS IMPORTANTES:\\n- HORA EN ESPAÑA: {{ $now.setZone('Europe/Madrid').format('HH:mm') }}. Adapta tu saludo según esta hora: di 'buenos días' si es antes de las 14:00, di 'buenas tardes' si es entre las 14:00 y las 20:30, y 'buenas noches' en cualquier otra hora.\\n- Escribe una sola frase de saludo amigable, corta y directa. Máximo 15 palabras.\\n- NUNCA uses listas, viñetas ni guiones.\"},{\"role\":\"user\",\"content\":\"Paciente: {{ $json.nombre_niño }} {{ $json.apellidos }}.\"}],\"temperature\":0.4}"
+      },
+      "id": "openai-greeting-generator",
+      "name": "OpenAI Greeting Generator",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [
+        1955,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.openai.com/v1/chat/completions",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{ $('Vapi Webhook').first().json.headers['x-openai-key'] || $env.OPENAI_API_KEY || 'REPLACE_WITH_YOUR_OPENAI_KEY-XA03AbgJiFNCCjQyFGJZyWkB-oNEERa-xtDkbMCjQkwc2LVyBNw5H8UT3BlbkFJ0vgylvWwiYQDtKnxirGbYHiKQWidTeWLZJzRejc8vP49NUZna6J5yF0f88_WdgH_3CftjoxcUIA' }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "{\"model\":\"gpt-4o-mini\",\"messages\":[{\"role\":\"system\",\"content\":\"Eres Clara, la recepcionista por voz del Centro Proyecta. Confirma de manera muy empática, natural y breve al usuario que has tomado nota de su solicitud de horario/disponibilidad para recepción. Explícales que mis compañeras de administración revisarán la agenda física y les llamarán o enviarán un mensaje hoy mismo para confirmarle el hueco definitivo. Escribe solo lo que vas a decir, máximo 2 frases, sin sonar robótica o mecánica. Evita explicaciones técnicas.\"},{\"role\":\"user\",\"content\":\"Datos de la solicitud:\\n- Niño/Paciente: {{ $('Bypass Sec Vapi').first().json.body.message?.toolCalls?.[0]?.function?.args?.nombre_niño || 'el niño' }}\\n- Terapeuta solicitado: {{ $('Bypass Sec Vapi').first().json.body.message?.toolCalls?.[0]?.function?.args?.terapeuta || 'cualquiera disponible' }}\\n- Horario deseado: {{ $('Bypass Sec Vapi').first().json.body.message?.toolCalls?.[0]?.function?.args?.preferencia_horaria || 'las tardes' }}\\n- Notas/Motivo: {{ $('Bypass Sec Vapi').first().json.body.message?.toolCalls?.[0]?.function?.args?.motivo || 'petición de cita' }}\"}],\"temperature\":0.4}"
+      },
+      "id": "openai-availability-responder",
+      "name": "OpenAI Availability Responder",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [
+        850,
+        240
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.openai.com/v1/chat/completions",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{ $('Vapi Webhook').first().json.headers['x-openai-key'] || $env.OPENAI_API_KEY || 'REPLACE_WITH_YOUR_OPENAI_KEY-XA03AbgJiFNCCjQyFGJZyWkB-oNEERa-xtDkbMCjQkwc2LVyBNw5H8UT3BlbkFJ0vgylvWwiYQDtKnxirGbYHiKQWidTeWLZJzRejc8vP49NUZna6J5yF0f88_WdgH_3CftjoxcUIA' }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "{\"model\":\"gpt-4o-mini\",\"messages\":[{\"role\":\"system\",\"content\":\"Eres Clara, la recepcionista por voz de Centro Proyecta. Confirma de forma muy atenta, empática y breve al usuario que ya has registrado su solicitud de reserva en el sistema. Explícales que el equipo de administración revisará la disponibilidad de la agenda física hoy mismo y se pondrá en contacto con ellos para confirmar la cita de forma definitiva. Escribe máximo 2 frases conversacionales.\"},{\"role\":\"user\",\"content\":\"Datos de la reserva:\\n- Niño/Paciente: {{ $('Bypass Sec Vapi').first().json.body.message?.toolCalls?.[0]?.function?.args?.nombre_niño || 'el niño' }}\\n- Terapeuta: {{ $('Bypass Sec Vapi').first().json.body.message?.toolCalls?.[0]?.function?.args?.terapeuta || 'cualquiera' }}\\n- Día/Hora solicitado: {{ $('Bypass Sec Vapi').first().json.body.message?.toolCalls?.[0]?.function?.args?.fecha_hora || 'el día solicitado' }}\\n- Motivo: {{ $('Bypass Sec Vapi').first().json.body.message?.toolCalls?.[0]?.function?.args?.motivo || 'no especificado' }}\"}],\"temperature\":0.4}"
+      },
+      "id": "openai-booking-responder",
+      "name": "OpenAI Booking Responder",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [
+        1000,
+        400
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.openai.com/v1/chat/completions",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{ $('Vapi Webhook').first().json.headers['x-openai-key'] || $env.OPENAI_API_KEY || 'REPLACE_WITH_YOUR_OPENAI_KEY-XA03AbgJiFNCCjQyFGJZyWkB-oNEERa-xtDkbMCjQkwc2LVyBNw5H8UT3BlbkFJ0vgylvWwiYQDtKnxirGbYHiKQWidTeWLZJzRejc8vP49NUZna6J5yF0f88_WdgH_3CftjoxcUIA' }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "{\"model\":\"gpt-4o-mini\",\"messages\":[{\"role\":\"system\",\"content\":\"Eres Clara, la recepcionista por voz de Centro Proyecta. Confirma al usuario de forma muy atenta, empática y comprensiva que has recibido su aviso de cancelación y que lo has registrado en el sistema. Dile que no es necesario que asistan a esa sesión y que el personal de recepción validará la cancelación física hoy mismo y les llamará o enviará un WhatsApp de confirmación. Máximo 2 frases de longitud regular.\"},{\"role\":\"user\",\"content\":\"Datos de la cancelación:\\n- Niño/Paciente: {{ $('Bypass Sec Vapi').first().json.body.message?.toolCalls?.[0]?.function?.args?.nombre_niño || 'el niño' }}\\n- Terapeuta: {{ $('Bypass Sec Vapi').first().json.body.message?.toolCalls?.[0]?.function?.args?.terapeuta || 'la terapeuta' }}\\n- Cita a cancelar: {{ $('Bypass Sec Vapi').first().json.body.message?.toolCalls?.[0]?.function?.args?.fecha_hora || 'la cita indicada' }}\\n- Motivo informado: {{ $('Bypass Sec Vapi').first().json.body.message?.toolCalls?.[0]?.function?.args?.motivo || 'aviso de cancelación' }}\"}],\"temperature\":0.4}"
+      },
+      "id": "openai-cancellation-responder",
+      "name": "OpenAI Cancellation Responder",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [
+        1150,
+        560
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.openai.com/v1/chat/completions",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{ $('Vapi Webhook').first().json.headers['x-openai-key'] || $env.OPENAI_API_KEY || 'REPLACE_WITH_YOUR_OPENAI_KEY-XA03AbgJiFNCCjQyFGJZyWkB-oNEERa-xtDkbMCjQkwc2LVyBNw5H8UT3BlbkFJ0vgylvWwiYQDtKnxirGbYHiKQWidTeWLZJzRejc8vP49NUZna6J5yF0f88_WdgH_3CftjoxcUIA' }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "{\"model\":\"gpt-4o-mini\",\"messages\":[{\"role\":\"system\",\"content\":\"Eres Clara, la recepcionista por voz del Centro Proyecta de Gijón (Centro de Desarrollo Cognitivo). Tu tono es muy empático, pausado, amigable y sumamente conversacional. Responde a la pregunta del usuario utilizando de forma exacta y coherente la base de conocimiento provista.\\n\\n⚠️ NORMAS IMPORTANTES:\\n- Escribe la respuesta de forma conversacional lista para ser leída por voz. Máximo 2 a 3 oraciones cortas. No uses lenguaje robótico.\\n- NUNCA uses listas, viñetas ni guiones.\\n- NUNCA menciones precios ni tarifas por propia iniciativa (primero explica la metodología e información); dales la información sobre el proceso y si te preguntan el precio directamente, entonces se los indicas (70€ la primera entrevista/valoración, etc).\\n- Si te preguntan por psicomotricidad o fisioterapia, di que no ofrecemos esos servicios en el centro de forma directa, pero sí logopedia, psicología, psicopedagogía y terapia ocupacional (integración sensorial).\\n- **CIERRE CONVERSACIONAL:** Al final de tu respuesta de información, no pidas datos de contacto directamente. En su lugar, invita de forma empática al usuario a plantear más dudas o a compartir las inquietudes/dificultades específicas del niño/a para orientarle mejor (ejemplo: '¿Te queda alguna duda sobre esto, o prefieres contarme un poco qué dificultad está teniendo el peque para ver cómo os podemos orientar?').\\n\\n### BASE DE CONOCIMIENTO DE CENTRO PROYECTA:\\n# Base de Conocimiento de Centro Proyecta (Gijón)\\r\\nEste documento contiene la información oficial del Centro Proyecta. Está estructurado para que el agente de voz Vapi (Clara) pueda recuperar respuestas precisas y realistas sobre los servicios, terapeutas, metodologías e información de contacto.\\r\\n\\r\\n---\\r\\n\\r\\n## 1. Información General del Centro\\r\\n* **Nombre Comercial:** Centro Proyecta - Aprendizaje y Desarrollo Infantil / Centro de Desarrollo Cognitivo.\\r\\n* **Ubicación Física:** Calle Alonso de Ojeda, 14, bajo izquierda, Gijón, Asturias (Código Postal 33208), Barrio de El Llano.\\r\\n* **Correo Electrónico de Contacto:** `centroproyectagijon@gmail.com` o `contacto@centroproyecta.es`.\\r\\n* **Enfoque y Metodología:** Centro interdisciplinario privado de atención a la infancia y la adolescencia. Se centra en el desarrollo integral a través de un enfoque respetuoso con el ritmo del niño, utilizando el **juego** como herramienta básica y motivadora de aprendizaje. Es fundamental la total colaboración y comunicación constante con las familias y tutores.\\r\\n\\r\\n---\\r\\n\\r\\n## 2. Especialidades y Servicios de Intervención\\r\\nEl equipo de profesionales aborda las necesidades del desarrollo infantojuvenil en cuatro áreas principales:\\r\\n\\r\\n### A. Psicología Infantil y Juvenil\\r\\n* **Objetivo:** Evaluación e intervención emocional, conductual y social de niños y adolescentes.\\r\\n* **Indicado para:** Ansiedad, gestión del enfado, problemas de conducta, dificultades de relación social, autoestima, celos, miedos o baja tolerancia a la frustración.\\r\\n* **Intervención Temprana:** Apoyo en los primeros años de vida ante sospechas de hitos del desarrollo no alcanzados.\\r\\n\\r\\n### B. Logopedia Infantil\\r\\n* **Objetivo:** Prevención, evaluación y tratamiento de problemas de la comunicación, el lenguaje oral/escrito (lectoescritura) y el habla.\\r\\n* **Enfoque Miofuncional:** Intervención en deglución atípica, respiración bucal, masticación y malos hábitos orales (chupete, succión del dedo).\\r\\n* **Indicado para:** Retrasos del lenguaje, dislalias (dificultades de pronunciación como la /r/, /s/, etc.), mutismo selectivo y dificultades de comunicación social.\\r\\n\\r\\n### C. Terapia Ocupacional\\r\\n* **Objetivo:** Fomentar la autonomía funcional del niño en sus actividades de la vida diaria (alimentación, vestido, higiene, juego y escuela).\\r\\n* **Integración Sensorial:** Tratamiento para niños que presentan hiper o hiposensibilidad al tacto, sonidos, texturas o movimiento.\\r\\n* **Habilidades Motoras:** Estimulación de la motricidad fina (coordinación ojo-mano, fuerza de pinza, escritura manual) y motricidad gruesa (coordinación, equilibrio, planificación motora).\\r\\n\\r\\n### D. Pedagogía y Psicopedagogía\\r\\n* **Objetivo:** Estimulación de procesos cognitivos y apoyo en dificultades de aprendizaje escolar.\\r\\n* **Indicado para:** Dificultades con las matemáticas (discalculia), la lectura (dislexia), la atención (TDAH), técnicas de estudio y organización del trabajo.\\r\\n\\r\\n---\\r\\n\\r\\n## 3. Equipo de Terapeutas en Servicio\\r\\nEl equipo clínico activo está compuesto por las siguientes especialistas:\\r\\n* **Sofía**\\r\\n* **Ángela**\\r\\n* **Ruth**\\r\\n* **Marta**\\r\\n* **Laura**\\r\\n* **Yaiza**\\r\\n* **Zoe**\\r\\n\\r\\n---\\r\\n\\r\\n## 4. Tarifas, Citas y Preguntas Frecuentes (FAQ)\\r\\n\\r\\n### ¿Cuánto cuesta la primera consulta o valoración inicial?\\r\\n* **Precio:** 70€ (Noventa euros).\\r\\n* **En qué consiste:** Normalmente dura de 50 a 60 minutos. Es un espacio para conocer los motivos de la consulta, recopilar antecedentes del desarrollo con los padres o tutores y pactar los objetivos de intervención.\\r\\n\\r\\n### ¿Cuánto duran las sesiones semanales de terapia?\\r\\n* Las sesiones regulares de intervención tienen una duración estimada de **45 a 50 minutos**.\\r\\n\\r\\n### ¿Cómo se solicita o modifica una cita?\\r\\n* Clara (el bot) no confirma citas directamente para evitar fallos de agenda o sobreposiciones accidentales de horarios.\\r\\n* Clara recopila las preferencias de día y hora que desea el cliente y las registra como **\\\"Solicitud por Revisar\\\"** en el panel administrativo de la clínica.\\r\\n* El personal de recepción de la clínica llamará o escribirá un mensaje de confirmación al tutor de manera manual el mismo día.\\r\\n\\r\\n### ¿Se pueden cancelar las citas por teléfono con el bot?\\r\\n* Sí, Clara puede tomar el aviso de cancelación de la cita si el cliente lo solicita.\\r\\n* La cancelación se guardará como aviso prioritario en el Dashboard para que el gestor lo valide e introduzca los cambios en la agenda y llame a la familia en caso de requerir reubicación.\\r\\n\\r\\n### ¿Qué pasa si no hay citas disponibles inmediatamente?\\r\\n* El centro dispone de una **Lista de Espera organizada**. Si no hay huecos en el horario deseado, Clara tomará los datos del padre/madre, nombre del niño/a y teléfono para agregarlos a la lista de espera de manera directa. En cuanto se libere una hora del terapeuta especialista, se les llamará por estricto orden de registro.\\r\\n\"},{\"role\":\"user\",\"content\":\"Pregunta del usuario:\\n{{ $('Bypass Sec Vapi').first().json.body.message?.toolCalls?.[0]?.function?.args?.pregunta || $('Bypass Sec Vapi').first().json.body.message?.toolCalls?.[0]?.function?.args?.motivo || 'petición de información de servicios' }}\"}],\"temperature\":0.4}"
+      },
+      "id": "openai-faq-responder",
+      "name": "OpenAI FAQ Responder",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [
+        1280,
+        360
+      ]
     }
   ],
   "connections": {
@@ -1236,6 +1455,13 @@
         [
           {
             "node": "Log Cancelation to Dashboard",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "OpenAI FAQ Responder",
             "type": "main",
             "index": 0
           }
@@ -1516,17 +1742,6 @@
         ]
       ]
     },
-    "Check Registration Status": {
-      "main": [
-        [
-          {
-            "node": "Is Registered?",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
     "Es Info General?": {
       "main": [
         [
@@ -1539,6 +1754,17 @@
         [
           {
             "node": "Switch Acciones",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check Registration Status": {
+      "main": [
+        [
+          {
+            "node": "Is Registered?",
             "type": "main",
             "index": 0
           }

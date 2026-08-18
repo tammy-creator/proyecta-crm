@@ -610,7 +610,7 @@
             },
             {
               "name": "Authorization",
-              "value": "=Bearer {{ $('Vapi Webhook').first().json.headers['x-openai-key'] || $env.OPENAI_API_KEY || 'REPLACE_WITH_YOUR_OPENAI_KEY' }}"
+              "value": "=Bearer {{ $('Vapi Webhook').first().json.headers['x-openai-key'] || $env.OPENAI_API_KEY || 'REPLACE_WITH_YOUR_OPENAI_KEY-XA03AbgJiFNCCjQyFGJZyWkB-oNEERa-xtDkbMCjQkwc2LVyBNw5H8UT3BlbkFJ0vgylvWwiYQDtKnxirGbYHiKQWidTeWLZJzRejc8vP49NUZna6J5yF0f88_WdgH_3CftjoxcUIA' }}"
             }
           ]
         },
@@ -640,7 +640,7 @@
             },
             {
               "name": "Authorization",
-              "value": "=Bearer {{ $('Vapi Webhook').first().json.headers['x-openai-key'] || $env.OPENAI_API_KEY || 'REPLACE_WITH_YOUR_OPENAI_KEY' }}"
+              "value": "=Bearer {{ $('Vapi Webhook').first().json.headers['x-openai-key'] || $env.OPENAI_API_KEY || 'REPLACE_WITH_YOUR_OPENAI_KEY-XA03AbgJiFNCCjQyFGJZyWkB-oNEERa-xtDkbMCjQkwc2LVyBNw5H8UT3BlbkFJ0vgylvWwiYQDtKnxirGbYHiKQWidTeWLZJzRejc8vP49NUZna6J5yF0f88_WdgH_3CftjoxcUIA' }}"
             }
           ]
         },
@@ -670,7 +670,7 @@
             },
             {
               "name": "Authorization",
-              "value": "=Bearer {{ $('Vapi Webhook').first().json.headers['x-openai-key'] || $env.OPENAI_API_KEY || 'REPLACE_WITH_YOUR_OPENAI_KEY' }}"
+              "value": "=Bearer {{ $('Vapi Webhook').first().json.headers['x-openai-key'] || $env.OPENAI_API_KEY || 'REPLACE_WITH_YOUR_OPENAI_KEY-XA03AbgJiFNCCjQyFGJZyWkB-oNEERa-xtDkbMCjQkwc2LVyBNw5H8UT3BlbkFJ0vgylvWwiYQDtKnxirGbYHiKQWidTeWLZJzRejc8vP49NUZna6J5yF0f88_WdgH_3CftjoxcUIA' }}"
             }
           ]
         },
@@ -700,7 +700,7 @@
             },
             {
               "name": "Authorization",
-              "value": "=Bearer {{ $('Vapi Webhook').first().json.headers['x-openai-key'] || $env.OPENAI_API_KEY || 'REPLACE_WITH_YOUR_OPENAI_KEY' }}"
+              "value": "=Bearer {{ $('Vapi Webhook').first().json.headers['x-openai-key'] || $env.OPENAI_API_KEY || 'REPLACE_WITH_YOUR_OPENAI_KEY-XA03AbgJiFNCCjQyFGJZyWkB-oNEERa-xtDkbMCjQkwc2LVyBNw5H8UT3BlbkFJ0vgylvWwiYQDtKnxirGbYHiKQWidTeWLZJzRejc8vP49NUZna6J5yF0f88_WdgH_3CftjoxcUIA' }}"
             }
           ]
         },
@@ -730,7 +730,7 @@
             },
             {
               "name": "Authorization",
-              "value": "=Bearer {{ $('Vapi Webhook').first().json.headers['x-openai-key'] || $env.OPENAI_API_KEY || 'REPLACE_WITH_YOUR_OPENAI_KEY' }}"
+              "value": "=Bearer {{ $('Vapi Webhook').first().json.headers['x-openai-key'] || $env.OPENAI_API_KEY || 'REPLACE_WITH_YOUR_OPENAI_KEY-XA03AbgJiFNCCjQyFGJZyWkB-oNEERa-xtDkbMCjQkwc2LVyBNw5H8UT3BlbkFJ0vgylvWwiYQDtKnxirGbYHiKQWidTeWLZJzRejc8vP49NUZna6J5yF0f88_WdgH_3CftjoxcUIA' }}"
             }
           ]
         },
@@ -825,7 +825,7 @@
             },
             {
               "name": "Authorization",
-              "value": "=Bearer {{ $('Vapi Webhook').first().json.headers['x-openai-key'] || $env.OPENAI_API_KEY || 'REPLACE_WITH_YOUR_OPENAI_KEY' }}"
+              "value": "=Bearer {{ $('Vapi Webhook').first().json.headers['x-openai-key'] || $env.OPENAI_API_KEY || 'REPLACE_WITH_YOUR_OPENAI_KEY-XA03AbgJiFNCCjQyFGJZyWkB-oNEERa-xtDkbMCjQkwc2LVyBNw5H8UT3BlbkFJ0vgylvWwiYQDtKnxirGbYHiKQWidTeWLZJzRejc8vP49NUZna6J5yF0f88_WdgH_3CftjoxcUIA' }}"
             }
           ]
         },
@@ -855,7 +855,7 @@
             },
             {
               "name": "Authorization",
-              "value": "=Bearer {{ $('Vapi Webhook').first().json.headers['x-openai-key'] || $env.OPENAI_API_KEY || 'REPLACE_WITH_YOUR_OPENAI_KEY' }}"
+              "value": "=Bearer {{ $('Vapi Webhook').first().json.headers['x-openai-key'] || $env.OPENAI_API_KEY || 'REPLACE_WITH_YOUR_OPENAI_KEY-XA03AbgJiFNCCjQyFGJZyWkB-oNEERa-xtDkbMCjQkwc2LVyBNw5H8UT3BlbkFJ0vgylvWwiYQDtKnxirGbYHiKQWidTeWLZJzRejc8vP49NUZna6J5yF0f88_WdgH_3CftjoxcUIA' }}"
             }
           ]
         },
@@ -885,7 +885,7 @@
             },
             {
               "name": "Authorization",
-              "value": "=Bearer {{ $('Vapi Webhook').first().json.headers['x-openai-key'] || $env.OPENAI_API_KEY || 'REPLACE_WITH_YOUR_OPENAI_KEY' }}"
+              "value": "=Bearer {{ $('Vapi Webhook').first().json.headers['x-openai-key'] || $env.OPENAI_API_KEY || 'REPLACE_WITH_YOUR_OPENAI_KEY-XA03AbgJiFNCCjQyFGJZyWkB-oNEERa-xtDkbMCjQkwc2LVyBNw5H8UT3BlbkFJ0vgylvWwiYQDtKnxirGbYHiKQWidTeWLZJzRejc8vP49NUZna6J5yF0f88_WdgH_3CftjoxcUIA' }}"
             }
           ]
         },
@@ -915,7 +915,7 @@
             },
             {
               "name": "Authorization",
-              "value": "=Bearer {{ $('Vapi Webhook').first().json.headers['x-openai-key'] || $env.OPENAI_API_KEY || 'REPLACE_WITH_YOUR_OPENAI_KEY' }}"
+              "value": "=Bearer {{ $('Vapi Webhook').first().json.headers['x-openai-key'] || $env.OPENAI_API_KEY || 'REPLACE_WITH_YOUR_OPENAI_KEY-XA03AbgJiFNCCjQyFGJZyWkB-oNEERa-xtDkbMCjQkwc2LVyBNw5H8UT3BlbkFJ0vgylvWwiYQDtKnxirGbYHiKQWidTeWLZJzRejc8vP49NUZna6J5yF0f88_WdgH_3CftjoxcUIA' }}"
             }
           ]
         },
@@ -945,7 +945,7 @@
             },
             {
               "name": "Authorization",
-              "value": "=Bearer {{ $('Vapi Webhook').first().json.headers['x-openai-key'] || $env.OPENAI_API_KEY || 'REPLACE_WITH_YOUR_OPENAI_KEY' }}"
+              "value": "=Bearer {{ $('Vapi Webhook').first().json.headers['x-openai-key'] || $env.OPENAI_API_KEY || 'REPLACE_WITH_YOUR_OPENAI_KEY-XA03AbgJiFNCCjQyFGJZyWkB-oNEERa-xtDkbMCjQkwc2LVyBNw5H8UT3BlbkFJ0vgylvWwiYQDtKnxirGbYHiKQWidTeWLZJzRejc8vP49NUZna6J5yF0f88_WdgH_3CftjoxcUIA' }}"
             }
           ]
         },
@@ -1040,7 +1040,7 @@
             },
             {
               "name": "Authorization",
-              "value": "=Bearer {{ $('Vapi Webhook').first().json.headers['x-openai-key'] || $env.OPENAI_API_KEY || 'REPLACE_WITH_YOUR_OPENAI_KEY' }}"
+              "value": "=Bearer {{ $('Vapi Webhook').first().json.headers['x-openai-key'] || $env.OPENAI_API_KEY || 'REPLACE_WITH_YOUR_OPENAI_KEY-XA03AbgJiFNCCjQyFGJZyWkB-oNEERa-xtDkbMCjQkwc2LVyBNw5H8UT3BlbkFJ0vgylvWwiYQDtKnxirGbYHiKQWidTeWLZJzRejc8vP49NUZna6J5yF0f88_WdgH_3CftjoxcUIA' }}"
             }
           ]
         },
@@ -1070,7 +1070,7 @@
             },
             {
               "name": "Authorization",
-              "value": "=Bearer {{ $('Vapi Webhook').first().json.headers['x-openai-key'] || $env.OPENAI_API_KEY || 'REPLACE_WITH_YOUR_OPENAI_KEY' }}"
+              "value": "=Bearer {{ $('Vapi Webhook').first().json.headers['x-openai-key'] || $env.OPENAI_API_KEY || 'REPLACE_WITH_YOUR_OPENAI_KEY-XA03AbgJiFNCCjQyFGJZyWkB-oNEERa-xtDkbMCjQkwc2LVyBNw5H8UT3BlbkFJ0vgylvWwiYQDtKnxirGbYHiKQWidTeWLZJzRejc8vP49NUZna6J5yF0f88_WdgH_3CftjoxcUIA' }}"
             }
           ]
         },
@@ -1100,7 +1100,7 @@
             },
             {
               "name": "Authorization",
-              "value": "=Bearer {{ $('Vapi Webhook').first().json.headers['x-openai-key'] || $env.OPENAI_API_KEY || 'REPLACE_WITH_YOUR_OPENAI_KEY' }}"
+              "value": "=Bearer {{ $('Vapi Webhook').first().json.headers['x-openai-key'] || $env.OPENAI_API_KEY || 'REPLACE_WITH_YOUR_OPENAI_KEY-XA03AbgJiFNCCjQyFGJZyWkB-oNEERa-xtDkbMCjQkwc2LVyBNw5H8UT3BlbkFJ0vgylvWwiYQDtKnxirGbYHiKQWidTeWLZJzRejc8vP49NUZna6J5yF0f88_WdgH_3CftjoxcUIA' }}"
             }
           ]
         },
@@ -1130,7 +1130,7 @@
             },
             {
               "name": "Authorization",
-              "value": "=Bearer {{ $('Vapi Webhook').first().json.headers['x-openai-key'] || $env.OPENAI_API_KEY || 'REPLACE_WITH_YOUR_OPENAI_KEY' }}"
+              "value": "=Bearer {{ $('Vapi Webhook').first().json.headers['x-openai-key'] || $env.OPENAI_API_KEY || 'REPLACE_WITH_YOUR_OPENAI_KEY-XA03AbgJiFNCCjQyFGJZyWkB-oNEERa-xtDkbMCjQkwc2LVyBNw5H8UT3BlbkFJ0vgylvWwiYQDtKnxirGbYHiKQWidTeWLZJzRejc8vP49NUZna6J5yF0f88_WdgH_3CftjoxcUIA' }}"
             }
           ]
         },
@@ -1160,7 +1160,7 @@
             },
             {
               "name": "Authorization",
-              "value": "=Bearer {{ $('Vapi Webhook').first().json.headers['x-openai-key'] || $env.OPENAI_API_KEY || 'REPLACE_WITH_YOUR_OPENAI_KEY' }}"
+              "value": "=Bearer {{ $('Vapi Webhook').first().json.headers['x-openai-key'] || $env.OPENAI_API_KEY || 'REPLACE_WITH_YOUR_OPENAI_KEY-XA03AbgJiFNCCjQyFGJZyWkB-oNEERa-xtDkbMCjQkwc2LVyBNw5H8UT3BlbkFJ0vgylvWwiYQDtKnxirGbYHiKQWidTeWLZJzRejc8vP49NUZna6J5yF0f88_WdgH_3CftjoxcUIA' }}"
             }
           ]
         },

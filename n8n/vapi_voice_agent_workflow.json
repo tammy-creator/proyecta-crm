@@ -530,7 +530,7 @@
             },
             {
               "name": "message",
-              "value": "={{ 'El asistente ha registrado a ' + ($('Bypass Sec Vapi').first().json.body.message?.toolCalls?.[0]?.function?.args?.datos_lead?.nombre_niño || 'un niño') + ' (Tutor/a: ' + ($('Bypass Sec Vapi').first().json.body.message?.toolCalls?.[0]?.function?.args?.datos_lead?.nombre_padre || 'desconocido') + ') en la lista de espera. Motivo: ' + ($('Bypass Sec Vapi').first().json.body.message?.toolCalls?.[0]?.function?.args?.datos_lead?.motivo || 'no especificado') }}"
+              "value": "={{ 'El asistente ha registrado a ' + $('Parse Lead Data').first().json.nombre_niño + ' (Tutor/a: ' + $('Parse Lead Data').first().json.nombre_padre + ') en la lista de espera. Motivo: ' + $('Parse Lead Data').first().json.motivo }}"
             }
           ]
         }

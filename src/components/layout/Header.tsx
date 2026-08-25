@@ -14,7 +14,7 @@ const Header: React.FC = () => {
     const { user, logout, isRole } = useAuth();
     const location = useLocation();
     const navigate = useNavigate();
-    
+
     // Activate Real-time WhatsApp/System Notifications
     useRealtimeNotifications();
 
@@ -37,7 +37,7 @@ const Header: React.FC = () => {
                 checkClockInStatus().catch(e => console.error("Error in checkClockInStatus effect:", e));
             }
         }
-        
+
         const handleWorkforceUpdate = () => {
             if (user?.role === 'THERAPIST') {
                 checkClockInStatus();
@@ -54,7 +54,7 @@ const Header: React.FC = () => {
                 checkClockInStatus();
             }
         }, 5 * 60 * 1000);
-        
+
         window.addEventListener('workforce-update', handleWorkforceUpdate);
         window.addEventListener('notification-refresh', handleNotificationRefresh);
         return () => {
@@ -65,7 +65,7 @@ const Header: React.FC = () => {
     }, [user, location.pathname]);
 
     const checkClockInStatus = async () => {
-        if (!user || !user.therapistId) return; 
+        if (!user || !user.therapistId) return;
         const { getLiveWorkStats, checkScheduleAdherence } = await import('../../modules/workforce/service');
         const [stats, adherence] = await Promise.all([
             getLiveWorkStats(user.therapistId),
@@ -107,11 +107,11 @@ const Header: React.FC = () => {
 
     const handleDismiss = (id: string) => {
         // Detect if it's a persistent DB notification (they don't use these prefixes)
-        const isDynamic = id.startsWith('cancel-') || 
-                         id.startsWith('unsigned-') || 
-                         id.startsWith('my-unsigned-') || 
-                         id.startsWith('missing-diary-');
-        
+        const isDynamic = id.startsWith('cancel-') ||
+            id.startsWith('unsigned-') ||
+            id.startsWith('my-unsigned-') ||
+            id.startsWith('missing-diary-');
+
         dismissNotification(id, !isDynamic);
         const updated = notifications.filter(n => n.id !== id);
         setNotifications(updated);
@@ -161,7 +161,7 @@ const Header: React.FC = () => {
                         <span>No has fichado la entrada todavía. Recuerda registrar tu inicio de jornada.</span>
                     </div>
                     <div className="flex items-center gap-4">
-                        <button 
+                        <button
                             style={{
                                 backgroundColor: '#854d0e',
                                 color: '#fef3c7',
@@ -201,7 +201,7 @@ const Header: React.FC = () => {
                         <span>Tu jornada laboral ha terminado. No olvides fichar la salida.</span>
                     </div>
                     <div className="flex items-center gap-4">
-                        <button 
+                        <button
                             style={{
                                 backgroundColor: '#991b1b',
                                 color: '#ffffff',
@@ -247,6 +247,35 @@ const Header: React.FC = () => {
                         <button
                             className="btn-icon-text workforce-trigger"
                             onClick={() => setIsWorkforceOpen(!isWorkforceOpen)}
+                            style={{
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '0.5rem',
+                                padding: '0.5rem 1.25rem',
+                                borderRadius: '999px',
+                                border: '1px solid rgba(0, 0, 0, 0.1)',
+                                backgroundColor: '#f8fafc',
+                                color: '#2C3E50',
+                                fontWeight: 600,
+                                fontSize: '0.875rem',
+                                cursor: 'pointer',
+                                transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
+                                boxShadow: '0 2px 4px rgba(0, 0, 0, 0.04)',
+                            }}
+                            onMouseEnter={(e) => {
+                                e.currentTarget.style.backgroundColor = '#1A5F7A';
+                                e.currentTarget.style.color = '#ffffff';
+                                e.currentTarget.style.borderColor = '#1A5F7A';
+                                e.currentTarget.style.boxShadow = '0 4px 8px rgba(26, 95, 122, 0.15)';
+                                e.currentTarget.style.transform = 'scale(1.02)';
+                            }}
+                            onMouseLeave={(e) => {
+                                e.currentTarget.style.backgroundColor = '#f8fafc';
+                                e.currentTarget.style.color = '#2C3E50';
+                                e.currentTarget.style.borderColor = 'rgba(0, 0, 0, 0.1)';
+                                e.currentTarget.style.boxShadow = '0 2px 4px rgba(0, 0, 0, 0.04)';
+                                e.currentTarget.style.transform = 'none';
+                            }}
                         >
                             <Clock size={18} />
                             <span>Fichar</span>
@@ -286,10 +315,10 @@ const Header: React.FC = () => {
                             onClick={() => setIsProfileOpen(!isProfileOpen)}
                         >
                             <div className="avatar small">
-                                <img 
-                                    src={getIllustrativeAvatar({ fullName: user?.name, avatarUrl: user?.avatarUrl })} 
-                                    alt={user?.name} 
-                                    style={{ width: '100%', height: '100%', borderRadius: '50%', objectFit: 'cover' }} 
+                                <img
+                                    src={getIllustrativeAvatar({ fullName: user?.name, avatarUrl: user?.avatarUrl })}
+                                    alt={user?.name}
+                                    style={{ width: '100%', height: '100%', borderRadius: '50%', objectFit: 'cover' }}
                                 />
                             </div>
                             <span className="profile-name">{user?.name}</span>
@@ -307,8 +336,8 @@ const Header: React.FC = () => {
                                 </div>
                                 <div className="dropdown-divider"></div>
                                 {user?.identities && user.identities.length > 0 && (
-                                    <button 
-                                        className="dropdown-item" 
+                                    <button
+                                        className="dropdown-item"
                                         onClick={() => {
                                             sessionStorage.removeItem('active_identity');
                                             window.location.reload(); // Simplest way to trigger the selector again

@@ -134,21 +134,57 @@
     line-height: 1.1;
 }
 
-.summary-blue { background-color: #eef4ff; border-color: #dbeafe; }
-.summary-blue .summary-card-label { color: #3b82f6; }
-.summary-blue .summary-card-value { color: #1e3a5f; }
+.summary-blue {
+    background-color: #eef4ff;
+    border-color: #dbeafe;
+}
 
-.summary-green { background-color: #ecfdf5; border-color: #d1fae5; }
-.summary-green .summary-card-label { color: #10b981; }
-.summary-green .summary-card-value { color: #064e3b; }
+.summary-blue .summary-card-label {
+    color: #3b82f6;
+}
 
-.summary-orange { background-color: #fff7ed; border-color: #fed7aa; }
-.summary-orange .summary-card-label { color: #f59e0b; }
-.summary-orange .summary-card-value { color: #78350f; }
+.summary-blue .summary-card-value {
+    color: #1e3a5f;
+}
 
-.summary-red { background-color: #fef2f2; border-color: #fecaca; }
-.summary-red .summary-card-label { color: #ef4444; }
-.summary-red .summary-card-value { color: #7f1d1d; }
+.summary-green {
+    background-color: #ecfdf5;
+    border-color: #d1fae5;
+}
+
+.summary-green .summary-card-label {
+    color: #10b981;
+}
+
+.summary-green .summary-card-value {
+    color: #064e3b;
+}
+
+.summary-orange {
+    background-color: #fff7ed;
+    border-color: #fed7aa;
+}
+
+.summary-orange .summary-card-label {
+    color: #f59e0b;
+}
+
+.summary-orange .summary-card-value {
+    color: #78350f;
+}
+
+.summary-red {
+    background-color: #fef2f2;
+    border-color: #fecaca;
+}
+
+.summary-red .summary-card-label {
+    color: #ef4444;
+}
+
+.summary-red .summary-card-value {
+    color: #7f1d1d;
+}
 
 /* ── Professional Table ── */
 .wf-table-wrapper {
@@ -270,8 +306,15 @@
 }
 
 @keyframes pulse-badge {
-    0%, 100% { opacity: 1; }
-    50% { opacity: 0.6; }
+
+    0%,
+    100% {
+        opacity: 1;
+    }
+
+    50% {
+        opacity: 0.6;
+    }
 }
 
 .wf-no-activity {
@@ -315,19 +358,17 @@
     color: #0369a1;
 }
 
-/* ── Action buttons (hidden by default, visible on hover) ── */
+/* ── Action buttons (always visible) ── */
 .wf-actions {
     display: flex;
     justify-content: flex-end;
     gap: 0.25rem;
-    opacity: 0;
-    transform: translateX(8px);
+    opacity: 1;
     transition: all 0.3s ease;
 }
 
 .wf-table tbody tr:hover .wf-actions {
     opacity: 1;
-    transform: translateX(0);
 }
 
 .wf-action-btn {
@@ -396,7 +437,9 @@
 }
 
 @keyframes spin {
-    to { transform: rotate(360deg); }
+    to {
+        transform: rotate(360deg);
+    }
 }
 
 .wf-loading-text {
@@ -573,7 +616,8 @@
     font-weight: 700;
     color: #1e293b;
     margin: 0;
-    padding-left: 0.25rem; /* Ensure it's not cut off */
+    padding-left: 0.25rem;
+    /* Ensure it's not cut off */
 }
 
 .wf-btn-minimal {
@@ -595,9 +639,17 @@
     transform: translateY(-1px);
 }
 
-.legend-dot-vacation { background: #3b82f6; }
-.legend-dot-holiday { background: #f59e0b; }
-.legend-dot-sick { background: #f97316; }
+.legend-dot-vacation {
+    background: #3b82f6;
+}
+
+.legend-dot-holiday {
+    background: #f59e0b;
+}
+
+.legend-dot-sick {
+    background: #f97316;
+}
 
 .legend-label {
     font-size: 0.7rem;
@@ -661,8 +713,15 @@
 }
 
 @keyframes fadeIn {
-    from { opacity: 0; transform: translateY(10px); }
-    to { opacity: 1; transform: translateY(0); }
+    from {
+        opacity: 0;
+        transform: translateY(10px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
 }
 
 /* ── Modern Modal Inputs ── */
@@ -867,12 +926,21 @@
 }
 
 @keyframes slideDown {
-    from { opacity: 0; transform: translateY(-10px); }
-    to { opacity: 1; transform: translateY(0); }
+    from {
+        opacity: 0;
+        transform: translateY(-10px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
 }
 
 @media print {
-    html, body {
+
+    html,
+    body {
         height: auto !important;
         overflow: visible !important;
     }
@@ -880,11 +948,12 @@
     body * {
         visibility: hidden;
     }
-    
-    .print-only, .print-only * {
+
+    .print-only,
+    .print-only * {
         visibility: visible !important;
     }
-    
+
     .print-only {
         position: absolute !important;
         left: 0 !important;
@@ -894,23 +963,36 @@
         padding: 0 !important;
         background: white !important;
         height: auto !important;
-        overflow: hidden !important; 
+        overflow: hidden !important;
     }
 
     /* Eliminar desplazamientos y márgenes de contenedores padre */
-    #root, .app-container, .main-content, .admin-view {
+    #root,
+    .app-container,
+    .main-content,
+    .admin-view {
         margin: 0 !important;
         padding: 0 !important;
         background: white !important;
-        height: 0 !important; 
+        height: 0 !important;
         min-height: 0 !important;
     }
 
     /* Ocultar elementos específicos que puedan estorbar */
-    .btn-icon, .btn-primary, .btn-secondary, 
-    .btn-export, .wf-btn-save, .wf-btn-cancel,
-    nav, aside, header, 
-    .workforce-header, .wf-actions, .wf-table-container, .wf-calendar-wrapper, .holiday-legend {
+    .btn-icon,
+    .btn-primary,
+    .btn-secondary,
+    .btn-export,
+    .wf-btn-save,
+    .wf-btn-cancel,
+    nav,
+    aside,
+    header,
+    .workforce-header,
+    .wf-actions,
+    .wf-table-container,
+    .wf-calendar-wrapper,
+    .holiday-legend {
         display: none !important;
     }
 
@@ -1033,6 +1115,7 @@
     font-style: italic;
     margin: 0;
 }
+
 /* ── Presence Date Picker ── */
 .wf-filter-date {
     display: flex;
@@ -1044,7 +1127,8 @@
     border-radius: 99px;
     box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
     color: #64748b;
-    margin-right: 0.75rem; /* Space before the therapist select */
+    margin-right: 0.75rem;
+    /* Space before the therapist select */
 }
 
 .wf-filter-date svg {

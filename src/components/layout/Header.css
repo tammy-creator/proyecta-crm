@@ -110,18 +110,26 @@
     gap: 0.5rem;
     padding: 0.5rem 1rem;
     border-radius: 999px;
-    border: 1px solid var(--color-border);
-    background-color: white;
-    color: var(--color-text-secondary);
-    font-weight: 500;
+    border: 1px solid rgba(0, 0, 0, 0.08);
+    background-color: #f8fafc;
+    color: var(--color-text-primary);
+    font-weight: 600;
     font-size: 0.875rem;
     cursor: pointer;
-    transition: all 0.2s;
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.02);
 }
 
 .btn-icon-text:hover {
-    background-color: var(--color-bg-primary);
-    color: var(--color-primary);
+    background-color: var(--color-primary);
+    color: white;
+    border-color: var(--color-primary);
+    box-shadow: 0 4px 8px rgba(26, 95, 122, 0.15);
+    transform: scale(1.02);
+}
+
+.btn-icon-text:active {
+    transform: scale(0.98);
 }
 
 /* Standardized btn-icon-round is now global. Specific header overrides if any: */

@@ -28,18 +28,18 @@ const getBase64ImageFromUrl = async (imageUrl: string): Promise<string> => {
 const drawHeader = (doc: jsPDF, title: string, subtitle: string = '', logoBase64: string | null) => {
     const pageWidth = doc.internal.pageSize.getWidth();
     let currentY = 40;
-    
+
     if (logoBase64) {
         doc.addImage(logoBase64, 'JPEG', (pageWidth - 80) / 2, currentY, 80, 26, 'logo', 'FAST');
         currentY += 40;
     }
-    
+
     doc.setFontSize(14);
     doc.setFont('helvetica', 'bold');
     doc.setTextColor(44, 62, 80);
     doc.text(title, pageWidth / 2, currentY, { align: 'center' });
     currentY += 15;
-    
+
     if (subtitle) {
         doc.setFontSize(11);
         doc.setFont('helvetica', 'bold');
@@ -47,7 +47,7 @@ const drawHeader = (doc: jsPDF, title: string, subtitle: string = '', logoBase64
         doc.text(subtitle, pageWidth / 2, currentY, { align: 'center' });
         currentY += 15;
     }
-    
+
     return currentY + 10;
 };
 
@@ -100,12 +100,12 @@ const ensureBase64 = async (signature: string | null): Promise<string | null> =>
     }
 };
 
-export const generateConsentPDF = async (
+export const generateConsentSheetPDF = async (
     patient: Patient,
     extraFields: Record<string, string>,
     tutorSignature: string | null,
     tutor2Signature: string | null,
-    therapistSignature: string | null
+    _therapistSignature: string | null
 ): Promise<jsPDF> => {
     const doc = new jsPDF({ orientation: 'p', unit: 'pt', format: 'a4', compress: true });
     const pageWidth = doc.internal.pageSize.getWidth();
@@ -121,7 +121,6 @@ export const generateConsentPDF = async (
 
     const tutor1SigBase64 = await ensureBase64(tutorSignature);
     const tutor2SigBase64 = await ensureBase64(tutor2Signature);
-    const therapistSigBase64 = await ensureBase64(therapistSignature);
 
     const age = extraFields['age'] || calculateAge(patient.birthDate);
     const today = new Date();
@@ -134,7 +133,7 @@ export const generateConsentPDF = async (
     // PAGE 1: FICHA DE INSCRIPCIÓN (DATOS)
     // ----------------------------------------------------
     let y = drawHeader(doc, 'FICHA DE INSCRIPCIÓN', '', logoBase64);
-    
+
     doc.setFontSize(11);
     doc.setTextColor(41, 128, 185); // #2980b9
     doc.setFont('helvetica', 'bold');
@@ -150,7 +149,7 @@ export const generateConsentPDF = async (
     doc.setFont('helvetica', 'bold');
     doc.text('APELLIDOS:', margin + 200, y); doc.setFont('helvetica', 'normal'); doc.text(patient.lastName || '', margin + 270, y);
     y += 15;
-    
+
     doc.setFont('helvetica', 'bold');
     doc.text('EDAD:', margin, y); doc.setFont('helvetica', 'normal'); doc.text(age, margin + 40, y);
     doc.setFont('helvetica', 'bold');
@@ -191,7 +190,7 @@ export const generateConsentPDF = async (
     doc.setFont('helvetica', 'bold');
     doc.text('APELLIDOS:', margin + 200, y); doc.setFont('helvetica', 'normal'); doc.text(patient.tutor1?.lastName || '', margin + 270, y);
     y += 15;
-    
+
     doc.setFont('helvetica', 'bold');
     doc.text('DNI:', margin, y); doc.setFont('helvetica', 'normal'); doc.text(patient.tutor1?.dni || '', margin + 30, y);
     doc.setFont('helvetica', 'bold');
@@ -211,7 +210,7 @@ export const generateConsentPDF = async (
     doc.setFont('helvetica', 'bold');
     doc.text('APELLIDOS:', margin + 200, y); doc.setFont('helvetica', 'normal'); doc.text(patient.tutor2?.lastName || '', margin + 270, y);
     y += 15;
-    
+
     doc.setFont('helvetica', 'bold');
     doc.text('DNI:', margin, y); doc.setFont('helvetica', 'normal'); doc.text(patient.tutor2?.dni || '', margin + 30, y);
     doc.setFont('helvetica', 'bold');
@@ -256,14 +255,17 @@ export const generateConsentPDF = async (
 
     doc.setFontSize(9);
     doc.setTextColor(71, 85, 105);
-    
-    let text = "En cumplimiento de lo establecido en el Reglamento General de Protección de Datos (RGPD) (UE) 2016/679 y a la Ley Orgánica 3/2018, de 5 de diciembre, de Protección de Datos de Carácter Personal y Garantía de los Derechos Digitales, le informamos de que los datos facilitados por usted, así como los que se generen durante su relación con nuestra entidad, serán objeto de tratamiento con la finalidad de prestarle el servicio solicitado, realizar la gestión administrativa derivada de nuestra relación contractual, así como enviarle comunicaciones comerciales sobre nuestros servicios.";
+
+    let text = "En cumplimiento de lo establecido en el Reglamento General de Protección de Datos (RGPD) (UE) 2016/679 y en la Ley Orgánica 3/2018, de 5 de diciembre, de Protección de Datos de Carácter Personal y Garantía de los Derechos Digitales (LOPD y GDD), le informamos de que los datos de carácter personal facilitados por usted, así como los que se generen durante su relación con nuestra entidad, serán objeto de tratamiento con la finalidad de prestarle el servicio solicitado, realizar la gestión administrativa derivada de nuestra relación contractual, así como enviarle a través de WhatsApp, avisos y recordatorios relacionados con las citas concertadas. Si prefiere no recibir estos avisos por WhatsApp, podrá comunicarlo al centro en cualquier momento y se utilizará otro medio de contacto. Solo serán solicitados aquellos datos estrictamente necesarios para gestionar las finalidades descritas, pudiendo ser necesario recoger datos de contacto de terceros, tales como representantes legales, tutores, o personas a cargo designadas por los mismos.";
     y = printJustifiedText(doc, text, margin, y, contentWidth, 12) + 10;
-    
-    text = "La legitimación del tratamiento será en base al vínculo contractual existente, consentimiento, o bien por interés legítimo (mercadotecnia directa) u obligación legal, en algunos casos. Los datos proporcionados se conservarán mientras se mantenga la relación contractual o durante el tiempo necesario para cumplir con las obligaciones legales. No se cederán sus datos a terceros, salvo que sea necesario para la prestación de servicios o haya una obligación legal. No se tomarán decisiones automatizadas con efectos jurídicos significativos, salvo que se haya obtenido previamente el consentimiento.";
+
+    text = "La legitimación del tratamiento de sus datos, con carácter general, será en base a un vínculo contractual, interés legítimo u obligación legal. Sin embargo, el RGPD obliga a obtener el consentimiento expreso en algunos casos, como los que se especifican en este documento. Los datos proporcionados se conservarán mientras se mantenga la relación contractual, o durante el tiempo necesario para cumplir con las obligaciones legales. Todos los datos recogidos cuentan con el compromiso de confidencialidad, con las medidas de seguridad establecidas legalmente, y bajo ningún concepto son cedidos o tratados por terceras personas, físicas o jurídicas, sin el previo consentimiento del cliente, tutor o representante legal, salvo en aquellos casos en que sea necesario para el desarrollo, cumplimiento y control de la relación entidad-cliente o en los supuestos en que lo autorice una norma con rango de ley.";
     y = printJustifiedText(doc, text, margin, y, contentWidth, 12) + 10;
-    
-    text = "Asimismo, le informamos de la posibilidad de ejercer los siguientes derechos sobre sus datos personales: derecho de acceso, rectificación, supresión u olvido, limitación, oposición, portabilidad y a retirar el consentimiento prestado. Para ello podrá enviar un email a: dpdcentroproyecta@gmail.com, adjuntando copia de su DNI. Además, puede dirigirse a la Autoridad de Control en materia de Protección de Datos competente (AEPD, en España) para obtener información adicional o presentar una reclamación.";
+
+    text = "Asimismo, le informamos de la posibilidad de ejercer los siguientes derechos sobre sus datos personales: derecho de acceso, rectificación, supresión u olvido, limitación, oposición, portabilidad y a retirar el consentimiento prestado. Para ello podrá enviar un email a centroproyectagijon@gmail.com, o bien dirigir un escrito a Centro Infantil Proyecta, S.L. en C/ Alonso Ojeda, 14, Bajo Izq. - 33208 - Gijón - ASTURIAS, identificándose adecuadamente. Además, puede dirigirse a la Autoridad de Control en materia de Protección de Datos (AEPD, en España) para obtener información adicional o presentar una reclamación y/o contactar con nuestro Delegado de Protección de datos (ExpertosLOPD S.L.), en Calle Juan Flórez, 146, 15005, A Coruña o email: dpdcentroproyecta@gmail.com.";
+    y = printJustifiedText(doc, text, margin, y, contentWidth, 12) + 10;
+
+    text = "En base a lo indicado en párrafos anteriores, el cliente autoriza expresamente a Centro Infantil Proyecta, S.L., a través de la firma de este documento, al tratamiento de sus datos teniendo en cuenta que algunos de los datos tratados están categorizados como de especial protección.";
     y = printJustifiedText(doc, text, margin, y, contentWidth, 12) + 15;
 
     doc.setFont('helvetica', 'bold');
@@ -285,12 +287,12 @@ export const generateConsentPDF = async (
 
     // Signature boxes
     const sigBoxWidth = (contentWidth - 20) / 2;
-    
+
     // Firma 1
     doc.setDrawColor(226, 232, 240);
     doc.setFillColor(248, 250, 252);
     doc.roundedRect(margin, y, sigBoxWidth, 150, 8, 8, 'FD');
-    
+
     doc.setTextColor(0, 0, 0);
     doc.setFontSize(10);
     doc.setFont('helvetica', 'bold');
@@ -314,7 +316,7 @@ export const generateConsentPDF = async (
     doc.setDrawColor(226, 232, 240);
     doc.setFillColor(248, 250, 252);
     doc.roundedRect(margin + sigBoxWidth + 20, y, sigBoxWidth, 150, 8, 8, 'FD');
-    
+
     doc.setTextColor(0, 0, 0);
     doc.setFontSize(10);
     doc.setFont('helvetica', 'bold');
@@ -342,24 +344,24 @@ export const generateConsentPDF = async (
 
     doc.setFontSize(10);
     doc.setTextColor(51, 65, 85);
-    
-    text = "En cumplimiento de lo establecido en el Reglamento General de Protección de Datos (RGPD) (UE) 2016/679 y en la Ley Orgánica 3/2018, de 5 de diciembre, de Protección de Datos de Carácter Personal y Garantía de los Derechos Digitales (LOPD y GDD), le informamos de que los datos de carácter personal por usted facilitados, relativos a sus hijos o tutelados, así como los que se generen durante su relación o la de los menores con nuestra entidad, serán objeto de tratamiento con la finalidad de prestarle el servicio solicitado, realizar la gestión administrativa derivada de nuestra relación contractual, así como enviarle comunicaciones comerciales sobre nuestros servicios. Solo serán solicitados aquellos datos estrictamente necesarios para gestionar las finalidades descritas, pudiendo ser necesario recoger datos de contacto de terceros, tales como representantes legales, tutores, o personas a cargo designadas por los mismos.";
+
+    text = "En cumplimiento de lo establecido en el Reglamento General de Protección de Datos (RGPD) (UE) 2016/679 y en la Ley Orgánica 3/2018, de 5 de diciembre, de Protección de Datos de Carácter Personal y Garantía de los Derechos Digitales (LOPD y GDD), le informamos de que los datos de carácter personal por usted facilitados, relativos a sus hijos o tutelados, así como los que se generen durante su relación o la de los menores con nuestra entidad, serán objeto de tratamiento con la finalidad de prestarle el servicio solicitado, realizar la gestión administrativa derivada de nuestra relación contractual así como enviarle a través de WhatsApp, avisos y recordatorios relacionados con las citas concertadas. Si prefiere no recibir estos avisos por WhatsApp, podrá comunicarlo al centro en cualquier momento y se utilizará otro medio de contacto. Solo serán solicitados aquellos datos estrictamente necesarios para gestionar las finalidades descritas, pudiendo ser necesario recoger datos de contacto de terceros, tales como representantes legales, tutores, o personas a cargo designadas por los mismos.";
     y = printJustifiedText(doc, text, margin, y, contentWidth, 14) + 10;
 
-    text = "Como obliga el RGPD, la legitimación del tratamiento de los datos personales de menores será en base al consentimiento de sus padres o tutores. Los datos proporcionados se conservarán mientras se mantenga la relación contractual, o durante el tiempo necesario para cumplir con las obligaciones legales. Todos los datos recogidos cuentan con el compromiso de estricta confidencialidad, y con las medidas de seguridad establecidas legalmente. Bajo ningún concepto serán cedidos o tratados por terceras personas, físicas o jurídicas, sin el previo consentimiento del tutor o representante legal, salvo en aquellos casos en que sea necesario para el desarrollo, cumplimiento y control de la relación entidad-paciente y prestación de servicios derivada de la misma o en los supuestos en que lo autorice una norma con rango de ley. En este sentido, sus datos podrán ser cedidos, sin carácter limitativo o excluyente, a la Administración Tributaria, organismos de la Seguridad Social o entidades sanitarias, entidades financieras (para cobro de los servicios) o gestoría administrativa (para la realización de la contabilidad y declaración de impuestos).";
+    text = "Como obliga el RGPD, la legitimación del tratamiento de los datos personales de menores será en base al consentimiento de sus padres o tutores. Los datos proporcionados se conservarán mientras se mantenga la relación comercial, o durante el tiempo necesario para cumplir con las obligaciones legales. Todos los datos recogidos cuentan con el compromiso de estricta confidencialidad, y con las medidas de seguridad establecidas legalmente. Bajo ningún concepto serán cedidos o tratados por terceras personas, físicas o jurídicas, sin el previo consentimiento del tutor o representante legal, salvo en aquellos casos en que sea necesario para el desarrollo, cumplimiento y control de la relación entidad-cliente y prestación de servicios derivada de la misma o en los supuestos en que lo autorice una norma con rango de ley. En este sentido, sus datos podrán ser cedidos, sin carácter limitativo o excluyente, a la Administración Tributaria, organismos de las Seguridad Social o entidades sanitarias, entidades financieras (para cobro de los servicios) o gestoría administrativa (para la realización de la contabilidad y declaración de impuestos).";
     y = printJustifiedText(doc, text, margin, y, contentWidth, 14) + 10;
 
-    text = "Asimismo, le informamos de la posibilidad de ejercer los siguientes derechos sobre sus datos personales y/o los de sus hijos o tutelados: derecho de acceso, rectificación, supresión u olvido, limitación, oposición, portabilidad y a retirar el consentimiento prestado. Para ello, podrá enviar un email a dpdcentroproyecta@gmail.com, o bien dirigir un escrito a Centro Infantil Proyecta, S.L., C/ Alonso Ojeda, 14, Bajo Izq. - 33208 - Gijón - ASTURIAS, adjuntando copia de su DNI. Además, el interesado puede dirigirse a la Autoridad de Control en materia de Protección de Datos competente (AEPD, en España) para obtener información adicional o presentar una reclamación.";
+    text = "Asimismo, le informamos de la posibilidad de ejercer los siguientes derechos sobre sus datos personales y/o los de sus hijos o tutelados: derecho de acceso, rectificación, supresión u olvido, limitación, oposición, portabilidad y a retirar el consentimiento prestado. Para ello podrá enviar un email a centroproyectagijon@gmail.com, o bien dirigir un escrito a Centro Infantil Proyecta, S.L., en C/ Alonso Ojeda, 14, Bajo Izq. - 33208 - Gijón - ASTURIAS, identificándose adecuadamente. Además, el interesado puede dirigirse a la Autoridad de Control en materia de Protección de Datos competente (AEPD, en España) para obtener información adicional o presentar una reclamación y/o contactar con nuestro Delegado de Protección de datos (ExpertosLOPD S.L.), en Calle Juan Flórez, 146, 15005, A Coruña o email: dpdcentroproyecta@gmail.com.";
     y = printJustifiedText(doc, text, margin, y, contentWidth, 14) + 10;
 
-    text = "En base a lo indicado en párrafos anteriores, el padre, madre o tutor/a legal del menor autoriza expresamente a Centro Infantil Proyecta, S.L. al tratamiento de datos especialmente protegidos para la/s finalidad/es descritas en párrafos anteriores. Tenga en cuenta que la negativa al tratamiento o cesión de los datos contratado llevaría aparejada la imposibilidad del mantenimiento y cumplimiento de la relación entidad-paciente.";
+    text = "En base a lo indicado en párrafos anteriores, el padre, madre o tutor/a legal del menor autoriza expresamente a Centro Infantil Proyecta, S.L. al tratamiento de datos de sus hijos o tutelados teniendo en cuenta que algunos de los datos tratados están categorizados como de especial protección.";
     y = printJustifiedText(doc, text, margin, y, contentWidth, 14) + 30;
 
     // Signature box
     doc.setDrawColor(226, 232, 240);
     doc.setFillColor(248, 250, 252);
     doc.roundedRect(margin, y, contentWidth, 150, 8, 8, 'FD');
-    
+
     doc.setTextColor(0, 0, 0);
     doc.setFontSize(10);
     doc.setFont('helvetica', 'bold');
@@ -374,7 +376,7 @@ export const generateConsentPDF = async (
     if (tutor1SigBase64) {
         try {
             doc.addImage(tutor1SigBase64, 'PNG', margin + 150, y + 30, 200, 100, 'tutor1Sig', 'FAST');
-        } catch (e) {}
+        } catch (e) { }
     }
 
 
@@ -395,13 +397,13 @@ export const generateConsentPDF = async (
     y += 100;
 
     doc.setTextColor(51, 65, 85);
-    text = "En cumplimiento de lo establecido en el Reglamento General de Protección de Datos (RGPD) (UE) 2016/679 y en la Ley Orgánica 3/2018, de 5 de diciembre, de Protección de Datos de Carácter Personal y Garantía de los Derechos Digitales (LOPD y GDD), le informamos que sus datos serán incorporados en nuestro sistema de tratamiento con la finalidad de prestarle el servicio solicitado, realizar la gestión administrativa derivada de nuestra relación contractual, así como enviarle comunicaciones comerciales sobre nuestros servicios. Solo serán solicitados aquellos datos que sean pertinentes, necesarios, adecuados y no excesivos, pudiendo ser necesario recoger datos de contacto de terceros, tales como representantes legales, tutores, o personas a cargo designadas por los mismos.";
+    text = "En cumplimiento de lo establecido en el Reglamento General de Protección de Datos (RGPD) (UE) 2016/679 y en la Ley Orgánica 3/2018, de 5 de diciembre, de Protección de Datos de Carácter Personal y Garantía de los Derechos Digitales (LOPD y GDD), le informamos que sus datos serán incorporados en nuestro sistema de tratamiento con la finalidad de prestarle el servicio solicitado, realizar la gestión administrativa derivada de nuestra relación contractual, así como enviarle a través de WhatsApp, avisos y recordatorios relacionados con las citas concertadas. Si prefiere no recibir estos avisos por WhatsApp, podrá comunicarlo al centro en cualquier momento y se utilizará otro medio de contacto. Solo serán solicitados aquellos datos que sean pertinentes, necesarios, adecuados y no excesivos, pudiendo ser necesario recoger datos de contacto de terceros, tales como representantes legales, tutores, o personas a cargo designadas por los mismos.";
     y = printJustifiedText(doc, text, margin, y, contentWidth, 14) + 10;
 
     text = "La legitimación del tratamiento de sus datos, con carácter general, será en base a un vínculo contractual, consentimiento, interés legítimo u obligación legal. Los datos proporcionados se conservarán mientras se mantenga la relación contractual, o durante el tiempo necesario para cumplir con las obligaciones legales. Los datos no se cederán a terceros salvo en los casos en que exista una obligación legal, o sea necesario para la ejecución de un contrato.";
     y = printJustifiedText(doc, text, margin, y, contentWidth, 14) + 10;
 
-    text = "Asimismo, le informamos de la posibilidad de ejercer los siguientes derechos sobre sus datos personales: derecho de acceso, rectificación, supresión u olvido, limitación, oposición, portabilidad y a retirar el consentimiento prestado. Para ello podrá enviar un email a dpdcentroproyecta@gmail.com, o bien dirigir un escrito a Centro Infantil Proyecta, S.L. C/ Alonso Ojeda, 14, Bajo Izq. - 33208 - Gijón - ASTURIAS, adjuntando copia de su DNI. Además, puede dirigirse a la Autoridad de Control en materia de Protección de Datos competente (AEPD, en España) para obtener información adicional o presentar una reclamación.";
+    text = "Asimismo, le informamos de la posibilidad de ejercer los siguientes derechos sobre sus datos personales: derecho de acceso, rectificación, supresión u olvido, limitación, oposición, portabilidad y a retirar el consentimiento prestado. Para ello podrá enviar un email a centroproyectagijon@gmail.com, o bien dirigir un escrito a Centro Infantil Proyecta, S.L., en C/ Alonso Ojeda, 14, Bajo Izq. - 33208 - Gijón - ASTURIAS, identificándose adecuadamente. Además, puede dirigirse a la Autoridad de Control en materia de Protección de Datos competente (AEPD, en España) para obtener información adicional o presentar una reclamación y/o contactar con nuestro Delegado de Protección de datos (ExpertosLOPD S.L.), en Calle Juan Flórez, 146, 15005, A Coruña o email: dpdcentroproyecta@gmail.com";
     y = printJustifiedText(doc, text, margin, y, contentWidth, 14);
 
     // ----------------------------------------------------
@@ -501,7 +503,7 @@ export const generateConsentPDF = async (
     y += 20;
     const city = extraFields['contract_city'] || 'Gijón';
     doc.text(`En ${city}, a ${day} de ${month} de ${yearStr}`, pageWidth / 2, y, { align: 'center' });
-    
+
     y += 40;
     doc.setFont('helvetica', 'italic');
     doc.setFontSize(9);
@@ -513,7 +515,7 @@ export const generateConsentPDF = async (
     doc.setDrawColor(226, 232, 240);
     doc.setFillColor(248, 250, 252);
     doc.roundedRect(margin, y, contentWidth, 120, 8, 8, 'FD');
-    
+
     doc.setTextColor(0, 0, 0);
     doc.setFontSize(10);
     doc.setFont('helvetica', 'bold');
@@ -526,15 +528,40 @@ export const generateConsentPDF = async (
     if (tutor1SigBase64) {
         try {
             doc.addImage(tutor1SigBase64, 'PNG', margin + 150, y + 20, 200, 80, 'tutor1Sig', 'FAST');
-        } catch (e) {}
+        } catch (e) { }
     }
 
+    return doc;
+};
+
+export const generateConsentPDF = async (
+    patient: Patient,
+    extraFields: Record<string, string>,
+    tutorSignature: string | null,
+    tutor2Signature: string | null,
+    therapistSignature: string | null
+): Promise<jsPDF> => {
+    const doc = await generateConsentSheetPDF(patient, extraFields, tutorSignature, tutor2Signature, therapistSignature);
+    const pageWidth = doc.internal.pageSize.getWidth();
+    const margin = 50;
+    const contentWidth = pageWidth - (margin * 2);
+
+    let logoBase64 = null;
+    try {
+        logoBase64 = await getBase64ImageFromUrl(logoUrl);
+    } catch (e) {
+        console.warn("Could not load logo", e);
+    }
+
+    const therapistSigBase64 = await ensureBase64(therapistSignature);
+    const age = extraFields['age'] || calculateAge(patient.birthDate);
+    const today = new Date();
 
     // ----------------------------------------------------
     // PAGE 7: HISTORIA CLÍNICA (1)
     // ----------------------------------------------------
     doc.addPage();
-    y = drawHeader(doc, 'HISTORIA CLÍNICA', '', logoBase64);
+    let y = drawHeader(doc, 'HISTORIA CLÍNICA', '', logoBase64);
 
     doc.setFontSize(10);
     doc.setTextColor(51, 65, 85);
@@ -618,7 +645,7 @@ export const generateConsentPDF = async (
     doc.setDrawColor(226, 232, 240);
     doc.setFillColor(248, 250, 252);
     doc.roundedRect(margin, y, contentWidth, 150, 8, 8, 'FD');
-    
+
     doc.setTextColor(0, 0, 0);
     doc.setFontSize(10);
     doc.setFont('helvetica', 'bold');
@@ -632,9 +659,136 @@ export const generateConsentPDF = async (
     if (therapistSigBase64) {
         try {
             doc.addImage(therapistSigBase64, 'PNG', margin + 150, y + 30, 200, 100, 'therapistSig', 'FAST');
-        } catch (e) {}
+        } catch (e) { }
     }
 
+    return doc;
+};
+
+export const generateClinicalHistoryPDF = async (
+    patient: Omit<Patient, 'createdAt'>,
+    extraFields: Record<string, string>,
+    therapistSignature: string | null
+): Promise<jsPDF> => {
+    const doc = new jsPDF({ orientation: 'p', unit: 'pt', format: 'a4', compress: true });
+    const pageWidth = doc.internal.pageSize.getWidth();
+    const margin = 50;
+    const contentWidth = pageWidth - (margin * 2);
+
+    let logoBase64 = null;
+    try {
+        logoBase64 = await getBase64ImageFromUrl(logoUrl);
+    } catch (e) {
+        console.warn("Could not load logo", e);
+    }
+
+    const therapistSigBase64 = await ensureBase64(therapistSignature);
+    const age = extraFields['age'] || calculateAge(patient.birthDate);
+    const today = new Date();
+
+    // ----------------------------------------------------
+    // PAGE 7: HISTORIA CLÍNICA (1)
+    // ----------------------------------------------------
+    let y = drawHeader(doc, 'HISTORIA CLÍNICA', '', logoBase64);
+
+    doc.setFontSize(10);
+    doc.setTextColor(51, 65, 85);
+
+    const interviewer = extraFields['interviewer'] || '';
+    const firstConsultDate = extraFields['first_consult_date'] || today.toLocaleDateString('es-ES');
+
+    doc.setFont('helvetica', 'bold');
+    doc.text(`Entrevistador:`, margin, y); doc.setFont('helvetica', 'normal'); doc.text(interviewer, margin + 80, y);
+    doc.setFont('helvetica', 'bold');
+    doc.text(`Fecha 1ra Consulta:`, margin + 250, y); doc.setFont('helvetica', 'normal'); doc.text(firstConsultDate, margin + 360, y);
+    y += 30;
+
+    const sectionTitle = (title: string, startY: number) => {
+        doc.setFontSize(11);
+        doc.setTextColor(44, 62, 80);
+        doc.setFont('helvetica', 'bold');
+        doc.text(title, margin, startY);
+        doc.setFontSize(10);
+        doc.setTextColor(51, 65, 85);
+        doc.setFont('helvetica', 'normal');
+        return startY + 20;
+    };
+
+    y = sectionTitle('I. DATOS PERSONALES', y);
+    doc.setFont('helvetica', 'bold');
+    doc.text('Nombre:', margin, y); doc.setFont('helvetica', 'normal'); doc.text(`${patient.firstName} ${patient.lastName}`, margin + 50, y);
+    doc.setFont('helvetica', 'bold');
+    doc.text('Edad:', margin + 300, y); doc.setFont('helvetica', 'normal'); doc.text(age, margin + 340, y);
+    y += 15;
+
+    doc.setFont('helvetica', 'bold');
+    doc.text('Fecha y lugar de nacimiento:', margin, y); doc.setFont('helvetica', 'normal'); doc.text(formatDate(patient.birthDate), margin + 160, y);
+    y += 15;
+
+    doc.setFont('helvetica', 'bold');
+    doc.text('Telf de contacto:', margin, y); doc.setFont('helvetica', 'normal'); doc.text(patient.phone || '', margin + 100, y);
+    y += 15;
+
+    doc.setFont('helvetica', 'bold');
+    doc.text('Etapa educativa:', margin, y); doc.setFont('helvetica', 'normal'); doc.text(patient.schooling || '', margin + 100, y);
+    y += 15;
+
+    const informant = extraFields['informant'] || '';
+    doc.setFont('helvetica', 'bold');
+    doc.text('Informante:', margin, y); doc.setFont('helvetica', 'normal'); doc.text(informant, margin + 70, y);
+    y += 30;
+
+    y = sectionTitle('II. MOTIVO DE CONSULTA', y);
+    const consultReason = extraFields['consult_reason'] || '';
+    y = printJustifiedText(doc, consultReason, margin, y, contentWidth, 14) + 20;
+
+    y = sectionTitle('III. ANTECEDENTES FAMILIARES', y);
+    const familyHistory = extraFields['family_history'] || '';
+    y = printJustifiedText(doc, familyHistory, margin, y, contentWidth, 14) + 20;
+
+    y = sectionTitle('IV. VALORACIÓN DEL DESARROLLO/MOMENTO ACTUAL', y);
+    const devAssessment = extraFields['development_assessment'] || '';
+    y = printJustifiedText(doc, devAssessment, margin, y, contentWidth, 14);
+
+
+    // ----------------------------------------------------
+    // PAGE 8: HISTORIA CLÍNICA (2)
+    // ----------------------------------------------------
+    doc.addPage();
+    y = 50;
+
+    y = sectionTitle('V. IMPRESIÓN DIAGNÓSTICA/DIAGNÓSTICO PROPUESTO', y);
+    const diagImpression = extraFields['diagnostic_impression'] || '';
+    y = printJustifiedText(doc, diagImpression, margin, y, contentWidth, 14) + 40;
+
+    y = sectionTitle('VI. EVOLUCIÓN', y);
+    const evolution = extraFields['evolution_followup'] || '';
+    y = printJustifiedText(doc, evolution, margin, y, contentWidth, 14) + 40;
+
+    y = sectionTitle('VII. ALTA', y);
+    const discharge = extraFields['discharge_notes'] || '';
+    y = printJustifiedText(doc, discharge, margin, y, contentWidth, 14) + 60;
+
+    // Signature box Therapist
+    doc.setDrawColor(226, 232, 240);
+    doc.setFillColor(248, 250, 252);
+    doc.roundedRect(margin, y, contentWidth, 150, 8, 8, 'FD');
+
+    doc.setTextColor(0, 0, 0);
+    doc.setFontSize(10);
+    doc.setFont('helvetica', 'bold');
+    doc.text("Firma responsable del centro / Terapeuta:", margin + 15, y + 20);
+    doc.setFontSize(9);
+    doc.setFont('helvetica', 'normal');
+    doc.setTextColor(100, 116, 139);
+    doc.text("Centro Infantil Proyecta", margin + 15, y + 40);
+    doc.text("B01758515", margin + 15, y + 55);
+
+    if (therapistSigBase64) {
+        try {
+            doc.addImage(therapistSigBase64, 'PNG', margin + 150, y + 30, 200, 100, 'therapistSig', 'FAST');
+        } catch (e) { }
+    }
 
     return doc;
 };

@@ -1,20 +1,20 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { 
-    format, 
-    parseISO, 
+import {
+    format,
+    parseISO,
     isValid
 } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { supabase } from '../../lib/supabase';
-import { 
-    Search, 
-    Calendar as CalendarIcon, 
-    User, 
-    Clock, 
-    AlertTriangle, 
-    X, 
-    Eye, 
+import {
+    Search,
+    Calendar as CalendarIcon,
+    User,
+    Clock,
+    AlertTriangle,
+    X,
+    Eye,
     ExternalLink,
     Lock,
     Stethoscope,
@@ -37,11 +37,11 @@ const AppointmentRegistry: React.FC = () => {
     const { isRole, user } = useAuth();
     const navigate = useNavigate();
     const { showToast } = useToast();
-    
+
     const [loading, setLoading] = useState(true);
     const [appointments, setAppointments] = useState<Appointment[]>([]);
     const [transactions, setTransactions] = useState<Transaction[]>([]);
-    
+
     // Filters
     const [startDate, setStartDate] = useState(format(new Date(), 'yyyy-MM-dd'));
     const [endDate, setEndDate] = useState(format(new Date(), 'yyyy-MM-dd'));
@@ -49,7 +49,7 @@ const AppointmentRegistry: React.FC = () => {
     const [statusFilter, setStatusFilter] = useState<string>('ALL');
     const [therapistFilter, setTherapistFilter] = useState<string>('ALL');
     const [paymentFilter, setPaymentFilter] = useState<string>('ALL');
-    
+
     // Modal
     const [selectedAppt, setSelectedAppt] = useState<Appointment | null>(null);
     const [isModalOpen, setIsModalOpen] = useState(false);
@@ -64,7 +64,7 @@ const AppointmentRegistry: React.FC = () => {
             const start = new Date(startDate);
             const end = new Date(endDate);
             end.setHours(23, 59, 59, 999);
-            
+
             if (!isValid(start) || !isValid(end)) {
                 setLoading(false);
                 return;
@@ -72,12 +72,12 @@ const AppointmentRegistry: React.FC = () => {
 
             const effectiveTherapistId = isRole('THERAPIST') ? user?.therapistId : undefined;
             const effectiveTherapistName = isRole('THERAPIST') ? user?.name : undefined;
-            
+
             const [data, txData] = await Promise.all([
                 getAppointments(start, end, effectiveTherapistId),
                 getTransactions(effectiveTherapistName)
             ]);
-            
+
             setAppointments(data);
             setTransactions(txData);
         } catch (error) {
@@ -98,7 +98,7 @@ const AppointmentRegistry: React.FC = () => {
                 status: tx.status
             };
         }
-        
+
         // Solo mostrar como pendiente si la cita ya pasó y no es cancelación/bloqueo
         const now = new Date();
         const apptStart = parseISO(appt.start);
@@ -109,7 +109,7 @@ const AppointmentRegistry: React.FC = () => {
                 method: 'PENDIENTE'
             };
         }
-        
+
         return null;
     };
 
@@ -147,7 +147,7 @@ const AppointmentRegistry: React.FC = () => {
     const filteredAppointments = appointments.filter(appt => {
         // Search term (Patient, Therapist, Type, or Notes)
         const searchLower = searchTerm.toLowerCase();
-        const matchesSearch = 
+        const matchesSearch =
             appt.patientName?.toLowerCase().includes(searchLower) ||
             appt.therapistName?.toLowerCase().includes(searchLower) ||
             appt.type?.toLowerCase().includes(searchLower) ||
@@ -215,13 +215,13 @@ const AppointmentRegistry: React.FC = () => {
 
                 // 3. Check if transaction already exists to update it, or create new one
                 const existingTx = transactions.find(t => t.appointmentId === appt.id);
-                
+
                 if (existingTx) {
-                    await updateTransaction({ 
-                        ...existingTx, 
-                        status: txStatus, 
+                    await updateTransaction({
+                        ...existingTx,
+                        status: txStatus,
                         method: method as any,
-                        amount: appt.price || 60 
+                        amount: appt.price || 60
                     });
                 } else {
                     await createTransaction({
@@ -251,7 +251,7 @@ const AppointmentRegistry: React.FC = () => {
                 setAppointments(prev => prev.map(a => a.id === appt.id ? { ...a, isPaid, status: newStatus } : a));
                 showToast(isPaid ? `Cobro registrado: ${method}` : `Asignado a: ${method} (Pendiente)`, 'success');
             }
-            
+
             // Refresh transactions
             const txData = await getTransactions(isRole('THERAPIST') ? user?.name : undefined);
             setTransactions(txData);
@@ -299,7 +299,7 @@ const AppointmentRegistry: React.FC = () => {
                     </h1>
                     <p className="registry-subtitle">Histórico completo y búsqueda avanzada de sesiones</p>
                 </div>
-                
+
                 <div className="registry-stats">
                     <div className="stat-pill">
                         <span className="stat-label">Total en rango:</span>
@@ -312,9 +312,9 @@ const AppointmentRegistry: React.FC = () => {
                 <div className="filters-toolbar">
                     <div className="filter-group-inline search-main">
                         <Search size={16} className="text-slate-400" />
-                        <input 
-                            type="text" 
-                            placeholder="Buscar paciente, descripción..." 
+                        <input
+                            type="text"
+                            placeholder="Buscar paciente, descripción..."
                             value={searchTerm}
                             onChange={e => setSearchTerm(e.target.value)}
                         />
@@ -322,20 +322,59 @@ const AppointmentRegistry: React.FC = () => {
 
                     <div className="filter-group-inline">
                         <label>Desde</label>
-                        <input 
-                            type="date" 
-                            value={startDate} 
-                            onChange={e => setStartDate(e.target.value)} 
+                        <input
+                            type="date"
+                            value={startDate}
+                            onChange={e => setStartDate(e.target.value)}
                         />
                     </div>
 
                     <div className="filter-group-inline">
                         <label>Hasta</label>
-                        <input 
-                            type="date" 
-                            value={endDate} 
-                            onChange={e => setEndDate(e.target.value)} 
+                        <input
+                            type="date"
+                            value={endDate}
+                            onChange={e => setEndDate(e.target.value)}
                         />
+                    </div>
+
+                    {!isRole('THERAPIST') && (
+                        <div className="filter-group-inline">
+                            <label>Terapeuta</label>
+                            <select value={therapistFilter} onChange={e => setTherapistFilter(e.target.value)}>
+                                <option value="ALL">Todos</option>
+                                {uniqueTherapists.map(t => (
+                                    <option key={t.id} value={t.id}>{t.name}</option>
+                                ))}
+                            </select>
+                        </div>
+                    )}
+
+                    <div className="filter-group-inline">
+                        <label>Estado</label>
+                        <select value={statusFilter} onChange={e => setStatusFilter(e.target.value)}>
+                            <option value="ALL">Todos</option>
+                            <option value="Programada">Programada</option>
+                            <option value="En Sesión">En Sesión</option>
+                            <option value="Finalizada">Finalizada</option>
+                            <option value="Cobrada">Cobrada</option>
+                            <option value="Cancelada">Cancelada</option>
+                            <option value="Ausente">Ausente</option>
+                            <option value="Bloqueada">Bloqueada</option>
+                        </select>
+                    </div>
+
+                    <div className="filter-group-inline">
+                        <label>Forma de Pago</label>
+                        <select value={paymentFilter} onChange={e => setPaymentFilter(e.target.value)}>
+                            <option value="ALL">Todos</option>
+                            <option value="PAGADO">Cobrado (Cualquiera)</option>
+                            <option value="PENDIENTE">Pendiente</option>
+                            <option value="Efectivo">Efectivo</option>
+                            <option value="Tarjeta">Tarjeta</option>
+                            <option value="Transferencia">Transferencia</option>
+                            <option value="Fin de mes">Fin de mes</option>
+                        </select>
                     </div>
                 </div>
             </Card>
@@ -346,50 +385,11 @@ const AppointmentRegistry: React.FC = () => {
                         <tr>
                             <th>Fecha y Hora</th>
                             <th>Paciente / Descripción</th>
-                            <th>
-                                <div className="header-with-filter">
-                                    <span>Terapeuta</span>
-                                    {!isRole('THERAPIST') && (
-                                        <select className="header-select" value={therapistFilter} onChange={e => setTherapistFilter(e.target.value)}>
-                                            <option value="ALL">Todos</option>
-                                            {uniqueTherapists.map(t => (
-                                                <option key={t.id} value={t.id}>{t.name}</option>
-                                            ))}
-                                        </select>
-                                    )}
-                                </div>
-                            </th>
+                            <th>Terapeuta</th>
                             <th>Servicio</th>
                             <th style={{ width: '100px' }}>Importe</th>
-                            <th>
-                                <div className="header-with-filter">
-                                    <span>Estado</span>
-                                    <select className="header-select" value={statusFilter} onChange={e => setStatusFilter(e.target.value)}>
-                                        <option value="ALL">Todos</option>
-                                        <option value="Programada">Programada</option>
-                                        <option value="En Sesión">En Sesión</option>
-                                        <option value="Finalizada">Finalizada</option>
-                                        <option value="Cobrada">Cobrada</option>
-                                        <option value="Cancelada">Cancelada</option>
-                                        <option value="Ausente">Ausente</option>
-                                        <option value="Bloqueada">Bloqueada</option>
-                                    </select>
-                                </div>
-                            </th>
-                            <th>
-                                <div className="header-with-filter">
-                                    <span>Forma de Pago</span>
-                                    <select className="header-select" value={paymentFilter} onChange={e => setPaymentFilter(e.target.value)}>
-                                        <option value="ALL">Todos</option>
-                                        <option value="PAGADO">Cobrado (Cualquiera)</option>
-                                        <option value="PENDIENTE">Pendiente</option>
-                                        <option value="Efectivo">Efectivo</option>
-                                        <option value="Tarjeta">Tarjeta</option>
-                                        <option value="Transferencia">Transferencia</option>
-                                        <option value="Fin de mes">Fin de mes</option>
-                                    </select>
-                                </div>
-                            </th>
+                            <th>Estado</th>
+                            <th>Forma de Pago</th>
                             <th className="text-right">Acciones</th>
                         </tr>
                     </thead>
@@ -442,8 +442,8 @@ const AppointmentRegistry: React.FC = () => {
                                     <td>
                                         {isRole('ADMIN') ? (
                                             <div className="flex items-center gap-1">
-                                                <input 
-                                                    type="number" 
+                                                <input
+                                                    type="number"
                                                     className="registry-amount-input"
                                                     defaultValue={appt.price || 60}
                                                     onBlur={(e) => handleAmountChange(appt, Number(e.target.value))}
@@ -456,7 +456,7 @@ const AppointmentRegistry: React.FC = () => {
                                     </td>
                                     <td>
                                         {isRole('ADMIN') ? (
-                                            <select 
+                                            <select
                                                 className={`registry-status-select ${getStatusBadgeClass(getEffectiveStatus(appt))}`}
                                                 value={appt.status}
                                                 onChange={(e) => handleStatusChange(appt, e.target.value as AppointmentStatus)}
@@ -478,12 +478,12 @@ const AppointmentRegistry: React.FC = () => {
                                     <td>
                                         {(() => {
                                             const payInfo = getPaymentInfo(appt);
-                                            
+
                                             if (isRole('ADMIN')) {
                                                 const currentMethod = payInfo?.method || 'PENDIENTE';
                                                 const isPaid = payInfo?.isPaid || false;
                                                 return (
-                                                    <select 
+                                                    <select
                                                         className={`registry-payment-select ${isPaid ? 'paid' : 'unpaid'} ${currentMethod === 'Fin de mes' ? 'delayed' : ''}`}
                                                         value={currentMethod}
                                                         onChange={(e) => handlePaymentChange(appt, e.target.value)}
@@ -519,15 +519,15 @@ const AppointmentRegistry: React.FC = () => {
                                     </td>
                                     <td className="text-right">
                                         <div className="flex justify-end gap-2">
-                                            <button 
-                                                className="btn-icon-registry" 
+                                            <button
+                                                className="btn-icon-registry"
                                                 onClick={() => handleOpenDetail(appt)}
                                                 title="Ver detalles"
                                             >
                                                 <Eye size={18} />
                                             </button>
-                                            <button 
-                                                className="btn-icon-registry highlight" 
+                                            <button
+                                                className="btn-icon-registry highlight"
                                                 onClick={() => handleViewInCalendar(appt)}
                                                 title="Ver en Agenda"
                                             >

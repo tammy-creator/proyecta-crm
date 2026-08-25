@@ -21,7 +21,7 @@ Deno.serve(async (req) => {
     console.log(`Enviando reporte firmado para: ${therapistName}, mes: ${month}`);
 
     if (!pdfBase64) {
-        throw new Error("No PDF base64 data provided in request");
+      throw new Error("No PDF base64 data provided in request");
     }
 
     // Extract base64 part if it contains the data URI prefix
@@ -33,7 +33,7 @@ Deno.serve(async (req) => {
     const monthLabel = new Date(`${month}-15`).toLocaleDateString('es-ES', { month: 'long', year: 'numeric' });
 
     // ── Send Email ──────────────────────────────────────────────────────────
-    const SMTP_HOST = Deno.env.get('SMTP_HOST') ?? "mail.centroproyecta.es";
+    const SMTP_HOST = Deno.env.get('SMTP_HOST') ?? "smtp.gmail.com";
     const SMTP_PORT = parseInt(Deno.env.get('SMTP_PORT') ?? "465");
     const SMTP_USER = Deno.env.get('SMTP_USER') ?? "info@centroproyecta.es";
     const SMTP_PASS = Deno.env.get('SMTP_PASS') ?? "";

@@ -20,9 +20,9 @@ Deno.serve(async (req) => {
   try {
     const body = await req.json();
     const { email, patient, message, pdfBase64 } = body;
-    
+
     console.log(`Petición recibida para enviar email a: ${email}`);
-    
+
     if (!email) {
       throw new Error("El email del destinatario es obligatorio");
     }
@@ -36,7 +36,7 @@ Deno.serve(async (req) => {
     // @ts-expect-error dynamic import
     const nodemailer = await import('npm:nodemailer');
 
-    const SMTP_HOST = Deno.env.get('SMTP_HOST') ?? "mail.centroproyecta.es";
+    const SMTP_HOST = Deno.env.get('SMTP_HOST') ?? "smtp.gmail.com";
     const SMTP_PORT = parseInt(Deno.env.get('SMTP_PORT') ?? "465");
     const SMTP_USER = Deno.env.get('SMTP_USER') ?? "info@centroproyecta.es";
     const SMTP_PASS = Deno.env.get('SMTP_PASS') ?? "";
@@ -57,7 +57,7 @@ Deno.serve(async (req) => {
     });
 
     const patientName = patient ? `${patient.firstName} ${patient.lastName}` : "Paciente";
-    
+
     const htmlBody = `<div style="font-family: sans-serif; padding: 20px; line-height: 1.6; color: #333;">
       <h2 style="color: #1a5f7a;">Documentación Clínica</h2>
       <p>Hola,</p>
@@ -104,7 +104,7 @@ Deno.serve(async (req) => {
     // en lugar de recibir un 500 genérico de Supabase.
     return new Response(JSON.stringify({ success: false, error: error.message }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      status: 200, 
+      status: 200,
     })
   }
 })

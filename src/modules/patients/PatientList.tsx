@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { getPatients, getPatientById, createPatient, updatePatient, deletePatient, deletePatientFile, uploadPatientFileContent, getPatientFileUrl } from './service';
 import { supabase } from '../../lib/supabase';
-import { generateConsentPDF } from '../../utils/consentPdfGenerator';
+import { generateConsentSheetPDF, generateClinicalHistoryPDF } from '../../utils/consentPdfGenerator';
 import { getAppointmentsByPatient } from '../calendar/service';
 import { type Patient, type PatientFile } from './types';
 import { type Appointment } from '../calendar/types';
@@ -28,6 +28,7 @@ const PatientList: React.FC = () => {
     const [patientAppointments, setPatientAppointments] = useState<Appointment[]>([]);
     const [isConsentModalOpen, setIsConsentModalOpen] = useState(false);
     const [isConsentViewMode, setIsConsentViewMode] = useState(false);
+    const [consentModalMode, setConsentModalMode] = useState<'consent' | 'history'>('consent');
     const [isSigned, setIsSigned] = useState(false);
     const [isSending, setIsSending] = useState(false);
     const [deleteConfirm, setDeleteConfirm] = useState<{ isOpen: boolean; file: PatientFile | null }>({ isOpen: false, file: null });
@@ -161,7 +162,7 @@ const PatientList: React.FC = () => {
     const confirmPatientDelete = async () => {
         if (!patientDeleteConfirm.patient?.id) return;
         const patientId = patientDeleteConfirm.patient.id;
-        
+
         try {
             await deletePatient(patientId);
             showToast('Paciente eliminado correctamente', 'success');
@@ -180,6 +181,7 @@ const PatientList: React.FC = () => {
 
         try {
             let updatedPatient: Patient;
+            const isNew = !selectedPatient.id;
             if (selectedPatient.id) {
                 updatedPatient = await updatePatient(selectedPatient as Patient);
             } else {
@@ -197,7 +199,13 @@ const PatientList: React.FC = () => {
                 return [updatedPatient, ...prev];
             });
 
-            setIsModalOpen(false);
+            if (isNew) {
+                setSelectedPatient(updatedPatient);
+                setActiveTab('files');
+                showToast("Paciente creado. Genera su documentación en la pestaña de Archivos.", "info");
+            } else {
+                setIsModalOpen(false);
+            }
             // Re-vincular para asegurar que todo esté en sync (opcional pero recomendado)
             fetchData();
         } catch (error) {
@@ -222,7 +230,7 @@ const PatientList: React.FC = () => {
             );
 
             showToast("Archivo subido correctamente", "success");
-            
+
             // Refrescar datos
             const updated = await getPatientById(selectedPatient.id);
             if (updated) {
@@ -241,10 +249,10 @@ const PatientList: React.FC = () => {
     const startDrawing = (e: React.MouseEvent<HTMLCanvasElement> | React.TouchEvent<HTMLCanvasElement>) => {
         const canvas = e.currentTarget;
         const role = canvas.getAttribute('data-role') || 'tutor';
-        
+
         // Target only canvases inside the active modal
         const modalBody = document.getElementById('consent-modal-body');
-        const canvases = modalBody 
+        const canvases = modalBody
             ? Array.from(modalBody.querySelectorAll(`.signature-pad-canvas[data-role="${role}"]`)) as HTMLCanvasElement[]
             : [canvas];
 
@@ -260,7 +268,7 @@ const PatientList: React.FC = () => {
                 const scaleY = c.height / rect.height;
                 context.beginPath();
                 context.moveTo(
-                    (clientX - rect.left) * scaleX, 
+                    (clientX - rect.left) * scaleX,
                     (clientY - rect.top) * scaleY
                 );
             }
@@ -276,7 +284,7 @@ const PatientList: React.FC = () => {
         const role = canvas.getAttribute('data-role') || 'tutor';
 
         const modalBody = document.getElementById('consent-modal-body');
-        const canvases = modalBody 
+        const canvases = modalBody
             ? Array.from(modalBody.querySelectorAll(`.signature-pad-canvas[data-role="${role}"]`)) as HTMLCanvasElement[]
             : [canvas];
 
@@ -290,7 +298,7 @@ const PatientList: React.FC = () => {
                 const scaleX = c.width / rect.width;
                 const scaleY = c.height / rect.height;
                 context.lineTo(
-                    (clientX - rect.left) * scaleX, 
+                    (clientX - rect.left) * scaleX,
                     (clientY - rect.top) * scaleY
                 );
                 context.strokeStyle = '#2c3e50';
@@ -312,7 +320,7 @@ const PatientList: React.FC = () => {
     const clearSignature = (role?: 'tutor' | 'tutor2' | 'therapist') => {
         const modalBody = document.getElementById('consent-modal-body');
         if (!modalBody) return;
-        
+
         const selector = role ? `.signature-pad-canvas[data-role="${role}"]` : '.signature-pad-canvas';
         const canvases = modalBody.querySelectorAll(selector);
         canvases.forEach(c => {
@@ -321,7 +329,7 @@ const PatientList: React.FC = () => {
             const context = canvas.getContext('2d');
             context?.clearRect(0, 0, canvas.width, canvas.height);
         });
-        
+
         // Recalcular isSigned
         const allCanvases = Array.from(modalBody.querySelectorAll('.signature-pad-canvas')) as HTMLCanvasElement[];
         const anySigned = allCanvases.some(c => c.getAttribute('data-signed') === 'true');
@@ -361,8 +369,8 @@ const PatientList: React.FC = () => {
             const therapistSignature = isTherapistSigned ? therapistCanvas?.toDataURL('image/png') : selectedPatient.therapistSignature;
             console.log("[Save Draft] Therapist canvas found:", !!therapistCanvas, "signed:", isTherapistSigned, "signature length:", therapistSignature?.length);
 
-            const updatedPatientData = { 
-                ...selectedPatient as Patient, 
+            const updatedPatientData = {
+                ...selectedPatient as Patient,
                 consentSignature: tutorSignature,
                 tutor2Signature: tutor2Signature,
                 therapistSignature: therapistSignature,
@@ -373,7 +381,7 @@ const PatientList: React.FC = () => {
 
             await updatePatient(updatedPatientData);
             showToast("Borrador guardado correctamente. Los cambios se han actualizado.", "success");
-            
+
             // Refresh local data efficiently
             const updated = await getPatientById(selectedPatient.id);
             if (updated) {
@@ -392,10 +400,10 @@ const PatientList: React.FC = () => {
         setIsSending(true);
         try {
             showToast("Generando PDF de alta calidad. Espere por favor...", "info");
-            
+
             const modalBody = document.getElementById('consent-modal-body');
             console.log("[PDF Download] modalBody found:", !!modalBody);
-            
+
             // Tutor 1
             const tutorCanvases = modalBody ? Array.from(modalBody.querySelectorAll('.signature-pad-canvas[data-role="tutor"]')) as HTMLCanvasElement[] : [];
             const signedTutorCanvas = tutorCanvases.find(c => c.getAttribute('data-signed') === 'true');
@@ -420,16 +428,26 @@ const PatientList: React.FC = () => {
                 }
             });
 
-            const pdf = await generateConsentPDF(
-                selectedPatient as Patient,
-                extraFields,
-                tutorSignature || null,
-                tutor2Signature || null,
-                therapistSignature || null
-            );
-            
-            pdf.save(`Documentacion_${selectedPatient.lastName || 'Paciente'}_${selectedPatient.firstName || ''}.pdf`);
-            showToast("PDF descargado correctamente", "success");
+            // Generar documento dependiendo del modo
+            let pdf;
+            if (consentModalMode === 'consent') {
+                pdf = await generateConsentSheetPDF(
+                    selectedPatient as Patient,
+                    extraFields,
+                    tutorSignature || null,
+                    tutor2Signature || null,
+                    therapistSignature || null
+                );
+                pdf.save(`Consentimiento_${selectedPatient.firstName}_${selectedPatient.lastName}.pdf`);
+            } else {
+                pdf = await generateClinicalHistoryPDF(
+                    selectedPatient as Patient,
+                    extraFields,
+                    therapistSignature || null
+                );
+                pdf.save(`Historial_Clinico_${selectedPatient.firstName}_${selectedPatient.lastName}.pdf`);
+            }
+            showToast('PDF descargado con éxito', 'success');
         } catch (error) {
             console.error("Error generating download:", error);
             showToast("Error al generar el PDF", "error");
@@ -477,9 +495,9 @@ const PatientList: React.FC = () => {
 
             if (tutorSignature || tutor2Signature || therapistSignature) {
                 const now = new Date().toISOString();
-                
-                const updatedPatientData = { 
-                    ...selectedPatient as Patient, 
+
+                const updatedPatientData = {
+                    ...selectedPatient as Patient,
                     consentSignature: tutorSignature,
                     tutor2Signature: tutor2Signature,
                     therapistSignature: therapistSignature,
@@ -492,17 +510,29 @@ const PatientList: React.FC = () => {
 
                 await updatePatient(updatedPatientData);
 
-                setProcessingStep('Generando PDF...');
-                const pdf = await generateConsentPDF(
-                    updatedPatientData,
-                    extraFields,
-                    tutorSignature || null,
-                    tutor2Signature || null,
-                    therapistSignature || null
-                );
+                setProcessingStep('Generando documentación...');
+                let consentSheetBlob: Blob | null = null;
+                let consentSheetBase64: string | null = null;
+                let clinicalHistoryBlob: Blob | null = null;
 
-                const pdfBase64 = pdf.output('datauristring');
-                const pdfBlob = pdf.output('blob');
+                if (consentModalMode === 'consent') {
+                    const consentSheetPdf = await generateConsentSheetPDF(
+                        updatedPatientData,
+                        extraFields,
+                        tutorSignature || null,
+                        tutor2Signature || null,
+                        therapistSignature || null
+                    );
+                    consentSheetBase64 = consentSheetPdf.output('datauristring');
+                    consentSheetBlob = consentSheetPdf.output('blob');
+                } else {
+                    const clinicalHistoryPdf = await generateClinicalHistoryPDF(
+                        updatedPatientData,
+                        extraFields,
+                        therapistSignature || null
+                    );
+                    clinicalHistoryBlob = clinicalHistoryPdf.output('blob');
+                }
                 const recipientEmail = updatedPatientData.tutor1?.email || updatedPatientData.email;
 
                 setProcessingStep('Guardando en archivos...');
@@ -510,44 +540,68 @@ const PatientList: React.FC = () => {
                 // Guardar registro de archivo en el historial solo si NO es un re-envío silencioso
                 if (!options.isSilentResend) {
                     try {
-                        // Limpiar archivos anteriores con el mismo nombre para evitar duplicados en la lista
                         const existingFiles = (selectedPatient as Patient).files || [];
-                        const oldConsentFiles = existingFiles.filter(f => f.name === 'Ficha_Inscripcion_Firmada.pdf');
-                        
-                        for (const oldFile of oldConsentFiles) {
-                            await deletePatientFile(oldFile.id, selectedPatient.id, oldFile.name);
-                        }
 
-                        await uploadPatientFileContent(
-                            selectedPatient.id,
-                            'Ficha_Inscripcion_Firmada.pdf',
-                            pdfBlob,
-                            'application/pdf'
-                        );
+                        if (consentModalMode === 'consent' && consentSheetBlob) {
+                            // Limpiar archivo de consentimiento anterior
+                            const oldConsentFiles = existingFiles.filter(f => f.name === 'Ficha_Inscripcion_Firmada.pdf');
+                            for (const oldFile of oldConsentFiles) {
+                                await deletePatientFile(oldFile.id, selectedPatient.id, oldFile.name);
+                            }
+
+                            await uploadPatientFileContent(
+                                selectedPatient.id,
+                                'Ficha_Inscripcion_Firmada.pdf',
+                                consentSheetBlob,
+                                'application/pdf'
+                            );
+                        } else if (consentModalMode === 'history' && clinicalHistoryBlob) {
+                            // Limpiar archivo de historia anterior
+                            const oldHistoryFiles = existingFiles.filter(f => f.name === 'Historia_Clinica.pdf');
+                            for (const oldFile of oldHistoryFiles) {
+                                await deletePatientFile(oldFile.id, selectedPatient.id, oldFile.name);
+                            }
+
+                            await uploadPatientFileContent(
+                                selectedPatient.id,
+                                'Historia_Clinica.pdf',
+                                clinicalHistoryBlob,
+                                'application/pdf'
+                            );
+                        }
                     } catch (uploadError) {
                         console.warn("Fallo al gestionar registro de archivo, pero se ignora:", uploadError);
                     }
                 }
 
-                // Enviar email en segundo plano
-                supabase.functions.invoke('send-consent-email', {
-                    body: {
-                        email: recipientEmail,
-                        patient: { firstName: updatedPatientData.firstName, lastName: updatedPatientData.lastName, id: updatedPatientData.id },
-                        pdfBase64: pdfBase64,
-                        message: `Se adjunta la documentación clínica completa de ${updatedPatientData.firstName} ${updatedPatientData.lastName} integrada en el sistema.`
-                    }
-                }).then(({ error: invokeError }) => {
-                    if (invokeError) {
-                        console.error("Error enviando email en 2do plano:", invokeError);
-                        showToast(`No se pudo enviar el email: ${invokeError.message}`, "error");
-                    } else if (!options.isSilentResend) {
-                        showToast(`¡Email enviado correctamente a ${recipientEmail}!`, "success");
-                    }
-                });
+                // Enviar email en segundo plano (solo en modo consentimiento o si se fuerza por re-envío)
+                if (consentModalMode === 'consent' && consentSheetBase64) {
+                    supabase.functions.invoke('send-consent-email', {
+                        body: {
+                            email: recipientEmail,
+                            patient: { firstName: updatedPatientData.firstName, lastName: updatedPatientData.lastName, id: updatedPatientData.id },
+                            pdfBase64: consentSheetBase64,
+                            message: `Se adjunta la documentación de inscripción y consentimiento de protección de datos de ${updatedPatientData.firstName} ${updatedPatientData.lastName} integrada en el sistema.`
+                        }
+                    }).then(({ data, error: invokeError }) => {
+                        if (invokeError) {
+                            console.error("Error enviando email en 2do plano:", invokeError);
+                            showToast(`No se pudo enviar el email: ${invokeError.message}`, "error");
+                        } else if (data && data.success === false) {
+                            console.error("Fallo SMTP en Edge Function:", data.error);
+                            showToast(`Error al enviar el correo: ${data.error}`, "error");
+                        } else if (!options.isSilentResend) {
+                            showToast(`¡Email enviado correctamente a ${recipientEmail}!`, "success");
+                        }
+                    });
 
-                if (!options.isSilentResend) {
-                    showToast('¡Documento guardado! El email se está enviando en segundo plano.', 'success');
+                    if (!options.isSilentResend) {
+                        showToast('¡Ficha de Consentimiento guardada! El email se está enviando en segundo plano.', 'success');
+                    }
+                } else if (consentModalMode === 'history') {
+                    if (!options.isSilentResend) {
+                        showToast('¡Historial Clínico guardado correctamente!', 'success');
+                    }
                 }
 
                 setIsConsentModalOpen(false);
@@ -579,15 +633,23 @@ const PatientList: React.FC = () => {
 
     const confirmDelete = async () => {
         if (!deleteConfirm.file || !selectedPatient?.id) return;
-        const file = deleteConfirm.file;
-        
         try {
-            await deletePatientFile(file.id, selectedPatient.id, file.name);
-            showToast(`"${file.name}" eliminado correctamente`, "success");
-            
-            // Refrescar datos individualmente
-            const updated = await getPatientById(selectedPatient.id);
-            if (updated) {
+            await deletePatientFile(deleteConfirm.file.id, selectedPatient.id, deleteConfirm.file.name);
+            showToast("Archivo eliminado correctamente", "success");
+            // Actualizar estado local del paciente
+            if (selectedPatient.files) {
+                const isConsent = deleteConfirm.file.name === 'Ficha_Inscripcion_Firmada.pdf';
+                const isHistory = deleteConfirm.file.name === 'Historia_Clinica.pdf';
+                const updatedFiles = selectedPatient.files.filter(f => f.id !== deleteConfirm.file!.id);
+                const updated = {
+                    ...selectedPatient as Patient,
+                    files: updatedFiles,
+                    ...(isConsent ? { consentSignature: '', consentDate: undefined, consentLopd: false } : {}),
+                    ...(isHistory ? { therapistSignature: '' } : {})
+                };
+                if (isConsent || isHistory) {
+                    await updatePatient(updated);
+                }
                 setSelectedPatient(updated);
                 setPatients(prev => prev.map(p => p.id === updated.id ? updated : p));
             }
@@ -618,9 +680,9 @@ const PatientList: React.FC = () => {
             setIsConsentViewMode(true);
             setIsConsentModalOpen(true);
             setIsSigned(true);
-            
+
             showToast("Preparando re-envío del documento...", "info");
-            
+
             // Pequeño delay para asegurar que el modal se renderice y se monten las imágenes
             setTimeout(() => {
                 handleSaveAndSendConsent({ isSilentResend: true });
@@ -633,9 +695,15 @@ const PatientList: React.FC = () => {
 
     const handleViewFile = async (file: PatientFile) => {
         if (file.name === 'Ficha_Inscripcion_Firmada.pdf') {
+            setConsentModalMode('consent');
             setIsConsentViewMode(true);
-            setIsConsentModalOpen(true);
             setIsSigned(true);
+            setIsConsentModalOpen(true);
+        } else if (file.name === 'Historia_Clinica.pdf') {
+            setConsentModalMode('history');
+            setIsConsentViewMode(true);
+            setIsSigned(true);
+            setIsConsentModalOpen(true);
         } else if (selectedPatient?.id) {
             try {
                 const url = await getPatientFileUrl(selectedPatient.id, file.name);
@@ -666,12 +734,12 @@ const PatientList: React.FC = () => {
             <header className="page-header">
                 <div className="header-info">
                     <h1 className="page-title">
-                        <Activity className="title-icon" size={32} /> 
+                        <Activity className="title-icon" size={32} />
                         Gestión de Pacientes
                     </h1>
                     <p className="page-subtitle">Listado de niños y adolescentes en seguimiento</p>
                 </div>
-                
+
                 <div className="header-actions">
                     <div className="search-pill">
                         <Search size={18} />
@@ -864,11 +932,11 @@ const PatientList: React.FC = () => {
                                             </div>
                                             <div className="form-group">
                                                 <label>Email {!selectedPatient.id && <span style={{ color: '#ef4444' }}>*</span>}</label>
-                                                <input 
-                                                    type="email" 
+                                                <input
+                                                    type="email"
                                                     required={!selectedPatient.id}
-                                                    value={selectedPatient.tutor1?.email} 
-                                                    onChange={e => setSelectedPatient({ ...selectedPatient, tutor1: { ...selectedPatient.tutor1!, email: e.target.value }, email: e.target.value })} 
+                                                    value={selectedPatient.tutor1?.email}
+                                                    onChange={e => setSelectedPatient({ ...selectedPatient, tutor1: { ...selectedPatient.tutor1!, email: e.target.value }, email: e.target.value })}
                                                 />
                                             </div>
                                         </div>
@@ -922,8 +990,8 @@ const PatientList: React.FC = () => {
                                             </div>
                                             <div className="form-group">
                                                 <label>Terapeuta Asignado</label>
-                                                <select 
-                                                    value={selectedPatient.therapistId || ''} 
+                                                <select
+                                                    value={selectedPatient.therapistId || ''}
                                                     onChange={e => setSelectedPatient({ ...selectedPatient, therapistId: e.target.value })}
                                                 >
                                                     <option value="">Sin asignar</option>
@@ -938,9 +1006,9 @@ const PatientList: React.FC = () => {
                                             <textarea rows={2} value={selectedPatient.notes} onChange={e => setSelectedPatient({ ...selectedPatient, notes: e.target.value })} style={{ width: '100%', padding: '0.5rem', borderRadius: '8px', border: '1px solid #ddd', fontFamily: 'inherit' }} />
                                         </div>
 
-                                        <div className="consent-verification-check" style={{ 
-                                            padding: '0.6rem 0.8rem', 
-                                            borderRadius: '8px', 
+                                        <div className="consent-verification-check" style={{
+                                            padding: '0.6rem 0.8rem',
+                                            borderRadius: '8px',
                                             backgroundColor: selectedPatient.consentLopd ? 'rgba(5, 150, 105, 0.08)' : 'rgba(220, 38, 38, 0.08)',
                                             border: `1px solid ${selectedPatient.consentLopd ? '#05966944' : '#dc262644'}`,
                                             marginTop: '0.75rem',
@@ -956,22 +1024,22 @@ const PatientList: React.FC = () => {
                                                     <div>
                                                         <p style={{ fontWeight: 600, fontSize: '0.9rem', margin: 0 }}>Firma LOPD y Tratamiento de Datos</p>
                                                         <p style={{ fontSize: '0.75rem', color: 'var(--color-text-secondary)', margin: 0 }}>
-                                                            {selectedPatient.consentLopd 
-                                                                ? `Verificado el ${new Date(selectedPatient.consentDate!).toLocaleDateString('es-ES')}` 
+                                                            {selectedPatient.consentLopd
+                                                                ? `Verificado el ${new Date(selectedPatient.consentDate!).toLocaleDateString('es-ES')}`
                                                                 : 'Pendiente de firma por parte de los tutores'
                                                             }
                                                         </p>
                                                     </div>
                                                 </div>
                                                 <div className="flex items-center gap-2">
-                                                    <input 
-                                                        type="checkbox" 
+                                                    <input
+                                                        type="checkbox"
                                                         id="consentLopd"
                                                         checked={selectedPatient.consentLopd || false}
                                                         onChange={e => {
                                                             const isChecked = e.target.checked;
-                                                            setSelectedPatient({ 
-                                                                ...selectedPatient, 
+                                                            setSelectedPatient({
+                                                                ...selectedPatient,
                                                                 consentLopd: isChecked,
                                                                 consentDate: isChecked ? (selectedPatient.consentDate || new Date().toISOString()) : selectedPatient.consentDate
                                                             });
@@ -1079,7 +1147,7 @@ const PatientList: React.FC = () => {
                                                                 </span>
                                                             </div>
                                                             <div className="flex gap-2">
-                                                                <button 
+                                                                <button
                                                                     className="btn-fix-history"
                                                                     onClick={() => setActiveTab('appointments')}
                                                                 >
@@ -1108,10 +1176,10 @@ const PatientList: React.FC = () => {
                                                         <div className="history-header">
                                                             <div className="history-date">
                                                                 <Calendar size={16} style={{ color: 'var(--color-accent-blue)' }} />
-                                                                {new Date(appt.start).toLocaleDateString('es-ES', { 
-                                                                    day: '2-digit', 
-                                                                    month: 'long', 
-                                                                    year: 'numeric' 
+                                                                {new Date(appt.start).toLocaleDateString('es-ES', {
+                                                                    day: '2-digit',
+                                                                    month: 'long',
+                                                                    year: 'numeric'
                                                                 })}
                                                             </div>
                                                             <div className="history-therapist">
@@ -1120,9 +1188,9 @@ const PatientList: React.FC = () => {
                                                         </div>
                                                         <div className="history-content">
                                                             {appt.sessionDiary ? (
-                                                                <div 
-                                                                    className="history-diary-text" 
-                                                                    dangerouslySetInnerHTML={{ __html: appt.sessionDiary }} 
+                                                                <div
+                                                                    className="history-diary-text"
+                                                                    dangerouslySetInnerHTML={{ __html: appt.sessionDiary }}
                                                                 />
                                                             ) : appt.notes ? (
                                                                 <div className="history-notes-text">
@@ -1146,34 +1214,51 @@ const PatientList: React.FC = () => {
                                     <div className="section-title flex justify-between items-center mb-4">
                                         <h4>Documentos y Archivos</h4>
                                         <div className="flex gap-2">
+                                            {(() => {
+                                                const hasConsentFile = selectedPatient.files?.some(f => f.name === 'Ficha_Inscripcion_Firmada.pdf');
+                                                const hasHistoryFile = selectedPatient.files?.some(f => f.name === 'Historia_Clinica.pdf');
+                                                return (
+                                                    <>
+                                                        <button
+                                                            className="btn-link flex items-center gap-2"
+                                                            onClick={() => {
+                                                                setConsentModalMode('consent');
+                                                                setIsConsentViewMode(!!hasConsentFile);
+                                                                setIsSigned(!!hasConsentFile);
+                                                                setIsConsentModalOpen(true);
+                                                            }}
+                                                            style={{ color: 'var(--color-status-info)', textDecoration: 'none' }}
+                                                        >
+                                                            <FileText size={16} />
+                                                            {hasConsentFile ? 'Ver Ficha Consentimiento' : 'Generar Ficha Consentimiento'}
+                                                        </button>
+                                                        <button
+                                                            className="btn-link flex items-center gap-2"
+                                                            onClick={() => {
+                                                                setConsentModalMode('history');
+                                                                setIsConsentViewMode(!!hasHistoryFile);
+                                                                setIsSigned(!!hasHistoryFile);
+                                                                setIsConsentModalOpen(true);
+                                                            }}
+                                                            style={{ color: 'var(--color-accent-blue)', textDecoration: 'none' }}
+                                                        >
+                                                            <Activity size={16} />
+                                                            {hasHistoryFile ? 'Ver Historial Clínico' : 'Generar Historial Clínico'}
+                                                        </button>
+                                                    </>
+                                                );
+                                            })()}
                                             <button
-                                                className="btn-link flex items-center gap-2"
-                                                onClick={() => {
-                                                    if (selectedPatient.consentSignature) {
-                                                        setIsConsentViewMode(true);
-                                                        setIsSigned(true);
-                                                    } else {
-                                                        setIsConsentViewMode(false);
-                                                        setIsSigned(false);
-                                                    }
-                                                    setIsConsentModalOpen(true);
-                                                }}
-                                                style={{ color: 'var(--color-status-info)', textDecoration: 'none' }}
-                                            >
-                                                <FileText size={16} />
-                                                {selectedPatient.consentSignature ? 'Ver Ficha Consentimiento' : 'Generar Ficha Consentimiento'}
-                                            </button>
-                                            <button 
-                                                className="btn-secondary flex items-center gap-2" 
+                                                className="btn-secondary flex items-center gap-2"
                                                 onClick={() => fileInputRef.current?.click()}
                                                 disabled={isSending}
                                             >
                                                 <Upload size={16} /> {isSending ? 'Subiendo...' : 'Subir Archivo'}
                                             </button>
-                                            <input 
-                                                type="file" 
-                                                ref={fileInputRef} 
-                                                style={{ display: 'none' }} 
+                                            <input
+                                                type="file"
+                                                ref={fileInputRef}
+                                                style={{ display: 'none' }}
                                                 onChange={handleFileUpload}
                                             />
                                         </div>
@@ -1216,8 +1301,8 @@ const PatientList: React.FC = () => {
                                                             </button>
                                                         )}
                                                         <button className="btn-icon micro" title="Ver archivo"><Search size={14} /></button>
-                                                        <button 
-                                                            className="btn-icon micro" 
+                                                        <button
+                                                            className="btn-icon micro"
                                                             title="Eliminar archivo"
                                                             style={{ backgroundColor: 'rgba(239, 68, 68, 0.1)', border: '1px solid rgba(239, 68, 68, 0.2)' }}
                                                             onClick={(e) => {
@@ -1240,63 +1325,65 @@ const PatientList: React.FC = () => {
             )}
 
             {isConsentModalOpen && selectedPatient && (
-                <div className="modal-overlay consent-modal-overlay" style={{ 
-                    display: 'flex', 
-                    alignItems: 'center', 
-                    justifyContent: 'center', 
+                <div className="modal-overlay consent-modal-overlay" style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
                     zIndex: 20000, // Higher than global 10001
                     backgroundColor: 'rgba(0, 0, 0, 0.6)',
                     backdropFilter: 'blur(8px)' // More blur to isolate
                 }}>
-                    <div className="modal-content consent-form-modal" style={{ 
-                        maxWidth: '1100px', 
-                        width: '95%', 
-                        height: '92vh', 
-                        display: 'flex', 
-                        flexDirection: 'column', 
-                        padding: '0', 
-                        borderRadius: '16px', 
+                    <div className="modal-content consent-form-modal" style={{
+                        maxWidth: '1100px',
+                        width: '95%',
+                        height: '92vh',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        padding: '0',
+                        borderRadius: '16px',
                         overflow: 'hidden',
                         boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.6)',
                         border: '1px solid rgba(255, 255, 255, 0.1)'
                     }}>
                         {/* Header - Fixed at top */}
-                        <div className="modal-header no-print" style={{ 
-                            padding: '1.25rem 2rem', 
-                            backgroundColor: 'white', 
-                            borderBottom: '1px solid #e2e8f0', 
-                            display: 'flex', 
-                            justifyContent: 'space-between', 
+                        <div className="modal-header no-print" style={{
+                            padding: '1.25rem 2rem',
+                            backgroundColor: 'white',
+                            borderBottom: '1px solid #e2e8f0',
+                            display: 'flex',
+                            justifyContent: 'space-between',
                             alignItems: 'center',
                             flexShrink: 0
                         }}>
                             <h3 style={{ margin: 0, fontSize: '1.25rem', fontWeight: 600, color: '#1e293b' }}>
-                                {isConsentViewMode ? 'Visor de Documento Clínico' : 'Editor de Historia Clínica'}
+                                {consentModalMode === 'consent'
+                                    ? (isConsentViewMode ? 'Visor de Ficha de Consentimiento' : 'Ficha de Inscripción y Consentimiento')
+                                    : (isConsentViewMode ? 'Visor de Historial Clínico' : 'Historial Clínico de Paciente')}
                             </h3>
                             <button className="btn-icon-round" title="Cerrar" onClick={() => { setIsConsentModalOpen(false); setIsConsentViewMode(false); }}><X size={20} /></button>
                         </div>
- 
+
                         {/* Body - Scrollable */}
-                        <div id="consent-modal-body" className="modal-body" style={{ 
-                            flex: 1, 
-                            padding: '3rem 1rem', 
-                            backgroundColor: '#64748b', 
-                            overflowY: 'auto', 
+                        <div id="consent-modal-body" className="modal-body" style={{
+                            flex: 1,
+                            padding: '3rem 1rem',
+                            backgroundColor: '#64748b',
+                            overflowY: 'auto',
                             textAlign: 'center',
                             display: 'block' // Ensure block layout for scrolling children
                         }}>
-                            <div style={{ 
-                                backgroundColor: 'white', 
-                                boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.3)', 
-                                width: '850px', 
-                                maxWidth: '100%', 
-                                borderRadius: '4px', 
-                                margin: '0 auto', 
-                                textAlign: 'left', 
+                            <div style={{
+                                backgroundColor: 'white',
+                                boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.3)',
+                                width: '850px',
+                                maxWidth: '100%',
+                                borderRadius: '4px',
+                                margin: '0 auto',
+                                textAlign: 'left',
                                 minHeight: 'min-content',
                                 padding: '1rem' // Internal spacing
                             }}>
-                                <ConsentDocument 
+                                <ConsentDocument
                                     patient={selectedPatient as Patient}
                                     isViewMode={isConsentViewMode}
                                     signatureUrl={selectedPatient.consentSignature}
@@ -1307,23 +1394,24 @@ const PatientList: React.FC = () => {
                                     draw={draw}
                                     stopDrawing={stopDrawing}
                                     clearSignature={clearSignature}
+                                    mode={consentModalMode}
                                 />
                             </div>
                         </div>
- 
+
                         {/* Footer - Fixed at bottom */}
-                        <div className="modal-footer" style={{ 
-                            padding: '1.5rem 2rem', 
-                            borderTop: '1px solid #e2e8f0', 
-                            display: 'flex', 
-                            justifyContent: 'flex-end', 
-                            gap: '1rem', 
+                        <div className="modal-footer" style={{
+                            padding: '1.5rem 2rem',
+                            borderTop: '1px solid #e2e8f0',
+                            display: 'flex',
+                            justifyContent: 'flex-end',
+                            gap: '1rem',
                             backgroundColor: 'white',
                             flexShrink: 0,
                             zIndex: 20
                         }}>
                             <button type="button" className="btn-secondary" onClick={() => { setIsConsentModalOpen(false); setIsConsentViewMode(false); }}>Cerrar</button>
-                            
+
                             {/* Mostrar siempre los botones de edición si el usuario quiere que sea editable */}
                             <button
                                 type="button"
@@ -1332,18 +1420,29 @@ const PatientList: React.FC = () => {
                                 disabled={isSending}
                                 style={{ backgroundColor: '#f1f5f9', border: '1px solid #cbd5e1' }}
                             >
-                                <Activity size={16} /> {isSending ? 'Guardando...' : (isConsentViewMode ? 'Actualizar Ficha' : 'Guardar Borrador')}
+                                <Activity size={16} /> {isSending ? 'Guardando...' : (isConsentViewMode ? (consentModalMode === 'consent' ? 'Actualizar Ficha' : 'Actualizar Historial') : 'Guardar Borrador')}
                             </button>
-                            
-                            <button
-                                type="button"
-                                className="btn-primary flex items-center gap-2"
-                                disabled={(isConsentViewMode ? false : !isSigned) || isSending}
-                                onClick={() => handleSaveAndSendConsent()}
-                                style={{ backgroundColor: '#3b82f6', color: 'white' }}
-                            >
-                                <Mail size={16} /> {isSending ? (processingStep || 'Procesando...') : (isConsentViewMode ? 'Firmar y Enviar de nuevo' : 'Firmar y Enviar')}
-                            </button>
+
+                            {(() => {
+                                const hasAnySignature = consentModalMode === 'consent'
+                                    ? !!(selectedPatient.consentSignature || selectedPatient.tutor2Signature || isSigned)
+                                    : !!(selectedPatient.therapistSignature || isSigned);
+                                return (
+                                    <button
+                                        type="button"
+                                        className="btn-primary flex items-center gap-2"
+                                        disabled={!hasAnySignature || isSending}
+                                        onClick={() => handleSaveAndSendConsent()}
+                                        style={{ backgroundColor: '#3b82f6', color: 'white' }}
+                                    >
+                                        <Mail size={16} /> {isSending ? (processingStep || 'Procesando...') : (
+                                            consentModalMode === 'consent'
+                                                ? (isConsentViewMode ? 'Firmar y Enviar de nuevo' : 'Firmar y Enviar')
+                                                : (isConsentViewMode ? 'Firmar y Guardar de nuevo' : 'Firmar y Guardar')
+                                        )}
+                                    </button>
+                                );
+                            })()}
 
                             {isConsentViewMode && (
                                 <>
@@ -1359,16 +1458,17 @@ const PatientList: React.FC = () => {
                                 </>
                             )}
                         </div>
- 
+
                         {/* Print Portal - Dedicated isolation for printing */}
                         <PrintPortal>
-                            <ConsentDocument 
+                            <ConsentDocument
                                 patient={selectedPatient as Patient}
                                 isViewMode={isConsentViewMode}
                                 signatureUrl={selectedPatient.consentSignature}
                                 tutor2SignatureUrl={selectedPatient.tutor2Signature}
                                 therapistSignatureUrl={selectedPatient.therapistSignature}
                                 isSigned={isSigned}
+                                mode={consentModalMode}
                             />
                         </PrintPortal>
                     </div>

@@ -58,17 +58,40 @@ Deno.serve(async (req) => {
 
     const patientName = patient ? `${patient.firstName} ${patient.lastName}` : "Paciente";
 
-    const htmlBody = `<div style="font-family: sans-serif; padding: 20px; line-height: 1.6; color: #333;">
-      <h2 style="color: #1a5f7a;">Documentación Clínica</h2>
-      <p>Hola,</p>
-      <p>${message || `Se adjunta la documentación clínica de <strong>${patientName}</strong> debidamente firmada.`}</p>
-      <div style="margin: 20px 0; padding: 15px; background-color: #f8fafc; border-radius: 8px; border: 1px solid #e2e8f0;">
-        <p style="margin: 0; font-size: 0.9rem;"><strong>Tipo de documento:</strong> Ficha de Inscripción y Consentimiento</p>
-        <p style="margin: 5px 0 0; font-size: 0.9rem;"><strong>Fecha:</strong> ${new Date().toLocaleDateString('es-ES')}</p>
+    const isOldBoilerplate = message && (
+      message.includes("Se adjunta la documentación de inscripción y consentimiento") ||
+      message.includes("Se adjunta la documentación clínica")
+    );
+
+    const displayMessageHtml = (message && !isOldBoilerplate)
+      ? message
+      : `Te adjuntamos en este correo la <strong>Ficha de Inscripción y el Consentimiento de Protección de Datos (LOPD)</strong> de <strong>${patientName}</strong>, que ya ha quedado registrado de forma segura en nuestro sistema tras tu firma. 📝✨`;
+
+    const displayMessageText = (message && !isOldBoilerplate)
+      ? message
+      : `Te adjuntamos en este correo la Ficha de Inscripción y el Consentimiento de Protección de Datos (LOPD) de ${patientName}, que ya ha quedado registrado de forma segura en nuestro sistema tras tu firma. 📝✨`;
+
+    const htmlBody = `<div style="font-family: Arial, sans-serif; padding: 20px; max-width: 600px; margin: 0 auto; line-height: 1.6; color: #334155; border: 1px solid #e2e8f0; border-radius: 12px; background-color: #ffffff;">
+      <div style="text-align: center; margin-bottom: 20px;">
+        <h2 style="color: #1a5f7a; margin-top: 10px; font-size: 1.5rem;">Ficha y Consentimiento LOPD Firmados</h2>
       </div>
-      <p>Por favor, guarde este documento para sus registros.</p>
-      <hr style="border: 0; border-top: 1px solid #eee; margin: 20px 0;" />
-      <p style="font-size: 0.8rem; color: #666;">Este es un mensaje automático enviado desde el sistema CRM de Centro Infantil Proyecta.</p>
+      <p>¡Hola! 😊</p>
+      <p>Esperamos que te encuentres muy bien.</p>
+      <p>${displayMessageHtml}</p>
+      
+      <div style="margin: 24px 0; padding: 16px; background-color: #f8fafc; border-radius: 8px; border-left: 4px solid #38bdf8;">
+        <p style="margin: 0; font-size: 0.95rem; color: #1e3a8a;"><strong>Detalles del documento enviado:</strong></p>
+        <p style="margin: 8px 0 0; font-size: 0.9rem; color: #475569;"><strong>Tipo de documento:</strong> Ficha de Inscripción y Consentimiento</p>
+        <p style="margin: 5px 0 0; font-size: 0.9rem; color: #475569;"><strong>Fecha de registro:</strong> ${new Date().toLocaleDateString('es-ES')}</p>
+      </div>
+      
+      <p>Te recomendamos descargar y guardar este archivo PDF adjunto para tus registros personales. Si en el futuro necesitas realizar algún cambio en los datos o tienes cualquier duda, estamos a tu entera disposición.</p>
+      <p>¡Muchas gracias por tu colaboración y por depositar tu confianza en el equipo de Centro Proyecta! 💙</p>
+      
+      <p style="margin-top: 35px; font-weight: bold; color: #1a5f7a;">Un saludo cordial,<br>El equipo de Centro Proyecta 🧸</p>
+      
+      <hr style="border: 0; border-top: 1px solid #e2e8f0; margin: 25px 0 15px;" />
+      <p style="font-size: 0.75rem; color: #94a3b8; text-align: center; margin: 0; font-style: italic;">Este es un mensaje seguro y automático enviado desde el sistema CRM de Centro Infantil Proyecta.</p>
     </div>`;
 
     const attachments = [];
@@ -87,7 +110,7 @@ Deno.serve(async (req) => {
       from: `"Centro Proyecta" <${SMTP_USER}>`,
       to: email,
       subject: `Documentación Clínica Firmada - ${patientName}`,
-      text: message || `Documentación clínica de ${patientName}`,
+      text: `${displayMessageText}\n\nDetalles del documento enviado:\n- Tipo de documento: Ficha de Inscripción y Consentimiento\n- Fecha de registro: ${new Date().toLocaleDateString('es-ES')}\n\nTe recomendamos descargar y guardar este archivo PDF adjunto para tus registros personales. Si en el futuro necesitas realizar algún cambio en los datos o tienes cualquier duda, estamos a tu entera disposición.\n\n¡Muchas gracias por tu colaboración y por depositar tu confianza en el equipo de Centro Proyecta! 💙\n\nUn saludo cordial,\nEl equipo de Centro Proyecta 🧸\n\n---\nEste es un mensaje seguro y automático enviado desde el sistema CRM de Centro Infantil Proyecta.`,
       html: htmlBody,
       attachments: attachments
     });

@@ -89,15 +89,41 @@ const printJustifiedText = (doc: jsPDF, text: string, x: number, startY: number,
 
 const ensureBase64 = async (signature: string | null): Promise<string | null> => {
     if (!signature) return null;
-    if (signature.startsWith('data:image/')) {
-        return signature;
-    }
-    try {
-        return await getBase64ImageFromUrl(signature);
-    } catch (e) {
-        console.error("Error al convertir la URL de la firma a Base64:", e, signature);
-        return null;
-    }
+
+    return new Promise((resolve) => {
+        const img = new Image();
+        img.crossOrigin = 'Anonymous';
+        img.onload = () => {
+            try {
+                const canvas = document.createElement('canvas');
+                canvas.width = img.width;
+                canvas.height = img.height;
+                const ctx = canvas.getContext('2d');
+                if (ctx) {
+                    // Fill background with white to avoid transparent PNG rendering as black in PDF
+                    ctx.fillStyle = '#ffffff';
+                    ctx.fillRect(0, 0, canvas.width, canvas.height);
+                    ctx.drawImage(img, 0, 0);
+                    resolve(canvas.toDataURL('image/png'));
+                } else {
+                    resolve(signature.startsWith('data:image/') ? signature : null);
+                }
+            } catch (err) {
+                console.error("Error processing canvas in ensureBase64:", err);
+                resolve(signature.startsWith('data:image/') ? signature : null);
+            }
+        };
+        img.onerror = (e) => {
+            console.error("Error loading signature image for PDF:", e, signature);
+            // Emergency fallback for inline charts/signatures
+            if (signature.startsWith('data:image/')) {
+                resolve(signature);
+            } else {
+                resolve(null);
+            }
+        };
+        img.src = signature;
+    });
 };
 
 export const generateConsentSheetPDF = async (

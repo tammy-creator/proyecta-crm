@@ -576,12 +576,15 @@ const PatientList: React.FC = () => {
 
                 // Enviar email en segundo plano (solo en modo consentimiento o si se fuerza por re-envío)
                 if (consentModalMode === 'consent' && consentSheetBase64) {
+                    if (options.isSilentResend) {
+                        showToast(`Enviando ficha de consentimiento a ${recipientEmail}...`, "info");
+                    }
+
                     supabase.functions.invoke('send-consent-email', {
                         body: {
                             email: recipientEmail,
                             patient: { firstName: updatedPatientData.firstName, lastName: updatedPatientData.lastName, id: updatedPatientData.id },
-                            pdfBase64: consentSheetBase64,
-                            message: `Se adjunta la documentación de inscripción y consentimiento de protección de datos de ${updatedPatientData.firstName} ${updatedPatientData.lastName} integrada en el sistema.`
+                            pdfBase64: consentSheetBase64
                         }
                     }).then(({ data, error: invokeError }) => {
                         if (invokeError) {
@@ -590,7 +593,7 @@ const PatientList: React.FC = () => {
                         } else if (data && data.success === false) {
                             console.error("Fallo SMTP en Edge Function:", data.error);
                             showToast(`Error al enviar el correo: ${data.error}`, "error");
-                        } else if (!options.isSilentResend) {
+                        } else {
                             showToast(`¡Email enviado correctamente a ${recipientEmail}!`, "success");
                         }
                     });

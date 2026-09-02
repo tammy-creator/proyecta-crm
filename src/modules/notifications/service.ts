@@ -179,20 +179,26 @@ export const getAIActivity = async (days: number = 3): Promise<Notification[]> =
             .from('system_notifications')
             .select('*')
             .or('type.ilike.AI_LOG,type.ilike.WHATSAPP,type.ilike.BOT,title.ilike.%Cita%')
+            .neq('is_dismissed', true)
+            .gte('created_at', since.toISOString())
             .order('created_at', { ascending: false })
-            .limit(20);
+            .limit(30);
 
         if (error) throw error;
 
-        return (data || []).map(n => ({
-            id: n.id,
-            type: 'AI_LOG',
-            title: n.title,
-            message: n.message,
-            date: new Date(n.created_at),
-            read: n.read || false,
-            priority: 'LOW',
-        }));
+        const dismissedIds = getDismissedIds();
+
+        return (data || [])
+            .filter(n => n.is_dismissed !== true && !dismissedIds.includes(n.id))
+            .map(n => ({
+                id: n.id,
+                type: 'AI_LOG',
+                title: n.title,
+                message: n.message,
+                date: new Date(n.created_at),
+                read: n.read || false,
+                priority: 'LOW',
+            }));
     } catch (error) {
         console.error('Error fetching AI activity:', error);
         return [];

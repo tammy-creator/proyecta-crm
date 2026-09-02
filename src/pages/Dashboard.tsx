@@ -353,7 +353,7 @@ const Dashboard: React.FC = () => {
                 </Card>
             </div>
 
-            <div className="dashboard-content-grid">
+            <div className="dashboard-content-grid" style={{ marginBottom: '4rem' }}>
                 <Card title="Agenda de Hoy" className="agenda-preview" action={<button className="btn-link" onClick={() => navigate('/calendar')}>Ver todo</button>}>
                     <div className="appointment-list">
                         {loading ? (
@@ -436,7 +436,7 @@ const Dashboard: React.FC = () => {
             </div>
 
             {/* Nueva Sección de Auditoría Global */}
-            <div className="dashboard-audit-section">
+            <div className="dashboard-audit-section" style={{ marginTop: '4rem', marginBottom: '3rem' }}>
                 <Card
                     title="Auditoría Clínica: Diarios Pendientes de Registro"
                     subtitle={isRole('ADMIN') ? "Hoy y ayer · Vista global del centro" : "Hoy y ayer · Mis sesiones pendientes"}

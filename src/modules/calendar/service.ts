@@ -149,13 +149,22 @@ export const setAppointmentPaidStatus = async (appointmentId: string, isPaid: bo
     if (error) throw error;
 };
 
-export const getPendingRegistrationAppointments = async (): Promise<Appointment[]> => {
-    const { data, error } = await supabase
+export const getPendingRegistrationAppointments = async (daysBack: number = 1): Promise<Appointment[]> => {
+    let query = supabase
         .from('appointments')
         .select('*')
         .eq('status', 'Finalizada')
         .is('session_diary', null)
         .order('start_time', { ascending: false });
+
+    if (daysBack !== undefined && daysBack !== null && daysBack >= 0) {
+        const sinceDate = new Date();
+        sinceDate.setDate(sinceDate.getDate() - daysBack);
+        sinceDate.setHours(0, 0, 0, 0);
+        query = query.gte('start_time', sinceDate.toISOString());
+    }
+
+    const { data, error } = await query;
     
     if (error) throw error;
     

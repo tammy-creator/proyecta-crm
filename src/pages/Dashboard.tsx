@@ -439,13 +439,13 @@ const Dashboard: React.FC = () => {
             <div className="mt-8">
                 <Card
                     title="Auditoría Clínica: Diarios Pendientes de Registro"
-                    subtitle={isRole('ADMIN') ? "Vista global del centro" : "Mis sesiones pendientes"}
+                    subtitle={isRole('ADMIN') ? "Hoy y ayer · Vista global del centro" : "Hoy y ayer · Mis sesiones pendientes"}
                     icon={<FileText size={20} className="text-red-500" />}
                 >
                     {pendingAudit.length === 0 ? (
                         <div className="py-8 text-center text-secondary italic">
                             <ShieldCheck size={40} className="mx-auto mb-2 opacity-20 text-emerald-500" />
-                            <p>No tienes sesiones pendientes de registro clínico. ¡Buen trabajo!</p>
+                            <p>No hay sesiones pendientes de registro clínico de hoy ni de ayer. ¡Al día!</p>
                         </div>
                     ) : (
                         <div className="overflow-x-auto">

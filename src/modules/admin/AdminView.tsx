@@ -547,7 +547,7 @@ const AdminView: React.FC = () => {
                                     Auditoría de Registros Clínicos
                                 </h3>
                                 <p style={{ fontSize: '0.85rem', color: 'var(--color-text-secondary)' }}>
-                                    Sesiones finalizadas sin diario de sesión registrado
+                                    Sesiones finalizadas de hoy y ayer sin diario de sesión registrado
                                 </p>
                             </div>
                             <button className="calendar-btn-pill calendar-btn-secondary" onClick={() => fetchData()}>
@@ -560,7 +560,7 @@ const AdminView: React.FC = () => {
                             <div className="empty-state" style={{ background: '#f0f9f4', color: '#166534', border: '1px solid #bbf7d0', padding: '3rem' }}>
                                 <ShieldCheck size={48} style={{ marginBottom: '1rem', opacity: 0.5 }} />
                                 <div style={{ fontSize: '1.1rem', fontWeight: 600 }}>¡Excelente!</div>
-                                <p>No hay sesiones pendientes de registro clínico en todo el centro.</p>
+                                <p>No hay sesiones pendientes de registro clínico de hoy ni de ayer en el centro.</p>
                             </div>
                         ) : (
                             <div className="billing-table-wrapper">

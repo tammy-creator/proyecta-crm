@@ -7,14 +7,17 @@ import { Mail, Phone, Calendar as CalendarIcon, Edit2, Plus, X, Trash2, Clock, U
 import './TherapistList.css';
 
 import { useAuth } from '../../context/AuthContext';
+import { useToast } from '../../hooks/useToast';
 import CalendarView from '../calendar/CalendarView';
 
 const DEFAULT_AVATAR = '';
 
 const TherapistList: React.FC = () => {
     const { isRole } = useAuth();
+    const { showToast } = useToast();
     const [therapists, setTherapists] = useState<Therapist[]>([]);
     const [loading, setLoading] = useState(true);
+    const [isSaving, setIsSaving] = useState(false);
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [isAgendaOpen, setIsAgendaOpen] = useState(false);
     const [selectedTherapist, setSelectedTherapist] = useState<Partial<Therapist> | null>(null);
@@ -74,6 +77,7 @@ const TherapistList: React.FC = () => {
         e.preventDefault();
         if (!selectedTherapist) return;
         
+        setIsSaving(true);
         try {
             let avatarUrl = selectedTherapist.avatarUrl;
 
@@ -89,14 +93,18 @@ const TherapistList: React.FC = () => {
 
             if (selectedTherapist.id) {
                 await updateTherapist(therapistToSave);
+                showToast('Terapeuta actualizado correctamente', 'success');
             } else {
                 await createTherapist(therapistToSave as Omit<Therapist, 'id'>);
+                showToast('Terapeuta creado correctamente', 'success');
             }
             setIsModalOpen(false);
             fetchData();
-        } catch (error) {
+        } catch (error: any) {
             console.error("Error saving therapist:", error);
-            // toast error? We don't have it here but we can add it or use alert
+            showToast(error.message || 'Error al guardar terapeuta', 'error');
+        } finally {
+            setIsSaving(false);
         }
     };
 
@@ -412,8 +420,10 @@ const TherapistList: React.FC = () => {
                             </div>
 
                             <div className="modal-footer">
-                                <button type="button" className="btn-secondary" onClick={() => setIsModalOpen(false)}>Cancelar</button>
-                                <button type="submit" className="btn-primary">Guardar Terapeuta</button>
+                                <button type="button" className="btn-secondary" onClick={() => setIsModalOpen(false)} disabled={isSaving}>Cancelar</button>
+                                <button type="submit" className="btn-primary" disabled={isSaving}>
+                                    {isSaving ? 'Guardando...' : 'Guardar Terapeuta'}
+                                </button>
                             </div>
                         </form>
                     </div>

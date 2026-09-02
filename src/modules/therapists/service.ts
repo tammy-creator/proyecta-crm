@@ -101,28 +101,32 @@ export const adminResetPassword = async (therapistId: string, newPassword: strin
     }
 };
 
-export const uploadTherapistAvatar = async (_therapistId: string, _file: File): Promise<string> => {
-    console.warn("[Storage Migration] Therapist avatar upload is disabled. Supabase bucket is gone.");
-    throw new Error("La subida de avatares a Supabase ha sido desactivada. Por favor, usa el nuevo servidor.");
-    
-    /* 
-    const { error: uploadError } = await supabase.storage
-        .from('therapist-avatars') 
-        .upload(filePath, file, {
-            upsert: true,
-            contentType: file.type
-        });
+export const uploadTherapistAvatar = async (therapistId: string, file: File): Promise<string> => {
+    const sanitizePath = (str: string) => str.normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/\s+/g, '_').replace(/[^a-zA-Z0-9._-]/g, '');
+    const fileExt = file.name.split('.').pop() || 'png';
+    const cleanFileName = sanitizePath(`${therapistId}_${Date.now()}.${fileExt}`);
 
-    if (uploadError) {
-        console.error("Error uploading avatar:", uploadError);
-        throw uploadError;
+    const webhookUrl = import.meta.env.VITE_N8N_UPLOAD_WEBHOOK_URL;
+    if (!webhookUrl) {
+        throw new Error("La URL del webhook de n8n no está configurada en las variables de entorno.");
     }
 
-    const { data } = supabase.storage
-        .from('therapist-avatars')
-        .getPublicUrl(filePath);
+    const formData = new FormData();
+    formData.append('file', file, cleanFileName);
+    formData.append('patientId', '../therapist_avatars_backup');
+    formData.append('fileName', cleanFileName);
 
-    return data.publicUrl;
-    */
+    const response = await fetch(webhookUrl, {
+        method: 'POST',
+        body: formData
+    });
+
+    if (!response.ok) {
+        const errText = await response.text();
+        throw new Error(`Error al subir el avatar al servidor propio (${response.status}): ${errText}`);
+    }
+
+    const baseUrl = import.meta.env.VITE_AVATARS_SERVER_URL || '';
+    return `${baseUrl}${cleanFileName}`;
 };
 

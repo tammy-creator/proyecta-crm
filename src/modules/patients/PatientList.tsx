@@ -8,7 +8,7 @@ import { type Appointment } from '../calendar/types';
 import { getTherapists } from '../therapists/service';
 import { type Therapist } from '../therapists/types';
 import Card from '../../components/ui/Card';
-import { User, Users, Phone, Mail, Search, UserPlus, X, Calendar, ClipboardList, FileText, Upload, Activity, Download, Send, ShieldCheck, ShieldAlert, Star, Trash2, Heart } from 'lucide-react';
+import { User, Users, Phone, Mail, Search, UserPlus, X, Calendar, ClipboardList, FileText, Upload, Activity, Download, Send, ShieldCheck, ShieldAlert, Star, Trash2, Heart, ChevronDown, ChevronUp, AlertCircle } from 'lucide-react';
 import { useToast } from '../../hooks/useToast';
 import PrintPortal from '../../components/ui/PrintPortal';
 import ConsentDocument from './ConsentDocument';
@@ -26,6 +26,7 @@ const PatientList: React.FC = () => {
     const [selectedPatient, setSelectedPatient] = useState<Partial<Patient> | null>(null);
     const [activeTab, setActiveTab] = useState<'general' | 'appointments' | 'files' | 'history'>('general');
     const [patientAppointments, setPatientAppointments] = useState<Appointment[]>([]);
+    const [isPendingHistoryExpanded, setIsPendingHistoryExpanded] = useState(false);
     const [isConsentModalOpen, setIsConsentModalOpen] = useState(false);
     const [isConsentViewMode, setIsConsentViewMode] = useState(false);
     const [consentModalMode, setConsentModalMode] = useState<'consent' | 'history'>('consent');
@@ -1129,42 +1130,63 @@ const PatientList: React.FC = () => {
                                         Historia Clínica (Evolución)
                                     </div>
 
-                                    {/* Control de Registros Pendientes */}
-                                    {patientAppointments.filter(a => a.status === 'Finalizada' && !a.sessionDiary && !a.notes).length > 0 && (
-                                        <div className="history-pending-card mb-6">
-                                            <div className="history-pending-title">
-                                                <ShieldAlert size={18} />
-                                                Sesiones pendientes de registro
-                                            </div>
-                                            <div className="history-pending-list">
-                                                {patientAppointments
-                                                    .filter(a => a.status === 'Finalizada' && !a.sessionDiary && !a.notes)
-                                                    .map(appt => (
-                                                        <div key={appt.id} className="history-pending-item">
-                                                            <div className="history-pending-info">
-                                                                <span className="history-pending-date">
-                                                                    {new Date(appt.start).toLocaleDateString('es-ES', { day: '2-digit', month: 'short', year: 'numeric' })} - {appt.type}
-                                                                </span>
-                                                                <span className="history-pending-therapist">
-                                                                    Asignado a: {appt.therapistName}
-                                                                </span>
-                                                            </div>
-                                                            <div className="flex gap-2">
-                                                                <button
-                                                                    className="btn-fix-history"
-                                                                    onClick={() => setActiveTab('appointments')}
-                                                                >
-                                                                    Ver Cita
-                                                                </button>
-                                                            </div>
+                                    {/* Control de Registros Pendientes (Desplegable) */}
+                                    {(() => {
+                                        const pendingAppts = patientAppointments.filter(a => a.status === 'Finalizada' && !a.sessionDiary && !a.notes);
+                                        if (pendingAppts.length === 0) return null;
+
+                                        return (
+                                            <div className="history-pending-accordion mb-6">
+                                                <button
+                                                    type="button"
+                                                    className="history-pending-header"
+                                                    onClick={() => setIsPendingHistoryExpanded(!isPendingHistoryExpanded)}
+                                                >
+                                                    <div className="flex items-center gap-2 flex-wrap">
+                                                        <span className="history-pending-badge">
+                                                            <AlertCircle size={14} />
+                                                            {pendingAppts.length} {pendingAppts.length === 1 ? 'sesión pendiente' : 'sesiones pendientes'}
+                                                        </span>
+                                                        <span className="history-pending-subtitle">
+                                                            Citas finalizadas sin informe o diario registrado
+                                                        </span>
+                                                    </div>
+                                                    <div className="flex items-center gap-1 history-pending-toggle-text">
+                                                        <span>{isPendingHistoryExpanded ? 'Ocultar' : 'Ver sesiones'}</span>
+                                                        {isPendingHistoryExpanded ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+                                                    </div>
+                                                </button>
+
+                                                {isPendingHistoryExpanded && (
+                                                    <div className="history-pending-body">
+                                                        <div className="history-pending-list">
+                                                            {pendingAppts.map(appt => (
+                                                                <div key={appt.id} className="history-pending-item">
+                                                                    <div className="history-pending-info">
+                                                                        <span className="history-pending-date">
+                                                                            {new Date(appt.start).toLocaleDateString('es-ES', { day: '2-digit', month: 'short', year: 'numeric' })} · {appt.type}
+                                                                        </span>
+                                                                        <span className="history-pending-therapist">
+                                                                            Terapeuta: {appt.therapistName || 'Sin asignar'}
+                                                                        </span>
+                                                                    </div>
+                                                                    <button
+                                                                        className="btn-fix-history"
+                                                                        onClick={() => setActiveTab('appointments')}
+                                                                    >
+                                                                        Ver Cita
+                                                                    </button>
+                                                                </div>
+                                                            ))}
                                                         </div>
-                                                    ))}
+                                                        <p className="text-[11px] text-slate-500 mt-2 italic font-normal">
+                                                            * Estas citas han finalizado pero aún no se ha redactado su diario de sesión en el calendario.
+                                                        </p>
+                                                    </div>
+                                                )}
                                             </div>
-                                            <p className="text-[10px] text-red-400 mt-1 italic font-medium">
-                                                * Estas citas han finalizado pero no tienen contenido en el diario de sesiones ni notas clínicas.
-                                            </p>
-                                        </div>
-                                    )}
+                                        );
+                                    })()}
 
                                     {patientAppointments.filter(a => a.sessionDiary || a.notes).length === 0 ? (
                                         <div className="empty-state">No hay registros clínicos en la historia para este paciente.</div>

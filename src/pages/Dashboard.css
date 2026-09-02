@@ -386,4 +386,10 @@
     padding: 1.25rem 1.5rem !important;
     margin-bottom: 0.75rem !important;
 }
+
+/* Auditoría Clínica spacing */
+.dashboard-audit-section {
+    margin-top: 4.5rem !important;
+    margin-bottom: 2.5rem !important;
+}
 

@@ -436,7 +436,7 @@ const Dashboard: React.FC = () => {
             </div>
 
             {/* Nueva Sección de Auditoría Global */}
-            <div className="mt-8">
+            <div className="dashboard-audit-section">
                 <Card
                     title="Auditoría Clínica: Diarios Pendientes de Registro"
                     subtitle={isRole('ADMIN') ? "Hoy y ayer · Vista global del centro" : "Hoy y ayer · Mis sesiones pendientes"}

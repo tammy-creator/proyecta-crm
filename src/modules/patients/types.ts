@@ -49,6 +49,8 @@ export interface Patient {
     therapistSignature?: string;
     therapistId?: string; // ID del terapeuta asignado
     resenaClic?: boolean;
+    recibirRecordatoriosWhatsapp?: boolean; // Control de recordatorios de citas por WhatsApp
+    whatsappRgpdEnviado?: boolean; // Si ya se envió la cláusula inicial RGPD
     createdAt: string;
 }
 

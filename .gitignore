@@ -47,6 +47,7 @@ scratch_*
 !tsconfig*.json
 !composer.json
 !*.schema.json
+!n8n/*.json
 scratch/
 scripts/manual_*.mjs
 *.mjs

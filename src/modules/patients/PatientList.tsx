@@ -8,7 +8,7 @@ import { type Appointment } from '../calendar/types';
 import { getTherapists } from '../therapists/service';
 import { type Therapist } from '../therapists/types';
 import Card from '../../components/ui/Card';
-import { User, Users, Phone, Mail, Search, UserPlus, X, Calendar, ClipboardList, FileText, Upload, Activity, Download, Send, ShieldCheck, ShieldAlert, Star, Trash2, Heart, ChevronDown, ChevronUp, AlertCircle } from 'lucide-react';
+import { User, Users, Phone, Mail, Search, UserPlus, X, Calendar, ClipboardList, FileText, Upload, Activity, Download, Send, ShieldCheck, ShieldAlert, Star, Trash2, Heart, ChevronDown, ChevronUp, AlertCircle, MessageSquare } from 'lucide-react';
 import { useToast } from '../../hooks/useToast';
 import PrintPortal from '../../components/ui/PrintPortal';
 import ConsentDocument from './ConsentDocument';
@@ -141,6 +141,8 @@ const PatientList: React.FC = () => {
                 status: 'Activo',
                 notes: '',
                 therapistId: '',
+                recibirRecordatoriosWhatsapp: true,
+                whatsappRgpdEnviado: false,
                 files: []
             });
         }
@@ -821,6 +823,11 @@ const PatientList: React.FC = () => {
                                 <span className="detail-label">Reseña Google:</span>
                                 <span style={{ fontWeight: 600 }}>{patient.resenaClic ? 'Clic registrado' : 'Pendiente'}</span>
                             </div>
+                            <div className="detail-item" style={{ marginTop: '0.25rem', color: patient.recibirRecordatoriosWhatsapp !== false ? '#0284c7' : '#94a3b8', fontSize: '0.8rem' }}>
+                                <MessageSquare size={12} />
+                                <span className="detail-label">WhatsApp Citas:</span>
+                                <span style={{ fontWeight: 600 }}>{patient.recibirRecordatoriosWhatsapp !== false ? 'Activo' : 'Desactivado'}</span>
+                            </div>
                         </div>
 
                         <div className="patient-card-footer">
@@ -1051,6 +1058,70 @@ const PatientList: React.FC = () => {
                                                         style={{ width: '18px', height: '18px', cursor: 'pointer' }}
                                                     />
                                                     <label htmlFor="consentLopd" style={{ fontSize: '0.85rem', fontWeight: 500, cursor: 'pointer' }}>Marcar como Verificado</label>
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        {/* Control de Recordatorios de Citas por WhatsApp */}
+                                        <div className="whatsapp-reminders-card" style={{
+                                            padding: '0.6rem 0.8rem',
+                                            borderRadius: '8px',
+                                            backgroundColor: (selectedPatient.recibirRecordatoriosWhatsapp !== false) ? 'rgba(37, 99, 235, 0.06)' : 'rgba(100, 116, 139, 0.08)',
+                                            border: `1px solid ${(selectedPatient.recibirRecordatoriosWhatsapp !== false) ? '#2563eb33' : '#94a3b833'}`,
+                                            marginTop: '0.6rem',
+                                            boxShadow: 'inset 0 1px 2px rgba(0,0,0,0.01)'
+                                        }}>
+                                            <div className="flex items-center justify-between">
+                                                <div className="flex items-center gap-2">
+                                                    <div style={{
+                                                        width: '32px',
+                                                        height: '32px',
+                                                        borderRadius: '8px',
+                                                        backgroundColor: (selectedPatient.recibirRecordatoriosWhatsapp !== false) ? '#eff6ff' : '#f1f5f9',
+                                                        color: (selectedPatient.recibirRecordatoriosWhatsapp !== false) ? '#2563eb' : '#64748b',
+                                                        display: 'flex',
+                                                        alignItems: 'center',
+                                                        justifyContent: 'center'
+                                                    }}>
+                                                        <MessageSquare size={16} />
+                                                    </div>
+                                                    <div>
+                                                        <div className="flex items-center gap-2">
+                                                            <p style={{ fontWeight: 600, fontSize: '0.9rem', margin: 0 }}>Recordatorios de Citas por WhatsApp</p>
+                                                            {selectedPatient.whatsappRgpdEnviado ? (
+                                                                <span style={{ fontSize: '0.7rem', color: '#059669', backgroundColor: '#d1fae5', padding: '1px 6px', borderRadius: '4px', fontWeight: 600 }}>
+                                                                    RGPD Enviado
+                                                                </span>
+                                                            ) : (
+                                                                <span style={{ fontSize: '0.7rem', color: '#64748b', backgroundColor: '#f1f5f9', padding: '1px 6px', borderRadius: '4px' }}>
+                                                                    RGPD Pendiente
+                                                                </span>
+                                                            )}
+                                                        </div>
+                                                        <p style={{ fontSize: '0.75rem', color: 'var(--color-text-secondary)', margin: 0 }}>
+                                                            {selectedPatient.recibirRecordatoriosWhatsapp !== false
+                                                                ? 'Envío automático activo a las 10:00 AM el día previo (o viernes para el lunes).'
+                                                                : 'Recordatorios desactivados para este paciente (no recibirá WhatsApps automáticos).'
+                                                            }
+                                                        </p>
+                                                    </div>
+                                                </div>
+                                                <div className="flex items-center gap-2">
+                                                    <input
+                                                        type="checkbox"
+                                                        id="recibirRecordatoriosWhatsapp"
+                                                        checked={selectedPatient.recibirRecordatoriosWhatsapp !== false}
+                                                        onChange={e => {
+                                                            setSelectedPatient({
+                                                                ...selectedPatient,
+                                                                recibirRecordatoriosWhatsapp: e.target.checked
+                                                            });
+                                                        }}
+                                                        style={{ width: '18px', height: '18px', cursor: 'pointer' }}
+                                                    />
+                                                    <label htmlFor="recibirRecordatoriosWhatsapp" style={{ fontSize: '0.85rem', fontWeight: 500, cursor: 'pointer' }}>
+                                                        {selectedPatient.recibirRecordatoriosWhatsapp !== false ? 'Activado' : 'Desactivado'}
+                                                    </label>
                                                 </div>
                                             </div>
                                         </div>

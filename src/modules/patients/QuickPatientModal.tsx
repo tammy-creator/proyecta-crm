@@ -58,6 +58,8 @@ const QuickPatientModal: React.FC<QuickPatientModalProps> = ({ isOpen, onClose, 
                 consentLopd: false,
                 consentMarketing: false,
                 resenaClic: false,
+                recibirRecordatoriosWhatsapp: true,
+                whatsappRgpdEnviado: false,
                 tutor1: { firstName: '', lastName: '', dni: '', job: '', phone: '', email: '' }
             });
             showToast('Paciente creado correctamente', 'success');

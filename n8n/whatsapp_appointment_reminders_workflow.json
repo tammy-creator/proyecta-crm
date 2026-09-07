@@ -1,0 +1,754 @@
+{
+  "name": "Recordatorios Citas WhatsApp (Evolution API)",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "cronExpression",
+              "expression": "0 10 * * 1-5"
+            }
+          ]
+        }
+      },
+      "id": "schedule-trigger-10am",
+      "name": "Schedule Trigger - 10:00 AM (L-V)",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        80,
+        300
+      ],
+      "notesInFlow": true,
+      "notes": "Se ejecuta de lunes a viernes a las 10:00 AM (Europe/Madrid)"
+    },
+    {
+      "parameters": {
+        "values": {
+          "string": [
+            {
+              "name": "evolution_base_url",
+              "value": "https://whatsapp.centroproyecta.es"
+            },
+            {
+              "name": "evolution_instance",
+              "value": "proyecta"
+            },
+            {
+              "name": "evolution_apikey",
+              "value": "CONFIGURA_TU_API_KEY_AQUI"
+            },
+            {
+              "name": "center_contact_phone",
+              "value": "34684653227"
+            },
+            {
+              "name": "supabase_url",
+              "value": "https://rmohexwayuazhoiocrcn.supabase.co"
+            },
+            {
+              "name": "supabase_key",
+              "value": "sb_publishable_lOfzkbcOAZNDSnKOLiEgPg_1_B0yAvi"
+            },
+            {
+              "name": "test_date_override",
+              "value": "2026-09-05"
+            },
+            {
+              "name": "test_phone_override",
+              "value": ""
+            }
+          ],
+          "boolean": [
+            {
+              "name": "test_mode",
+              "value": true
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "set-config",
+      "name": "Set Workflow Config",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 2,
+      "position": [
+        280,
+        300
+      ],
+      "notesInFlow": true,
+      "notes": "Configuración general del centro, claves y modo de prueba"
+    },
+    {
+      "parameters": {
+        "jsCode": "const config = $('Set Workflow Config').first().json;\n\nfunction formatDateIso(d) {\n  const parts = new Intl.DateTimeFormat('en-CA', {\n    timeZone: 'Europe/Madrid',\n    year: 'numeric',\n    month: '2-digit',\n    day: '2-digit'\n  }).formatToParts(d);\n  const y = parts.find(p => p.type === 'year').value;\n  const m = parts.find(p => p.type === 'month').value;\n  const day = parts.find(p => p.type === 'day').value;\n  return y + '-' + m + '-' + day;\n}\n\nlet rangeStart = '';\nlet rangeEnd = '';\nlet targetDateDesc = '';\n\nif (config.test_mode && config.test_date_override && config.test_date_override.trim() !== '') {\n  const testDate = config.test_date_override.trim();\n  rangeStart = testDate + 'T00:00:00';\n  rangeEnd = testDate + 'T23:59:59';\n  targetDateDesc = testDate;\n} else {\n  const now = new Date();\n  const dayOfWeek = new Intl.DateTimeFormat('en-US', {\n    timeZone: 'Europe/Madrid',\n    weekday: 'short'\n  }).format(now); // 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'\n\n  if (dayOfWeek === 'Fri') {\n    // Viernes: Avisamos de las citas del fin de semana y del Lunes completo\n    const saturday = new Date(now.getTime() + 1 * 24 * 60 * 60 * 1000);\n    const monday = new Date(now.getTime() + 3 * 24 * 60 * 60 * 1000);\n    rangeStart = formatDateIso(saturday) + 'T00:00:00';\n    rangeEnd = formatDateIso(monday) + 'T23:59:59';\n    targetDateDesc = 'Fin de semana y Lunes (' + formatDateIso(monday) + ')';\n  } else {\n    // Lunes a Jueves: Citas del día siguiente\n    const tomorrow = new Date(now.getTime() + 1 * 24 * 60 * 60 * 1000);\n    const tomorrowIso = formatDateIso(tomorrow);\n    rangeStart = tomorrowIso + 'T00:00:00';\n    rangeEnd = tomorrowIso + 'T23:59:59';\n    targetDateDesc = tomorrowIso;\n  }\n}\n\nreturn [{\n  json: {\n    target_date: targetDateDesc,\n    tomorrow_start: rangeStart,\n    tomorrow_end: rangeEnd,\n    is_test_mode: Boolean(config.test_mode),\n    test_phone_override: config.test_phone_override || ''\n  }\n}];"
+      },
+      "id": "calc-tomorrow-range",
+      "name": "Calculate Tomorrow Date Range",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        480,
+        300
+      ],
+      "notesInFlow": true,
+      "notes": "L-J envía el día siguiente. Viernes envía el Lunes."
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "={{ $('Set Workflow Config').first().json.supabase_url + '/rest/v1/appointments' }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "={{ $('Set Workflow Config').first().json.supabase_key }}"
+            },
+            {
+              "name": "Authorization",
+              "value": "={{ 'Bearer ' + $('Set Workflow Config').first().json.supabase_key }}"
+            }
+          ]
+        },
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "select",
+              "value": "id,patient_id,patient_name,therapist_name,start_time,end_time,type,status,notificacion_recordatorio_enviada,patients(id,first_name,last_name,phone,recibir_recordatorios_whatsapp,whatsapp_rgpd_enviado,patient_tutors(id,first_name,last_name,phone,order_num))"
+            },
+            {
+              "name": "status",
+              "value": "eq.Programada"
+            },
+            {
+              "name": "notificacion_recordatorio_enviada",
+              "value": "eq.false"
+            },
+            {
+              "name": "and",
+              "value": "={{ '(start_time.gte.' + $json.tomorrow_start + ',start_time.lte.' + $json.tomorrow_end + ')' }}"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 30000
+        }
+      },
+      "id": "query-appointments",
+      "name": "Fetch Tomorrow Appointments",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        680,
+        300
+      ],
+      "notesInFlow": true,
+      "notes": "Busca citas programadas no notificadas aún",
+      "settings": {
+        "alwaysOutputData": true,
+        "retryOnFail": true,
+        "maxTries": 3,
+        "waitBetweenTries": 1000
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "string": [
+            {
+              "value1": "={{ $json.id || '' }}",
+              "operation": "isNotEmpty"
+            }
+          ]
+        }
+      },
+      "id": "if-has-appointments",
+      "name": "Has Appointments to Notify?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [
+        880,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const items = $input.all();\nconst config = $('Set Workflow Config').first().json;\nconst results = [];\n\nfunction normalizePhone(rawPhone) {\n  if (!rawPhone) return null;\n  let clean = String(rawPhone).replace(/[^0-9]/g, '');\n  if (clean.startsWith('0034')) {\n    clean = clean.substring(2);\n  }\n  if (clean.startsWith('34') && clean.length === 11) {\n    return clean;\n  }\n  if (clean.length === 9 && ['6', '7', '8', '9'].includes(clean.charAt(0))) {\n    return '34' + clean;\n  }\n  if (clean.length >= 9 && clean.length <= 15) {\n    return clean;\n  }\n  return null;\n}\n\n// Teléfono limpio de recepción para el enlace directo corto y oficial\nconst rawCenterPhone = config.center_contact_phone || '34684653227';\nconst cleanCenterPhone = String(rawCenterPhone).replace(/[^0-9]/g, '');\nconst waShortLink = 'https://wa.me/' + cleanCenterPhone;\n\nfor (const item of items) {\n  const row = item.json;\n  if (!row || !row.id) continue;\n\n  const patient = row.patients || {};\n\n  // Control Opt-Out: Si el paciente tiene los recordatorios desactivados, se omite\n  if (patient.recibir_recordatorios_whatsapp === false) {\n    continue;\n  }\n\n  const tutors = patient.patient_tutors || [];\n  const t1 = tutors.find(t => t.order_num === 1) || tutors[0];\n\n  // Prioridad teléfono: Tutor 1 -> Paciente raíz -> Vacío\n  let rawPhone = t1 && t1.phone ? t1.phone : (patient.phone || '');\n  if (config.test_mode && config.test_phone_override && config.test_phone_override.trim() !== '') {\n    rawPhone = config.test_phone_override.trim();\n  }\n  const cleanPhone = normalizePhone(rawPhone);\n\n  // Nombre del peque para el mensaje\n  const patientFullName = row.patient_name || ((patient.first_name || '') + ' ' + (patient.last_name || '')).trim() || '';\n  const patientFirstName = (patient.first_name || (row.patient_name ? row.patient_name.split(' ')[0] : '') || 'tu peque').trim();\n\n  const startDate = new Date(row.start_time);\n  const timeFormatted = startDate.toLocaleTimeString('es-ES', {\n    timeZone: 'Europe/Madrid',\n    hour: '2-digit',\n    minute: '2-digit',\n    hour12: false\n  });\n\n  const dateFormattedRaw = startDate.toLocaleDateString('es-ES', {\n    timeZone: 'Europe/Madrid',\n    weekday: 'long',\n    day: 'numeric',\n    month: 'long'\n  });\n  const dateFormatted = dateFormattedRaw.charAt(0).toUpperCase() + dateFormattedRaw.slice(1);\n\n  const nombreTerapeuta = row.therapist_name || 'tu especialista';\n  const tipoServicio = row.type || 'Sesión programada';\n\n  // ¿Requiere enviar la cláusula RGPD informativa inicial (primer contacto)?\n  const needsRgpd = !patient.whatsapp_rgpd_enviado;\n\n  let rgpdText = '';\n  if (needsRgpd) {\n    if (config.test_mode) {\n      rgpdText += '[CLÁUSULA RGPD INICIAL - PRUEBA] 📋\\n\\n';\n    }\n    rgpdText += '*Centro Infantil Proyecta, S.L. - Información de Protección de Datos*\\n\\n';\n    rgpdText += 'Le informamos de que los datos personales facilitados en esta conversación serán tratados por Centro Infantil Proyecta, S.L. con la finalidad de atender sus consultas y gestionar las comunicaciones relacionadas con sus citas, incluido el envío de avisos y recordatorios.\\n\\n';\n    rgpdText += 'Asimismo, puede ejercer sus derechos enviando un email a: centroproyectagijon@gmail.com, identificándose adecuadamente.\\n\\n';\n    rgpdText += 'Para más información sobre el tratamiento de sus datos o sus derechos, puede consultar nuestra política de privacidad: https://centroproyecta.es/politica-de-privacidad';\n  }\n\n  // Redacción oficial y cercana del recordatorio de cita\n  let reminderText = '';\n  if (config.test_mode) {\n    reminderText += '[MENSAJE DE PRUEBA] 🧪\\n\\n';\n  }\n  reminderText += '¡Hola familia! 👋🌟\\n\\n';\n  reminderText += 'Te escribimos desde *Centro Proyecta* para recordarte la próxima cita de *' + patientFirstName + '*:\\n\\n';\n  reminderText += '📅 *Fecha:* ' + dateFormatted + '\\n';\n  reminderText += '⏰ *Hora:* ' + timeFormatted + ' h\\n';\n  reminderText += '👩‍⚕️ *Especialista:* ' + nombreTerapeuta + '\\n';\n  reminderText += '🧩 *Servicio:* ' + tipoServicio + '\\n';\n  reminderText += '📍 *Lugar:* Centro Proyecta\\n\\n';\n  reminderText += 'ℹ️ _Este es un canal de notificaciones automáticas y no recibe respuestas directas._\\n\\n';\n  reminderText += 'Si necesitas modificar tu cita o no puedes asistir, por favor contáctanos por WhatsApp pulsando aquí:\\n';\n  reminderText += '👉 ' + waShortLink + ' (Recepción: 684 653 227)\\n\\n';\n  reminderText += '¡Muchas gracias y nos vemos pronto! 😊✨';\n\n  results.push({\n    json: {\n      cita_id: row.id,\n      patient_id: patient.id || row.patient_id,\n      patient_name: patientFullName || patientFirstName,\n      recipient_name: 'Familia (' + patientFirstName + ')',\n      therapist_name: nombreTerapeuta,\n      service_type: tipoServicio,\n      start_time: row.start_time,\n      hora_cita: timeFormatted,\n      fecha_cita: dateFormatted,\n      raw_phone: rawPhone,\n      phone: cleanPhone,\n      valid_phone: Boolean(cleanPhone),\n      needs_rgpd: Boolean(needsRgpd),\n      rgpd_message: rgpdText,\n      reminder_message: reminderText,\n      is_test_mode: Boolean(config.test_mode)\n    }\n  });\n}\n\nreturn results;"
+      },
+      "id": "format-reminders",
+      "name": "Format Reminder & Normalize Phone",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1100,
+        220
+      ],
+      "notesInFlow": true,
+      "notes": "Prepara Cláusula RGPD (si es 1ª vez), Recordatorio cariñoso y filtra opt-outs"
+    },
+    {
+      "parameters": {
+        "batchSize": 1,
+        "options": {}
+      },
+      "id": "loop-appointments",
+      "name": "Loop Over Appointments",
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "position": [
+        1300,
+        220
+      ],
+      "notesInFlow": true,
+      "notes": "Procesa paciente por paciente con pausa anti-spam"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "boolean": [
+            {
+              "value1": "={{ $json.valid_phone }}",
+              "value2": true
+            }
+          ]
+        }
+      },
+      "id": "if-valid-phone",
+      "name": "Has Valid Phone?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [
+        1520,
+        220
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "boolean": [
+            {
+              "value1": "={{ Boolean($json.needs_rgpd) }}",
+              "value2": true
+            }
+          ]
+        }
+      },
+      "id": "if-needs-rgpd",
+      "name": "Needs Initial RGPD Clause?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [
+        1740,
+        140
+      ],
+      "notesInFlow": true,
+      "notes": "¿Es la primera vez que se contacta a este paciente?"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $('Set Workflow Config').first().json.evolution_base_url + '/message/sendText/' + $('Set Workflow Config').first().json.evolution_instance }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "={{ $('Set Workflow Config').first().json.evolution_apikey }}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({\n  number: $('Loop Over Appointments').item.json.phone,\n  options: {\n    delay: 1000,\n    presence: 'composing',\n    linkPreview: false\n  },\n  textMessage: {\n    text: $('Loop Over Appointments').item.json.rgpd_message\n  }\n}) }}",
+        "options": {}
+      },
+      "id": "send-rgpd-evolution",
+      "name": "Send RGPD Clause - Evolution API",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1960,
+        40
+      ],
+      "notesInFlow": true,
+      "notes": "Envía la cláusula legal RGPD solo en el primer contacto",
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "method": "PATCH",
+        "url": "={{ $('Set Workflow Config').first().json.supabase_url + '/rest/v1/patients?id=eq.' + $('Loop Over Appointments').item.json.patient_id }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "={{ $('Set Workflow Config').first().json.supabase_key }}"
+            },
+            {
+              "name": "Authorization",
+              "value": "={{ 'Bearer ' + $('Set Workflow Config').first().json.supabase_key }}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "Prefer",
+              "value": "return=representation"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ whatsapp_rgpd_enviado: true }) }}",
+        "options": {}
+      },
+      "id": "mark-rgpd-sent",
+      "name": "Mark RGPD Sent in Supabase",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        2180,
+        40
+      ],
+      "notesInFlow": true,
+      "notes": "Marca whatsapp_rgpd_enviado = true para no volver a enviarlo nunca más"
+    },
+    {
+      "parameters": {
+        "amount": 2,
+        "unit": "seconds"
+      },
+      "id": "wait-after-rgpd",
+      "name": "Wait 2s After RGPD",
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [
+        2400,
+        40
+      ],
+      "notesInFlow": true,
+      "notes": "Pausa de 2 segundos antes del recordatorio de cita"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $('Set Workflow Config').first().json.evolution_base_url + '/message/sendText/' + $('Set Workflow Config').first().json.evolution_instance }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "={{ $('Set Workflow Config').first().json.evolution_apikey }}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({\n  number: $('Loop Over Appointments').item.json.phone,\n  options: {\n    delay: 1200,\n    presence: 'composing',\n    linkPreview: false\n  },\n  textMessage: {\n    text: $('Loop Over Appointments').item.json.reminder_message\n  }\n}) }}",
+        "options": {}
+      },
+      "id": "send-whatsapp-evolution",
+      "name": "Send Reminder - Evolution API",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        2620,
+        140
+      ],
+      "notesInFlow": true,
+      "notes": "Envía el recordatorio de cita por WhatsApp",
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "boolean": [
+            {
+              "value1": "={{ Boolean($json.key && $json.key.id) }}",
+              "value2": true
+            }
+          ]
+        }
+      },
+      "id": "if-send-success",
+      "name": "Was Reminder Sent?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [
+        2840,
+        140
+      ]
+    },
+    {
+      "parameters": {
+        "method": "PATCH",
+        "url": "={{ $('Set Workflow Config').first().json.supabase_url + '/rest/v1/appointments?id=eq.' + $('Loop Over Appointments').item.json.cita_id }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "={{ $('Set Workflow Config').first().json.supabase_key }}"
+            },
+            {
+              "name": "Authorization",
+              "value": "={{ 'Bearer ' + $('Set Workflow Config').first().json.supabase_key }}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "Prefer",
+              "value": "return=representation"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ notificacion_recordatorio_enviada: true }) }}",
+        "options": {}
+      },
+      "id": "mark-reminder-sent",
+      "name": "Mark Reminder Sent in Supabase",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        3060,
+        80
+      ],
+      "notesInFlow": true,
+      "notes": "Actualiza la cita marcando notificacion_recordatorio_enviada = true"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $('Set Workflow Config').first().json.supabase_url + '/rest/v1/system_notifications' }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "={{ $('Set Workflow Config').first().json.supabase_key }}"
+            },
+            {
+              "name": "Authorization",
+              "value": "={{ 'Bearer ' + $('Set Workflow Config').first().json.supabase_key }}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({\n  type: 'ALERT',\n  title: 'Error Envío WhatsApp Recordatorio',\n  message: 'No se pudo entregar el WhatsApp a ' + $('Loop Over Appointments').item.json.recipient_name + ' (' + $('Loop Over Appointments').item.json.phone + '). Detalle: ' + JSON.stringify($json),\n  is_dismissed: false\n}) }}",
+        "options": {}
+      },
+      "id": "log-send-error",
+      "name": "Log WhatsApp Send Error",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        3060,
+        240
+      ],
+      "notesInFlow": true,
+      "notes": "Alerta de fallo en Evolution API para avisar a recepción"
+    },
+    {
+      "parameters": {
+        "amount": 3,
+        "unit": "seconds"
+      },
+      "id": "wait-antispam",
+      "name": "Wait 3s (Anti-Spam)",
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [
+        3300,
+        140
+      ],
+      "notesInFlow": true,
+      "notes": "Espera de seguridad entre envíos para proteger el número de WhatsApp"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $('Set Workflow Config').first().json.supabase_url + '/rest/v1/system_notifications' }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "={{ $('Set Workflow Config').first().json.supabase_key }}"
+            },
+            {
+              "name": "Authorization",
+              "value": "={{ 'Bearer ' + $('Set Workflow Config').first().json.supabase_key }}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({\n  type: 'ALERT',\n  title: 'Recordatorio No Enviado (Sin Teléfono)',\n  message: 'No se pudo enviar el recordatorio de cita de ' + $('Loop Over Appointments').item.json.patient_name + ' a las ' + $('Loop Over Appointments').item.json.hora_cita + ' con ' + $('Loop Over Appointments').item.json.therapist_name + ' porque no tiene un teléfono válido.',\n  is_dismissed: false\n}) }}",
+        "options": {}
+      },
+      "id": "log-invalid-phone-alert",
+      "name": "Log Missing Phone Alert",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1740,
+        340
+      ],
+      "notesInFlow": true,
+      "notes": "Alerta en el CRM cuando falta el teléfono del paciente"
+    }
+  ],
+  "connections": {
+    "Schedule Trigger - 10:00 AM (L-V)": {
+      "main": [
+        [
+          {
+            "node": "Set Workflow Config",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Set Workflow Config": {
+      "main": [
+        [
+          {
+            "node": "Calculate Tomorrow Date Range",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Calculate Tomorrow Date Range": {
+      "main": [
+        [
+          {
+            "node": "Fetch Tomorrow Appointments",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fetch Tomorrow Appointments": {
+      "main": [
+        [
+          {
+            "node": "Has Appointments to Notify?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Has Appointments to Notify?": {
+      "main": [
+        [
+          {
+            "node": "Format Reminder & Normalize Phone",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Format Reminder & Normalize Phone": {
+      "main": [
+        [
+          {
+            "node": "Loop Over Appointments",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Loop Over Appointments": {
+      "main": [
+        [],
+        [
+          {
+            "node": "Has Valid Phone?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Has Valid Phone?": {
+      "main": [
+        [
+          {
+            "node": "Needs Initial RGPD Clause?",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Log Missing Phone Alert",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Needs Initial RGPD Clause?": {
+      "main": [
+        [
+          {
+            "node": "Send RGPD Clause - Evolution API",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Send Reminder - Evolution API",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send RGPD Clause - Evolution API": {
+      "main": [
+        [
+          {
+            "node": "Mark RGPD Sent in Supabase",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Mark RGPD Sent in Supabase": {
+      "main": [
+        [
+          {
+            "node": "Wait 2s After RGPD",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Wait 2s After RGPD": {
+      "main": [
+        [
+          {
+            "node": "Send Reminder - Evolution API",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send Reminder - Evolution API": {
+      "main": [
+        [
+          {
+            "node": "Was Reminder Sent?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Was Reminder Sent?": {
+      "main": [
+        [
+          {
+            "node": "Mark Reminder Sent in Supabase",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Log WhatsApp Send Error",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Mark Reminder Sent in Supabase": {
+      "main": [
+        [
+          {
+            "node": "Wait 3s (Anti-Spam)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Log WhatsApp Send Error": {
+      "main": [
+        [
+          {
+            "node": "Wait 3s (Anti-Spam)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Wait 3s (Anti-Spam)": {
+      "main": [
+        [
+          {
+            "node": "Loop Over Appointments",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Log Missing Phone Alert": {
+      "main": [
+        [
+          {
+            "node": "Loop Over Appointments",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "timezone": "Europe/Madrid"
+  },
+  "active": false
+}

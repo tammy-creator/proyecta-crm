@@ -37,6 +37,8 @@ const mapPatient = (row: any): Patient => {
         consentDate: row.consent_date,
         therapistId: row.therapist_id,
         resenaClic: row.resena_clic,
+        recibirRecordatoriosWhatsapp: row.recibir_recordatorios_whatsapp ?? true,
+        whatsappRgpdEnviado: row.whatsapp_rgpd_enviado ?? false,
         createdAt: row.created_at?.split('T')[0] ?? '',
         tutor1: t1Row
             ? {
@@ -119,6 +121,8 @@ export const createPatient = async (patient: Omit<Patient, 'id' | 'createdAt'>):
             consent_date: patient.consentDate || null,
             therapist_id: patient.therapistId || null,
             resena_clic: patient.resenaClic || false,
+            recibir_recordatorios_whatsapp: patient.recibirRecordatoriosWhatsapp ?? true,
+            whatsapp_rgpd_enviado: patient.whatsappRgpdEnviado ?? false,
         })
         .select()
         .single();
@@ -233,6 +237,8 @@ export const updatePatient = async (patient: Patient): Promise<Patient> => {
             consent_date: patient.consentDate,
             therapist_id: patient.therapistId || null,
             resena_clic: patient.resenaClic,
+            recibir_recordatorios_whatsapp: patient.recibirRecordatoriosWhatsapp ?? true,
+            whatsapp_rgpd_enviado: patient.whatsappRgpdEnviado ?? false,
         })
         .eq('id', patient.id);
 

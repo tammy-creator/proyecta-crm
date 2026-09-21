@@ -3,6 +3,7 @@ import { supabase } from '../../lib/supabase';
 import type { RealtimeChannel } from '@supabase/supabase-js';
 
 export interface CalendarSyncEvent {
+    eventId?: string;
     action: 'create' | 'update' | 'delete' | 'status_change';
     appointmentId?: string;
     therapistId?: string;
@@ -41,6 +42,31 @@ const CLIENT_ID: string = typeof window !== 'undefined'
 let realtimeChannel: RealtimeChannel | null = null;
 let broadcastChannel: BroadcastChannel | null = null;
 const listeners = new Set<SyncListener>();
+const handledEventIds = new Set<string>();
+const handledMutationKeys = new Map<string, number>();
+
+function handleIncomingEvent(event: CalendarSyncEvent) {
+    if (!event || event.senderId === CLIENT_ID) return;
+
+    // 1. Deduplicate by unique eventId (prevents duplicate between BroadcastChannel & Realtime)
+    if (event.eventId) {
+        if (handledEventIds.has(event.eventId)) return;
+        handledEventIds.add(event.eventId);
+        setTimeout(() => handledEventIds.delete(event.eventId!), 6000);
+    }
+
+    // 2. Debounce rapid duplicate notifications for the same appointment / action (e.g. within 1.5s)
+    const key = `${event.action}_${event.appointmentId || event.therapistId || 'general'}`;
+    const now = Date.now();
+    const lastTime = handledMutationKeys.get(key) || 0;
+    if (now - lastTime < 1500) {
+        return;
+    }
+    handledMutationKeys.set(key, now);
+    setTimeout(() => handledMutationKeys.delete(key), 3000);
+
+    listeners.forEach(fn => fn(event));
+}
 
 /**
  * Ensures the singleton Supabase Realtime and Browser BroadcastChannel are active.
@@ -53,10 +79,7 @@ function ensureSyncChannels() {
         try {
             broadcastChannel = new BroadcastChannel('proyecta_calendar_channel');
             broadcastChannel.onmessage = (messageEvent) => {
-                const event = messageEvent.data as CalendarSyncEvent;
-                if (event && event.senderId !== CLIENT_ID) {
-                    listeners.forEach(fn => fn(event));
-                }
+                handleIncomingEvent(messageEvent.data as CalendarSyncEvent);
             };
         } catch (e) {
             console.warn('BroadcastChannel not supported or failed to initialize:', e);
@@ -68,10 +91,7 @@ function ensureSyncChannels() {
         realtimeChannel = supabase
             .channel('calendar_sync_v1')
             .on('broadcast', { event: 'calendar_changed' }, (payload) => {
-                const event = payload.payload as CalendarSyncEvent;
-                if (event && event.senderId !== CLIENT_ID) {
-                    listeners.forEach(fn => fn(event));
-                }
+                handleIncomingEvent(payload.payload as CalendarSyncEvent);
             })
             // Extra safety net: listen to Postgres changes if publication is active or enabled
             .on('postgres_changes', { event: '*', schema: 'public', table: 'appointments' }, (payload) => {
@@ -82,7 +102,7 @@ function ensureSyncChannels() {
                     therapistId: (payload.new as any)?.therapist_id,
                     timestamp: now
                 };
-                listeners.forEach(fn => fn(event));
+                handleIncomingEvent(event);
             })
             .on('postgres_changes', { event: '*', schema: 'public', table: 'attendance' }, () => {
                 const now = Date.now();
@@ -90,7 +110,7 @@ function ensureSyncChannels() {
                     action: 'update',
                     timestamp: now
                 };
-                listeners.forEach(fn => fn(event));
+                handleIncomingEvent(event);
             })
             .subscribe((_status, err) => {
                 if (err) {
@@ -126,13 +146,19 @@ export function subscribeToCalendarSync(callback: SyncListener): () => void {
 /**
  * Broadcasts a calendar modification event to all connected computers, tabs, and local listeners.
  */
-export async function broadcastCalendarChange(eventData: Omit<CalendarSyncEvent, 'timestamp' | 'senderId'>): Promise<void> {
+export async function broadcastCalendarChange(eventData: Omit<CalendarSyncEvent, 'timestamp' | 'senderId' | 'eventId'>): Promise<void> {
     ensureSyncChannels();
+    const eventId = 'evt_' + Math.random().toString(36).substring(2, 9) + '_' + Date.now();
     const event: CalendarSyncEvent = {
         ...eventData,
+        eventId,
         senderId: CLIENT_ID,
         timestamp: Date.now()
     };
+
+    // Mark eventId as handled in the sender tab
+    handledEventIds.add(eventId);
+    setTimeout(() => handledEventIds.delete(eventId), 6000);
 
     // 1. Dispatch local window event
     if (typeof window !== 'undefined') {

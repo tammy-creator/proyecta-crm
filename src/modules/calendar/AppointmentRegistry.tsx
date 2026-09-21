@@ -24,7 +24,7 @@ import {
     Send,
     CalendarClock
 } from 'lucide-react';
-import { getAppointments, updateAppointment } from './service';
+import { getAppointments, updateAppointment, subscribeToCalendarSync } from './service';
 import { getTransactions, createTransaction, updateTransaction } from '../billing/service';
 import { type Transaction } from '../billing/types';
 import { type Appointment, type AppointmentStatus } from './types';
@@ -56,6 +56,25 @@ const AppointmentRegistry: React.FC = () => {
 
     useEffect(() => {
         fetchData();
+
+        const unsubscribe = subscribeToCalendarSync(() => {
+            fetchData();
+        });
+
+        const handleVisibility = () => {
+            if (document.visibilityState === 'visible') {
+                fetchData();
+            }
+        };
+
+        window.addEventListener('focus', fetchData);
+        document.addEventListener('visibilitychange', handleVisibility);
+
+        return () => {
+            unsubscribe();
+            window.removeEventListener('focus', fetchData);
+            document.removeEventListener('visibilitychange', handleVisibility);
+        };
     }, [startDate, endDate]);
 
     const fetchData = async () => {

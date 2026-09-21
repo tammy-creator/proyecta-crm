@@ -65,6 +65,9 @@ export const getUnpaidAppointments = async (therapistId?: string): Promise<Appoi
     return (data ?? []).map(mapAppointment);
 };
 
+import { broadcastCalendarChange } from './calendarSync';
+export { checkAppointmentConflict, subscribeToCalendarSync, broadcastCalendarChange } from './calendarSync';
+
 export const createAppointment = async (appointment: Omit<Appointment, 'id'>): Promise<Appointment> => {
     const { data, error } = await supabase
         .from('appointments')
@@ -90,7 +93,19 @@ export const createAppointment = async (appointment: Omit<Appointment, 'id'>): P
         .select()
         .single();
     if (error) throw error;
-    return mapAppointment(data);
+    const created = mapAppointment(data);
+
+    broadcastCalendarChange({
+        action: 'create',
+        appointmentId: created.id,
+        therapistId: created.therapistId,
+        therapistName: created.therapistName,
+        patientName: created.patientName,
+        start: created.start,
+        end: created.end
+    }).catch(err => console.warn('Broadcast sync error on create:', err));
+
+    return created;
 };
 
 export const updateAppointment = async (appointment: Appointment): Promise<Appointment> => {
@@ -119,7 +134,19 @@ export const updateAppointment = async (appointment: Appointment): Promise<Appoi
         .select()
         .single();
     if (error) throw error;
-    return mapAppointment(data);
+    const updated = mapAppointment(data);
+
+    broadcastCalendarChange({
+        action: 'update',
+        appointmentId: updated.id,
+        therapistId: updated.therapistId,
+        therapistName: updated.therapistName,
+        patientName: updated.patientName,
+        start: updated.start,
+        end: updated.end
+    }).catch(err => console.warn('Broadcast sync error on update:', err));
+
+    return updated;
 };
 
 export const deleteAppointment = async (appointmentId: string): Promise<void> => {
@@ -131,6 +158,11 @@ export const deleteAppointment = async (appointmentId: string): Promise<void> =>
         .delete()
         .eq('id', appointmentId);
     if (error) throw error;
+
+    broadcastCalendarChange({
+        action: 'delete',
+        appointmentId
+    }).catch(err => console.warn('Broadcast sync error on delete:', err));
 };
 
 export const markAppointmentPaid = async (appointmentId: string): Promise<void> => {
@@ -139,6 +171,11 @@ export const markAppointmentPaid = async (appointmentId: string): Promise<void> 
         .update({ is_paid: true })
         .eq('id', appointmentId);
     if (error) throw error;
+
+    broadcastCalendarChange({
+        action: 'status_change',
+        appointmentId
+    }).catch(err => console.warn('Broadcast sync error on markAppointmentPaid:', err));
 };
 
 export const setAppointmentPaidStatus = async (appointmentId: string, isPaid: boolean): Promise<void> => {
@@ -147,6 +184,11 @@ export const setAppointmentPaidStatus = async (appointmentId: string, isPaid: bo
         .update({ is_paid: isPaid })
         .eq('id', appointmentId);
     if (error) throw error;
+
+    broadcastCalendarChange({
+        action: 'status_change',
+        appointmentId
+    }).catch(err => console.warn('Broadcast sync error on setAppointmentPaidStatus:', err));
 };
 
 export const getPendingRegistrationAppointments = async (daysBack: number = 1): Promise<Appointment[]> => {

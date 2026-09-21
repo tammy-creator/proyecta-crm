@@ -34,7 +34,7 @@ import {
 import { es } from 'date-fns/locale';
 import { ChevronLeft, ChevronRight, Plus, X, User, UserPlus, Rocket, Puzzle, AlertTriangle, Clock as ClockIcon, DollarSign, Mic, Square, Info, Search, ArrowLeft } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
-import { getAppointments, createAppointment, updateAppointment, deleteAppointment } from './service';
+import { getAppointments, createAppointment, updateAppointment, deleteAppointment, checkAppointmentConflict, subscribeToCalendarSync } from './service';
 import { getPatients, getWaitingList } from '../patients/service';
 import { getTherapists } from '../therapists/service';
 import { getServices } from '../admin/service';
@@ -222,7 +222,8 @@ const CalendarView: React.FC<CalendarViewProps> = ({ mode: initialMode, therapis
     };
 
     const fetchData = () => {
-        getAppointments(weekStart, weekEnd).then(data => {
+        const queryEnd = endOfDay(weekEnd);
+        getAppointments(weekStart, queryEnd).then(data => {
             const updatedData = calculateStatuses(data);
             setAppointments(updatedData);
         }).catch(err => {
@@ -233,13 +234,40 @@ const CalendarView: React.FC<CalendarViewProps> = ({ mode: initialMode, therapis
     };
 
     useEffect(() => {
-        const handleRefresh = () => {
-            console.log("Real-time refresh triggered");
+        const unsubscribe = subscribeToCalendarSync((event) => {
+            console.log("Real-time calendar sync triggered:", event);
             fetchData();
+
+            // Toast informativo cuando otra usuaria crea o cancela una cita
+            if (event.action === 'create' && event.therapistName) {
+                const patientInfo = event.patientName ? ` (${event.patientName})` : '';
+                showToast(`📅 Cita añadida para ${event.therapistName}${patientInfo}`, 'info');
+            } else if (event.action === 'delete') {
+                showToast("📅 Agenda actualizada: una cita ha sido eliminada", 'info');
+            }
+        });
+
+        const handleVisibility = () => {
+            if (document.visibilityState === 'visible') {
+                fetchData();
+            }
         };
-        window.addEventListener('calendar-refresh', handleRefresh);
-        return () => window.removeEventListener('calendar-refresh', handleRefresh);
-    }, [weekStart, weekEnd]); // Depend on week start/end to ensure closure has right context
+
+        window.addEventListener('focus', fetchData);
+        document.addEventListener('visibilitychange', handleVisibility);
+
+        // Intervalo de seguridad en segundo plano (cada 60 segundos)
+        const safetyInterval = setInterval(() => {
+            fetchData();
+        }, 60000);
+
+        return () => {
+            unsubscribe();
+            window.removeEventListener('focus', fetchData);
+            document.removeEventListener('visibilitychange', handleVisibility);
+            clearInterval(safetyInterval);
+        };
+    }, [weekStart, weekEnd]);
 
     useEffect(() => {
         fetchData();
@@ -578,6 +606,26 @@ const CalendarView: React.FC<CalendarViewProps> = ({ mode: initialMode, therapis
             }
         }
 
+        // Validación estricta anti-doble reserva (Double Booking Prevention)
+        if (finalAppt.status !== 'Cancelada' && finalAppt.therapistId && finalAppt.start && finalAppt.end) {
+            const hasRecurrence = finalAppt.recurrence && (finalAppt.recurrence.weeks || finalAppt.recurrence.until || (finalAppt.recurrence.days && finalAppt.recurrence.days.length > 0));
+            
+            if (!hasRecurrence) {
+                const conflict = await checkAppointmentConflict({
+                    therapistId: finalAppt.therapistId,
+                    start: finalAppt.start,
+                    end: finalAppt.end,
+                    excludeAppointmentId: finalAppt.id
+                });
+
+                if (conflict.hasConflict) {
+                    showToast(conflict.message || "⚠️ Horario no disponible: la terapeuta ya tiene una cita asignada en ese intervalo.", "error");
+                    fetchData(); // Refrescar calendario para que la cita en conflicto aparezca inmediatamente
+                    return;
+                }
+            }
+        }
+
         if (finalAppt.id) {
             await updateAppointment(finalAppt as Appointment);
             // If we just cancelled the appointment, check for waiting list matches
@@ -606,29 +654,47 @@ const CalendarView: React.FC<CalendarViewProps> = ({ mode: initialMode, therapis
                 // Empezamos desde el inicio de la semana de la fecha base para iterar bien los días
                 const startOfFirstWeek = startOfWeek(startBase, { weekStartsOn: 1 });
 
+                // Pre-calcular fechas y validar que ninguna entre en conflicto
+                const occurrences: { start: Date; end: Date }[] = [];
                 let currentWeekStart = startOfFirstWeek;
                 while (isBefore(currentWeekStart, finalLimit) || isSameDay(currentWeekStart, finalLimit)) {
                     for (const dayIndex of selectedDays) {
-                        // Ajustar dayIndex porque date-fns usa 0=Domingo, 1=Lunes...
-                        // pero mi selector usará 1=Lunes... 7=Domingo o similar
                         const targetDate = addDays(currentWeekStart, (dayIndex - 1));
 
-                        // Solo crear si es el mismo día o posterior al inicio, y anterior al límite
                         if ((isSameDay(targetDate, startBase) || isAfter(targetDate, startBase)) &&
                             (isBefore(targetDate, finalLimit) || isSameDay(targetDate, finalLimit))) {
 
                             const newStart = setMinutes(setHours(targetDate, startBase.getHours()), startBase.getMinutes());
                             const newEnd = addMinutes(newStart, duration);
-
-                            await createAppointment({
-                                ...finalAppt as Omit<Appointment, 'id'>,
-                                start: formatISO(newStart),
-                                end: formatISO(newEnd),
-                                recurrence: { weeks: 1, originalId: 'SERIE' }
-                            });
+                            occurrences.push({ start: newStart, end: newEnd });
                         }
                     }
                     currentWeekStart = addWeeks(currentWeekStart, 1);
+                }
+
+                // Validar conflictos en todas las ocurrencias antes de insertar ninguna
+                for (const occ of occurrences) {
+                    const conflict = await checkAppointmentConflict({
+                        therapistId: finalAppt.therapistId!,
+                        start: formatISO(occ.start),
+                        end: formatISO(occ.end)
+                    });
+                    if (conflict.hasConflict) {
+                        const dateFormatted = format(occ.start, 'dd/MM/yyyy');
+                        showToast(`⚠️ Conflicto en la serie semanal: el día ${dateFormatted} ya existe una cita para esta terapeuta en ese horario.`, "error");
+                        fetchData();
+                        return;
+                    }
+                }
+
+                // Crear las citas de la serie si todas están libres
+                for (const occ of occurrences) {
+                    await createAppointment({
+                        ...finalAppt as Omit<Appointment, 'id'>,
+                        start: formatISO(occ.start),
+                        end: formatISO(occ.end),
+                        recurrence: { weeks: 1, originalId: 'SERIE' }
+                    });
                 }
             } else {
                 await createAppointment(finalAppt as Omit<Appointment, 'id'>);
@@ -1032,6 +1098,21 @@ const CalendarView: React.FC<CalendarViewProps> = ({ mode: initialMode, therapis
             end: formatISO(newEnd),
             therapistId: targetTherapistId || appt.therapistId
         };
+
+        // Comprobación anti-solapamiento antes de reubicar la cita
+        const conflict = await checkAppointmentConflict({
+            therapistId: updatedAppt.therapistId,
+            start: updatedAppt.start,
+            end: updatedAppt.end,
+            excludeAppointmentId: appt.id
+        });
+
+        if (conflict.hasConflict) {
+            showToast(conflict.message || "No se puede mover la cita: el horario ya está ocupado por otra cita.", "error");
+            setDraggedApptId(null);
+            fetchData();
+            return;
+        }
 
         // Optimistic UI update
         setAppointments(prev => prev.map(a => a.id === draggedApptId ? (updatedAppt as Appointment) : a));

@@ -8,6 +8,11 @@ const mapTherapist = (row: any): Therapist => {
         avatarUrl = `${baseUrl}${avatarUrl}`;
     }
 
+    const rawSchedule = Array.isArray(row.schedule) ? row.schedule : [];
+    const isInactiveMeta = rawSchedule.some((s: any) => s.day === '__status__' && s.isActive === false);
+    const cleanSchedule = rawSchedule.filter((s: any) => s.day !== '__status__');
+    const isActive = row.is_active !== undefined ? Boolean(row.is_active) : !isInactiveMeta;
+
     return {
         id: row.id,
         fullName: row.full_name,
@@ -19,7 +24,8 @@ const mapTherapist = (row: any): Therapist => {
         color: row.color ?? '#BCE4EA',
         avatarUrl: avatarUrl,
         sessionStartOffset: row.session_start_offset ?? 0,
-        schedule: row.schedule ?? [],
+        schedule: cleanSchedule,
+        isActive: isActive,
     };
 };
 
@@ -33,20 +39,37 @@ export const getTherapists = async (): Promise<Therapist[]> => {
 };
 
 export const createTherapist = async (therapist: Omit<Therapist, 'id'>): Promise<Therapist> => {
+    let scheduleToSave = [...(therapist.schedule ?? [])].filter((s: any) => s.day !== '__status__');
+    if (therapist.isActive === false) {
+        scheduleToSave.push({ day: '__status__', enabled: false, isActive: false } as any);
+    }
+
+    const basePayload: any = {
+        full_name: therapist.fullName,
+        specialty: therapist.specialty,
+        license_number: therapist.licenseNumber,
+        dni: therapist.dni,
+        email: therapist.email,
+        phone: therapist.phone,
+        color: therapist.color,
+        avatar_url: therapist.avatarUrl,
+        session_start_offset: therapist.sessionStartOffset ?? 0,
+        schedule: scheduleToSave,
+    };
+
+    // Try inserting with is_active if column exists in database
+    try {
+        const { data, error } = await supabase
+            .from('therapists')
+            .insert({ ...basePayload, is_active: therapist.isActive !== false })
+            .select()
+            .single();
+        if (!error && data) return mapTherapist(data);
+    } catch (_) {}
+
     const { data, error } = await supabase
         .from('therapists')
-        .insert({
-            full_name: therapist.fullName,
-            specialty: therapist.specialty,
-            license_number: therapist.licenseNumber,
-            dni: therapist.dni,
-            email: therapist.email,
-            phone: therapist.phone,
-            color: therapist.color,
-            avatar_url: therapist.avatarUrl,
-            session_start_offset: therapist.sessionStartOffset ?? 0,
-            schedule: therapist.schedule ?? [],
-        })
+        .insert(basePayload)
         .select()
         .single();
     if (error) throw error;
@@ -54,25 +77,75 @@ export const createTherapist = async (therapist: Omit<Therapist, 'id'>): Promise
 };
 
 export const updateTherapist = async (therapist: Therapist): Promise<Therapist> => {
+    let scheduleToSave = [...(therapist.schedule ?? [])].filter((s: any) => s.day !== '__status__');
+    if (therapist.isActive === false) {
+        scheduleToSave.push({ day: '__status__', enabled: false, isActive: false } as any);
+    }
+
+    const basePayload: any = {
+        full_name: therapist.fullName,
+        specialty: therapist.specialty,
+        license_number: therapist.licenseNumber,
+        dni: therapist.dni,
+        email: therapist.email,
+        phone: therapist.phone,
+        color: therapist.color,
+        avatar_url: therapist.avatarUrl,
+        session_start_offset: therapist.sessionStartOffset ?? 0,
+        schedule: scheduleToSave,
+    };
+
+    // Try updating with is_active if column exists in database
+    try {
+        const { data, error } = await supabase
+            .from('therapists')
+            .update({ ...basePayload, is_active: therapist.isActive !== false })
+            .eq('id', therapist.id)
+            .select()
+            .single();
+        if (!error && data) return mapTherapist(data);
+    } catch (_) {}
+
     const { data, error } = await supabase
         .from('therapists')
-        .update({
-            full_name: therapist.fullName,
-            specialty: therapist.specialty,
-            license_number: therapist.licenseNumber,
-            dni: therapist.dni,
-            email: therapist.email,
-            phone: therapist.phone,
-            color: therapist.color,
-            avatar_url: therapist.avatarUrl,
-            session_start_offset: therapist.sessionStartOffset ?? 0,
-            schedule: therapist.schedule ?? [],
-        })
+        .update(basePayload)
         .eq('id', therapist.id)
         .select()
         .single();
     if (error) throw error;
     return mapTherapist(data);
+};
+
+export const countTherapistAppointments = async (therapistId: string): Promise<number> => {
+    const { count, error } = await supabase
+        .from('appointments')
+        .select('*', { count: 'exact', head: true })
+        .eq('therapist_id', therapistId);
+    if (error) {
+        console.error("Error counting therapist appointments:", error);
+        return 0;
+    }
+    return count || 0;
+};
+
+export const deleteTherapist = async (id: string): Promise<void> => {
+    const appointmentCount = await countTherapistAppointments(id);
+    if (appointmentCount > 0) {
+        throw new Error(`Esta profesional tiene ${appointmentCount} cita(s) asociadas en su historial. Por seguridad clínica no se puede borrar su ficha; en su lugar, márcala como Inactiva.`);
+    }
+
+    // Clean up attendance records if any
+    await supabase.from('attendance').delete().eq('therapist_id', id);
+
+    const { error } = await supabase
+        .from('therapists')
+        .delete()
+        .eq('id', id);
+    if (error) throw error;
+};
+
+export const setTherapistActiveStatus = async (therapist: Therapist, isActive: boolean): Promise<Therapist> => {
+    return updateTherapist({ ...therapist, isActive });
 };
 
 export const changePassword = async (_userId: string, _currentPassword: string, newPassword: string): Promise<void> => {

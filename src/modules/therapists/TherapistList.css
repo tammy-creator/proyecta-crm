@@ -354,3 +354,69 @@
 .btn-icon-xs:hover {
     background: #fecaca;
 }
+
+/* ── Filter Tabs ── */
+.therapist-filter-tabs {
+    display: inline-flex;
+    background: #f1f5f9;
+    padding: 3px;
+    border-radius: 10px;
+    gap: 3px;
+}
+
+.therapist-filter-btn {
+    border: none;
+    background: transparent;
+    padding: 6px 14px;
+    border-radius: 8px;
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: #64748b;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.therapist-filter-btn:hover {
+    color: #1e293b;
+}
+
+.therapist-filter-btn.active {
+    background: white;
+    color: #1e293b;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+}
+
+/* ── Status Pills & Inactive Card ── */
+.therapist-status-pill {
+    font-size: 0.7rem;
+    font-weight: 700;
+    padding: 2px 8px;
+    border-radius: 20px;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+}
+
+.status-pill-active {
+    background-color: #d1fae5;
+    color: #065f46;
+}
+
+.status-pill-inactive {
+    background-color: #f1f5f9;
+    color: #64748b;
+    border: 1px solid #cbd5e1;
+}
+
+.therapist-card-inactive {
+    opacity: 0.75;
+    background-color: #fafafa !important;
+}
+
+.therapist-card-inactive:hover {
+    opacity: 1;
+}
+
+.btn-icon-danger-hover:hover {
+    background-color: #fee2e2 !important;
+    color: #ef4444 !important;
+}

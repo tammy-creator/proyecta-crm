@@ -273,8 +273,8 @@ const CalendarView: React.FC<CalendarViewProps> = ({ mode: initialMode, therapis
         fetchData();
         getPatients().then(setPatients).catch(err => console.error("Error in getPatients effect:", err.message || err));
         getTherapists().then(data => {
-            // Filtrar para que 'Administración' no salga en el calendario
-            const filteredTherapists = data.filter(t => t.specialty !== 'Administración');
+            // Filtrar para que 'Administración' y terapeutas inactivas no salgan en el calendario
+            const filteredTherapists = data.filter(t => t.specialty !== 'Administración' && t.isActive !== false);
             setTherapists(filteredTherapists);
             // Si hay un filtro de terapeuta, seleccionar solo ese; si no, todos por defecto
             setSelectedTherapistIds(filterTherapistId ? [filterTherapistId] : filteredTherapists.map(t => t.id));
@@ -826,7 +826,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({ mode: initialMode, therapis
             ]);
 
             const freshAbsences = absResult.data;
-            const therapistsToUse = freshTherapists.filter(t => t.specialty !== 'Administración');
+            const therapistsToUse = freshTherapists.filter(t => t.specialty !== 'Administración' && t.isActive !== false);
             const normalizedAbsences = freshAbsences || [];
 
 

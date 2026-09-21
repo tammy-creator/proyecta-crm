@@ -21,6 +21,7 @@ export interface Therapist {
     schedule: DaySchedule[];
     avatarUrl?: string; // Optional
     sessionStartOffset?: number; // Minutes from the hour (e.g. 0, 10, 50/-10)
+    isActive?: boolean; // Estado activo/inactivo (oculta del calendario si es false)
 }
 
 export const SPECIALTIES = [

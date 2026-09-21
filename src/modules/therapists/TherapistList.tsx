@@ -1,9 +1,9 @@
 import React, { useEffect, useState, useRef } from 'react';
-import { getTherapists, createTherapist, updateTherapist, uploadTherapistAvatar } from './service';
+import { getTherapists, createTherapist, updateTherapist, uploadTherapistAvatar, deleteTherapist, setTherapistActiveStatus, countTherapistAppointments } from './service';
 import { type Therapist, type DaySchedule, SPECIALTIES, DAYS_OF_WEEK } from './types';
 import { getIllustrativeAvatar } from './utils';
 import Card from '../../components/ui/Card';
-import { Mail, Phone, Calendar as CalendarIcon, Edit2, Plus, X, Trash2, Clock, Upload } from 'lucide-react';
+import { Mail, Phone, Calendar as CalendarIcon, Edit2, Plus, X, Trash2, Clock, Upload, AlertTriangle } from 'lucide-react';
 import './TherapistList.css';
 
 import { useAuth } from '../../context/AuthContext';
@@ -26,6 +26,13 @@ const TherapistList: React.FC = () => {
     const [previewUrl, setPreviewUrl] = useState<string | null>(null);
     const fileInputRef = useRef<HTMLInputElement>(null);
 
+    // Estado para filtro y modal de eliminación / desactivación
+    const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'inactive'>('all');
+    const [deleteTarget, setDeleteTarget] = useState<Therapist | null>(null);
+    const [deleteAppointmentCount, setDeleteAppointmentCount] = useState<number | null>(null);
+    const [isCheckingDelete, setIsCheckingDelete] = useState(false);
+    const [isDeleting, setIsDeleting] = useState(false);
+
     const fetchData = () => {
         setLoading(true);
         getTherapists().then((data) => {
@@ -38,6 +45,50 @@ const TherapistList: React.FC = () => {
         fetchData();
     }, []);
 
+    const handleOpenDeleteModal = async (therapist: Therapist) => {
+        if (!isRole('ADMIN')) return;
+        setDeleteTarget(therapist);
+        setIsCheckingDelete(true);
+        setDeleteAppointmentCount(null);
+        try {
+            const count = await countTherapistAppointments(therapist.id);
+            setDeleteAppointmentCount(count);
+        } catch (e) {
+            console.error("Error checking appointments count:", e);
+            setDeleteAppointmentCount(0);
+        } finally {
+            setIsCheckingDelete(false);
+        }
+    };
+
+    const handleConfirmDelete = async () => {
+        if (!deleteTarget) return;
+        setIsDeleting(true);
+        try {
+            await deleteTherapist(deleteTarget.id);
+            showToast(`Terapeuta ${deleteTarget.fullName} eliminada correctamente`, 'success');
+            setDeleteTarget(null);
+            fetchData();
+        } catch (err: any) {
+            console.error("Error deleting therapist:", err);
+            showToast(err.message || 'Error al eliminar terapeuta', 'error');
+        } finally {
+            setIsDeleting(false);
+        }
+    };
+
+    const handleToggleActive = async (therapist: Therapist, newStatus: boolean) => {
+        try {
+            await setTherapistActiveStatus(therapist, newStatus);
+            showToast(`${therapist.fullName} marcada como ${newStatus ? 'activa' : 'inactiva'}`, 'success');
+            setDeleteTarget(null);
+            fetchData();
+        } catch (err: any) {
+            console.error("Error toggling therapist active status:", err);
+            showToast(err.message || 'Error al actualizar estado', 'error');
+        }
+    };
+
     const handleOpenModal = (therapist?: Therapist) => {
         if (!isRole('ADMIN')) return;
         setSelectedTherapist(therapist || {
@@ -49,7 +100,8 @@ const TherapistList: React.FC = () => {
             phone: '',
             color: '#BCE4EA',
             avatarUrl: DEFAULT_AVATAR,
-            schedule: []
+            schedule: [],
+            isActive: true
         });
         setActiveScheduleDay(0);
         setAvatarFile(null);
@@ -167,52 +219,106 @@ const TherapistList: React.FC = () => {
                     <h2 className="page-title">Equipo Terapéutico</h2>
                     <p className="page-subtitle">Gestión de profesionales y horarios</p>
                 </div>
-                {isRole('ADMIN') && (
-                    <button className="calendar-btn-pill calendar-btn-primary" onClick={() => handleOpenModal()}>
-                        <Plus size={18} />
-                        <span>Nuevo Terapeuta</span>
-                    </button>
-                )}
+                <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', flexWrap: 'wrap' }}>
+                    <div className="therapist-filter-tabs">
+                        <button
+                            type="button"
+                            className={`therapist-filter-btn ${statusFilter === 'all' ? 'active' : ''}`}
+                            onClick={() => setStatusFilter('all')}
+                        >
+                            Todas ({therapists.length})
+                        </button>
+                        <button
+                            type="button"
+                            className={`therapist-filter-btn ${statusFilter === 'active' ? 'active' : ''}`}
+                            onClick={() => setStatusFilter('active')}
+                        >
+                            Activas ({therapists.filter(t => t.isActive !== false).length})
+                        </button>
+                        <button
+                            type="button"
+                            className={`therapist-filter-btn ${statusFilter === 'inactive' ? 'active' : ''}`}
+                            onClick={() => setStatusFilter('inactive')}
+                        >
+                            Inactivas ({therapists.filter(t => t.isActive === false).length})
+                        </button>
+                    </div>
+
+                    {isRole('ADMIN') && (
+                        <button className="calendar-btn-pill calendar-btn-primary" onClick={() => handleOpenModal()}>
+                            <Plus size={18} />
+                            <span>Nuevo Terapeuta</span>
+                        </button>
+                    )}
+                </div>
             </div>
 
             <div className="therapist-grid">
-                {therapists.map((therapist) => (
-                    <Card key={therapist.id} className="therapist-card">
-                        <div className="therapist-header" style={{ borderTop: `4px solid ${therapist.color}` }}>
-                            <div className="therapist-avatar" style={{ backgroundColor: therapist.color + '20' }}>
-                                <img src={getIllustrativeAvatar(therapist)} alt={therapist.fullName} className="avatar-img" />
-                            </div>
-                            <div className="therapist-info">
-                                <h3 className="therapist-name">{therapist.fullName}</h3>
-                                <span className="therapist-specialty">{therapist.specialty}</span>
-                                {therapist.licenseNumber && <span className="therapist-license">Col. {therapist.licenseNumber}</span>}
-                            </div>
-                            {isRole('ADMIN') && (
-                                <button className="btn-icon" title="Editar" onClick={() => handleOpenModal(therapist)}>
-                                    <Edit2 size={16} />
-                                </button>
-                            )}
-                        </div>
+                {therapists
+                    .filter((therapist) => {
+                        if (statusFilter === 'active') return therapist.isActive !== false;
+                        if (statusFilter === 'inactive') return therapist.isActive === false;
+                        return true;
+                    })
+                    .map((therapist) => {
+                        const isInactive = therapist.isActive === false;
+                        return (
+                            <Card key={therapist.id} className={`therapist-card ${isInactive ? 'therapist-card-inactive' : ''}`}>
+                                <div className="therapist-header" style={{ borderTop: `4px solid ${isInactive ? '#94a3b8' : therapist.color}` }}>
+                                    <div className="therapist-avatar" style={{ backgroundColor: (isInactive ? '#94a3b8' : therapist.color) + '20' }}>
+                                        <img 
+                                            src={getIllustrativeAvatar(therapist)} 
+                                            alt={therapist.fullName} 
+                                            className="avatar-img" 
+                                            style={isInactive ? { filter: 'grayscale(100%)', opacity: 0.6 } : {}}
+                                        />
+                                    </div>
+                                    <div className="therapist-info">
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
+                                            <h3 className="therapist-name">{therapist.fullName}</h3>
+                                            <span className={`therapist-status-pill ${isInactive ? 'status-pill-inactive' : 'status-pill-active'}`}>
+                                                {isInactive ? 'Inactiva' : 'Activa'}
+                                            </span>
+                                        </div>
+                                        <span className="therapist-specialty">{therapist.specialty}</span>
+                                        {therapist.licenseNumber && <span className="therapist-license">Col. {therapist.licenseNumber}</span>}
+                                    </div>
+                                    {isRole('ADMIN') && (
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                                            <button className="btn-icon" title="Editar" onClick={() => handleOpenModal(therapist)}>
+                                                <Edit2 size={16} />
+                                            </button>
+                                            <button 
+                                                className="btn-icon btn-icon-danger-hover" 
+                                                title="Eliminar o Desactivar" 
+                                                onClick={() => handleOpenDeleteModal(therapist)}
+                                            >
+                                                <Trash2 size={16} />
+                                            </button>
+                                        </div>
+                                    )}
+                                </div>
 
-                        <div className="therapist-contact">
-                            <div className="contact-item">
-                                <Mail size={14} />
-                                <span>{therapist.email}</span>
-                            </div>
-                            <div className="contact-item">
-                                <Phone size={14} />
-                                <span>{therapist.phone}</span>
-                            </div>
-                        </div>
+                                <div className="therapist-contact">
+                                    <div className="contact-item">
+                                        <Mail size={14} />
+                                        <span>{therapist.email}</span>
+                                    </div>
+                                    <div className="contact-item">
+                                        <Phone size={14} />
+                                        <span>{therapist.phone}</span>
+                                    </div>
+                                </div>
 
-                        <div className="therapist-footer">
-                            <button className="calendar-btn-pill calendar-btn-secondary full-width" onClick={() => handleOpenAgenda(therapist)}>
-                                <CalendarIcon size={16} />
-                                <span>Ver Agenda</span>
-                            </button>
-                        </div>
-                    </Card>
-                ))}
+                                <div className="therapist-footer">
+                                    <button className="calendar-btn-pill calendar-btn-secondary full-width" onClick={() => handleOpenAgenda(therapist)}>
+                                        <CalendarIcon size={16} />
+                                        <span>Ver Agenda</span>
+                                    </button>
+                                </div>
+                            </Card>
+                        );
+                    })}
             </div>
 
             {/* Modal Editar/Nuevo */}
@@ -225,6 +331,18 @@ const TherapistList: React.FC = () => {
                         </div>
                         <form className="modal-form" onSubmit={handleSave}>
                             <div className="form-grid">
+                                <div className="form-group" style={{ gridColumn: 'span 2', display: 'flex', alignItems: 'center', gap: '0.75rem', background: selectedTherapist.isActive !== false ? '#ecfdf5' : '#f8fafc', padding: '0.75rem 1rem', borderRadius: '10px', border: `1px solid ${selectedTherapist.isActive !== false ? '#a7f3d0' : '#e2e8f0'}` }}>
+                                    <input
+                                        type="checkbox"
+                                        id="therapist-is-active"
+                                        checked={selectedTherapist.isActive !== false}
+                                        onChange={e => setSelectedTherapist({ ...selectedTherapist, isActive: e.target.checked })}
+                                        style={{ width: '18px', height: '18px', cursor: 'pointer', accentColor: '#10b981' }}
+                                    />
+                                    <label htmlFor="therapist-is-active" style={{ cursor: 'pointer', margin: 0, fontWeight: 600, fontSize: '0.9rem', color: selectedTherapist.isActive !== false ? '#065f46' : '#64748b' }}>
+                                        {selectedTherapist.isActive !== false ? '● Terapeuta Activa (visible en el calendario)' : '○ Terapeuta Inactiva (oculta en el calendario)'}
+                                    </label>
+                                </div>
                                 <div className="form-group">
                                     <label>Nombre Completo</label>
                                     <input
@@ -477,6 +595,117 @@ const TherapistList: React.FC = () => {
                                 }}
                             />
                         </div>
+                    </div>
+                </div>
+            )}
+            {/* Modal de Eliminación / Desactivación */}
+            {deleteTarget && (
+                <div className="modal-overlay">
+                    <div className="modal-content" style={{ maxWidth: '480px', padding: '1.75rem' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '1.25rem' }}>
+                            <div style={{
+                                width: '42px',
+                                height: '42px',
+                                borderRadius: '50%',
+                                backgroundColor: isCheckingDelete ? '#f1f5f9' : deleteAppointmentCount === 0 ? '#fee2e2' : '#fef3c7',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                color: isCheckingDelete ? '#64748b' : deleteAppointmentCount === 0 ? '#ef4444' : '#d97706',
+                                flexShrink: 0
+                            }}>
+                                {isCheckingDelete ? <Clock size={20} /> : deleteAppointmentCount === 0 ? <Trash2 size={20} /> : <AlertTriangle size={20} />}
+                            </div>
+                            <div>
+                                <h3 style={{ margin: 0, fontSize: '1.15rem', color: '#1e293b', fontWeight: 700 }}>
+                                    {isCheckingDelete 
+                                        ? 'Verificando citas...' 
+                                        : deleteAppointmentCount === 0 
+                                            ? 'Eliminar Terapeuta' 
+                                            : 'Historial de citas detectado'}
+                                </h3>
+                                <p style={{ margin: 0, fontSize: '0.85rem', color: '#64748b' }}>
+                                    {deleteTarget.fullName}
+                                </p>
+                            </div>
+                        </div>
+
+                        {isCheckingDelete ? (
+                            <div style={{ padding: '2rem 0', textAlign: 'center', color: '#64748b' }}>
+                                <p>Comprobando historial de citas en la base de datos...</p>
+                            </div>
+                        ) : deleteAppointmentCount === 0 ? (
+                            <div>
+                                <p style={{ fontSize: '0.92rem', color: '#475569', lineHeight: '1.5', margin: '0 0 1.25rem 0' }}>
+                                    Esta terapeuta <strong>no tiene citas registradas</strong> en el sistema. Puedes eliminar su ficha definitivamente o marcarla como inactiva si deseas conservarla.
+                                </p>
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.65rem', marginTop: '1.25rem' }}>
+                                    <button 
+                                        type="button" 
+                                        className="btn-danger full-width" 
+                                        onClick={handleConfirmDelete} 
+                                        disabled={isDeleting}
+                                    >
+                                        <Trash2 size={16} />
+                                        {isDeleting ? 'Eliminando...' : 'Eliminar Definitivamente'}
+                                    </button>
+                                    <button 
+                                        type="button" 
+                                        className="calendar-btn-pill calendar-btn-secondary full-width"
+                                        onClick={() => handleToggleActive(deleteTarget, false)}
+                                    >
+                                        Marcar como Inactiva
+                                    </button>
+                                    <button 
+                                        type="button" 
+                                        style={{ background: 'transparent', border: 'none', color: '#64748b', cursor: 'pointer', padding: '0.5rem', fontSize: '0.85rem' }}
+                                        onClick={() => setDeleteTarget(null)}
+                                        disabled={isDeleting}
+                                    >
+                                        Cancelar
+                                    </button>
+                                </div>
+                            </div>
+                        ) : (
+                            <div>
+                                <div style={{ background: '#fffbeb', border: '1px solid #fde68a', borderRadius: '8px', padding: '0.85rem', marginBottom: '1rem' }}>
+                                    <p style={{ margin: 0, fontSize: '0.88rem', color: '#92400e', lineHeight: '1.4' }}>
+                                        <strong>{deleteTarget.fullName}</strong> tiene <strong>{deleteAppointmentCount} cita(s)</strong> en su historial. Por integridad de los registros clínicos, no se puede eliminar de la base de datos.
+                                    </p>
+                                </div>
+                                <p style={{ fontSize: '0.88rem', color: '#475569', lineHeight: '1.5', margin: '0 0 1.25rem 0' }}>
+                                    {deleteTarget.isActive === false
+                                        ? 'Actualmente ya está inactiva y oculta del calendario. ¿Deseas volver a activarla?'
+                                        : 'Para que no aparezca en el calendario y no se le asignen nuevas citas, márcala como Inactiva.'}
+                                </p>
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.65rem' }}>
+                                    {deleteTarget.isActive === false ? (
+                                        <button 
+                                            type="button" 
+                                            className="calendar-btn-pill calendar-btn-primary full-width"
+                                            onClick={() => handleToggleActive(deleteTarget, true)}
+                                        >
+                                            Reactivar Terapeuta
+                                        </button>
+                                    ) : (
+                                        <button 
+                                            type="button" 
+                                            className="btn-danger full-width"
+                                            onClick={() => handleToggleActive(deleteTarget, false)}
+                                        >
+                                            Marcar como Inactiva (Ocultar del calendario)
+                                        </button>
+                                    )}
+                                    <button 
+                                        type="button" 
+                                        style={{ background: 'transparent', border: 'none', color: '#64748b', cursor: 'pointer', padding: '0.5rem', fontSize: '0.85rem' }}
+                                        onClick={() => setDeleteTarget(null)}
+                                    >
+                                        Cancelar
+                                    </button>
+                                </div>
+                            </div>
+                        )}
                     </div>
                 </div>
             )}

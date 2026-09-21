@@ -10,8 +10,9 @@ import { type Patient } from '../patients/types';
 import { getAppointments, getUnpaidAppointments } from '../calendar/service';
 import { markAppointmentPaid, setAppointmentPaidStatus } from '../calendar/service';
 import { type Appointment } from '../calendar/types';
+import { subscribeToCalendarSync } from '../calendar/calendarSync';
 import './BillingView.css';
-import { createInvoice, getInvoices, getNextInvoiceNumber, existsInvoiceNumber } from '../invoices/service';
+import { createInvoice, getNextInvoiceNumber, existsInvoiceNumber } from '../invoices/service';
 import type { Invoice } from '../invoices/types';
 import InvoiceList from '../invoices/InvoiceList';
 import InvoiceDocument from '../invoices/InvoiceDocument';
@@ -42,7 +43,6 @@ const BillingView: React.FC = () => {
     // Transaction Modals
     const [isEditModalOpen, setIsEditModalOpen] = useState(false);
     const [isClosingModalOpen, setIsClosingModalOpen] = useState(false);
-    const [invoices, setInvoices] = useState<Invoice[]>([]);
     const [editingTransaction, setEditingTransaction] = useState<Transaction | null>(null);
 
     // Invoice Generation
@@ -73,15 +73,21 @@ const BillingView: React.FC = () => {
         return () => document.body.classList.remove('print-active');
     }, [printingInvoice]);
 
-    // Refrescar al volver a la pestaña / módulo para detectar cambios externos (ej: cita eliminada en calendario)
+    // Refrescar al volver a la pestaña o recibir eventos de sincronización en tiempo real (ej: cita creada, cobrada o eliminada)
     useEffect(() => {
         const handleFocus = () => fetchData();
         window.addEventListener('focus', handleFocus);
         document.addEventListener('visibilitychange', () => {
             if (document.visibilityState === 'visible') fetchData();
         });
+
+        const unsubscribeSync = subscribeToCalendarSync(() => {
+            fetchData();
+        });
+
         return () => {
             window.removeEventListener('focus', handleFocus);
+            unsubscribeSync();
         };
     }, [selectedDate]);
 
@@ -104,16 +110,14 @@ const BillingView: React.FC = () => {
         const tId = isTherapist ? user?.therapistId : undefined;
 
         try {
-            const [txData, pData, apptData, unpaidAppts, invData] = await Promise.all([
+            const [txData, pData, apptData, unpaidAppts] = await Promise.all([
                 getTransactions(tName),
                 getPatients(),
                 getAppointments(startOfDay(dateObj), endOfDay(dateObj), tId),
-                getUnpaidAppointments(tId),
-                getInvoices()
+                getUnpaidAppointments(tId)
             ]);
             setTransactions(txData);
             setPatients(pData);
-            setInvoices(invData);
             // Solo citas no canceladas ni bloqueos del día seleccionado
             setTodayAppointments(apptData.filter(a => a.status !== 'Cancelada' && a.status !== 'Bloqueada'));
             // Todas las citas no pagadas hasta hoy (evitar contar citas futuras como deuda), excluyendo bloqueos
@@ -309,15 +313,16 @@ const BillingView: React.FC = () => {
 
 
     // Totals for the cards
-    // 1. Total Facturado: Suma de todas las facturas legales emitidas (Global)
-    const totalInvoiced = invoices.reduce((acc: number, inv: Invoice) => acc + Number(inv.amount || 0), 0);
+    // 1. Total Facturado: Total de sesiones/citas del día seleccionado (cobradas + sin cobrar)
+    const totalDayInvoiced = txForDay.reduce((acc: number, t: Transaction) => acc + Number(t.amount || 0), 0) +
+        apptRowsWithoutTx.reduce((acc: number, a: Appointment) => acc + Number(a.price || 0), 0);
 
     // 2. Total Cobrado: Suma de lo pagado HOY
     const totalCollected = txForDay
         .filter((t: Transaction) => t.status === 'Pagado')
         .reduce((acc: number, t: Transaction) => acc + Number(t.amount || 0), 0);
 
-    // 2. Pendiente Histórico (todas las transacciones no pagadas + citas nunca cobradas)
+    // 3. Pendiente Histórico (todas las transacciones no pagadas + citas nunca cobradas)
     // IDs de citas con transacción
     const allTxApptIds = new Set(transactions.map(t => t.appointmentId).filter(Boolean));
 
@@ -372,14 +377,32 @@ const BillingView: React.FC = () => {
         }
 
         // Para INVOICED (ALL) y COLLECTED (PAID), filtramos por la fecha seleccionada
-        return transactions.filter(t => {
+        const dayTxs = transactions.filter(t => {
             const isSameDate = (t.date ?? '').slice(0, 10) === selectedDate;
             if (!isSameDate) return false;
 
-            if (breakdownFilter === 'ALL') return true;
             if (breakdownFilter === 'PAID') return t.status === 'Pagado';
             return true;
         });
+
+        if (breakdownFilter === 'ALL') {
+            // Incluir también las citas de hoy sin cobrar para que el desglose coincida con el Total Facturado
+            const unchargedToday = apptRowsWithoutTx.map(a => ({
+                id: `appt-day-${a.id}`,
+                appointmentId: a.id,
+                patientId: a.patientId,
+                patientName: a.patientName,
+                therapistName: a.therapistName,
+                amount: a.price || 0,
+                date: a.start,
+                status: 'Pendiente' as const,
+                category: a.type,
+                _rawAppt: a
+            }));
+            return [...dayTxs, ...unchargedToday].sort((a, b) => (b.date || '').localeCompare(a.date || ''));
+        }
+
+        return dayTxs;
     };
 
     return (
@@ -453,7 +476,7 @@ const BillingView: React.FC = () => {
                         </div>
                         <div className="overview-info">
                             <span className="overview-label">Total Facturado</span>
-                            <span className="overview-value">{totalInvoiced.toFixed(2)}€</span>
+                            <span className="overview-value">{totalDayInvoiced.toFixed(2)}€</span>
                         </div>
                     </Card>
                     <Card className="overview-card" onClick={() => handleCardClick('COLLECTED')}>

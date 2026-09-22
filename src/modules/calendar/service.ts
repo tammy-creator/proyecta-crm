@@ -66,7 +66,7 @@ export const getUnpaidAppointments = async (therapistId?: string): Promise<Appoi
 };
 
 import { broadcastCalendarChange } from './calendarSync';
-export { checkAppointmentConflict, subscribeToCalendarSync, broadcastCalendarChange } from './calendarSync';
+export { checkAppointmentConflict, checkBatchAppointmentConflicts, subscribeToCalendarSync, broadcastCalendarChange } from './calendarSync';
 
 export const createAppointment = async (appointment: Omit<Appointment, 'id'>): Promise<Appointment> => {
     const { data, error } = await supabase
@@ -106,6 +106,54 @@ export const createAppointment = async (appointment: Omit<Appointment, 'id'>): P
     }).catch(err => console.warn('Broadcast sync error on create:', err));
 
     return created;
+};
+
+export const createAppointmentsBatch = async (appointments: Omit<Appointment, 'id'>[]): Promise<Appointment[]> => {
+    if (!appointments || appointments.length === 0) return [];
+
+    const rows = appointments.map(appointment => ({
+        patient_id: appointment.patientId || null,
+        therapist_id: appointment.therapistId,
+        service_id: appointment.serviceId || null,
+        patient_name: appointment.patientName,
+        therapist_name: appointment.therapistName,
+        start_time: appointment.start,
+        end_time: appointment.end,
+        status: appointment.status,
+        type: appointment.type,
+        notes: appointment.notes,
+        session_diary: appointment.sessionDiary,
+        is_paid: appointment.isPaid ?? false,
+        cancellation_reason: appointment.cancellationReason,
+        voice_note_url: appointment.voiceNoteUrl,
+        recurrence: appointment.recurrence ?? null,
+        notificacion_recordatorio_enviada: appointment.notificacionRecordatorioEnviada ?? false,
+        price: appointment.price ?? null,
+    }));
+
+    const { data, error } = await supabase
+        .from('appointments')
+        .insert(rows)
+        .select();
+
+    if (error) throw error;
+
+    const createdList = (data ?? []).map(mapAppointment);
+
+    if (createdList.length > 0) {
+        const first = createdList[0];
+        broadcastCalendarChange({
+            action: 'create',
+            appointmentId: first.id,
+            therapistId: first.therapistId,
+            therapistName: first.therapistName,
+            patientName: first.patientName ? `${first.patientName} (${createdList.length} citas)` : undefined,
+            start: first.start,
+            end: first.end
+        }).catch(err => console.warn('Broadcast sync error on batch create:', err));
+    }
+
+    return createdList;
 };
 
 export const updateAppointment = async (appointment: Appointment): Promise<Appointment> => {

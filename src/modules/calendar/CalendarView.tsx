@@ -34,7 +34,7 @@ import {
 import { es } from 'date-fns/locale';
 import { ChevronLeft, ChevronRight, Plus, X, User, UserPlus, Rocket, Puzzle, AlertTriangle, Clock as ClockIcon, DollarSign, Mic, Square, Info, Search, ArrowLeft } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
-import { getAppointments, createAppointment, updateAppointment, deleteAppointment, checkAppointmentConflict, subscribeToCalendarSync } from './service';
+import { getAppointments, createAppointment, createAppointmentsBatch, updateAppointment, deleteAppointment, checkAppointmentConflict, checkBatchAppointmentConflicts, subscribeToCalendarSync } from './service';
 import { getPatients, getWaitingList } from '../patients/service';
 import { getTherapists } from '../therapists/service';
 import { getServices } from '../admin/service';
@@ -97,6 +97,8 @@ const CalendarView: React.FC<CalendarViewProps> = ({ mode: initialMode, therapis
     const [radarTherapistId, setRadarTherapistId] = useState<string>('all');
     const [radarTimeFilter, setRadarTimeFilter] = useState<'all' | 'morning' | 'afternoon'>('all');
     const [absences, setAbsences] = useState<any[]>([]);
+    const [isSaving, setIsSaving] = useState(false);
+    const isSavingRef = useRef(false);
 
     // Doctoralia Style States
     const [selectedTherapistIds, setSelectedTherapistIds] = useState<string[]>([]);
@@ -269,20 +271,30 @@ const CalendarView: React.FC<CalendarViewProps> = ({ mode: initialMode, therapis
         };
     }, [weekStart, weekEnd]);
 
+    // Recargar citas cuando cambia la fecha/semana visualizada
     useEffect(() => {
         fetchData();
+    }, [currentDate]);
+
+    // Carga inicial de pacientes y servicios
+    useEffect(() => {
         getPatients().then(setPatients).catch(err => console.error("Error in getPatients effect:", err.message || err));
+        getServices().then(setServices).catch(err => console.error("Error in getServices effect:", err.message || err));
+    }, []);
+
+    // Carga de terapeutas e inicialización de selección
+    useEffect(() => {
         getTherapists().then(data => {
             // Filtrar para que 'Administración' y terapeutas inactivas no salgan en el calendario
             const filteredTherapists = data.filter(t => t.specialty !== 'Administración' && t.isActive !== false);
             setTherapists(filteredTherapists);
+            const initialId = filterTherapistId || (isRole('THERAPIST') ? user?.therapistId : undefined);
             // Si hay un filtro de terapeuta, seleccionar solo ese; si no, todos por defecto
-            setSelectedTherapistIds(filterTherapistId ? [filterTherapistId] : filteredTherapists.map(t => t.id));
+            setSelectedTherapistIds(initialId ? [initialId] : filteredTherapists.map(t => t.id));
             // Compute dynamic hour range from therapists' schedules, filtering if necessary
-            computeDynamicHours(filteredTherapists, filterTherapistId || (isRole('THERAPIST') ? user?.therapistId : undefined));
+            computeDynamicHours(filteredTherapists, initialId);
         }).catch(err => console.error("Error in getTherapists effect:", err.message || err));
-        getServices().then(setServices).catch(err => console.error("Error in getServices effect:", err.message || err));
-    }, [currentDate]);
+    }, [filterTherapistId, user?.therapistId]);
 
     // Handle navigation from Dashboard
     // Measure container height to adjust slots dynamically in modal mode
@@ -542,6 +554,8 @@ const CalendarView: React.FC<CalendarViewProps> = ({ mode: initialMode, therapis
 
     const handleOpenModal = async (appt?: Appointment, tId?: string, date?: Date, _isOutsideSchedule?: boolean) => {
         setIsCancelling(false);
+        setIsSaving(false);
+        isSavingRef.current = false;
         if (appt) {
             setSelectedAppt(appt);
             setPatientSearch(appt.patientName || '');
@@ -577,132 +591,149 @@ const CalendarView: React.FC<CalendarViewProps> = ({ mode: initialMode, therapis
     const handleSave = async (e: React.FormEvent) => {
         e.preventDefault();
         if (!selectedAppt) return;
+        if (isSavingRef.current) return;
+        isSavingRef.current = true;
+        setIsSaving(true);
 
-        // Validación: Diario de sesión obligatorio
-        const needsDiary = selectedAppt.status === 'Finalizada' || selectedAppt.status === 'Cobrada';
-        if (needsDiary && (!selectedAppt.sessionDiary || selectedAppt.sessionDiary.trim() === '')) {
-            showToast("El diario de sesión es obligatorio para finalizar o cobrar una cita.", "error");
-            return;
-        }
-
-        const finalAppt = { ...selectedAppt };
-        const isBlocked = finalAppt.status === 'Bloqueada';
-
-        if (isBlocked) {
-            finalAppt.patientId = undefined;
-            finalAppt.serviceId = undefined;
-            finalAppt.patientName = finalAppt.patientName || 'HORARIO BLOQUEADO';
-            finalAppt.type = 'Bloqueo';
-        } else {
-            const p = patients.find(p => p.id === finalAppt.patientId);
-            if (p) finalAppt.patientName = `${p.firstName} ${p.lastName}`;
-            const t = therapists.find(t => t.id === finalAppt.therapistId);
-            if (t) finalAppt.therapistName = t.fullName;
-
-            // Ensure type name is set if service is selected
-            if (finalAppt.serviceId) {
-                const s = services.find(s => s.id === finalAppt.serviceId);
-                if (s) finalAppt.type = s.name;
+        try {
+            // Validación: Diario de sesión obligatorio
+            const needsDiary = selectedAppt.status === 'Finalizada' || selectedAppt.status === 'Cobrada';
+            if (needsDiary && (!selectedAppt.sessionDiary || selectedAppt.sessionDiary.trim() === '')) {
+                showToast("El diario de sesión es obligatorio para finalizar o cobrar una cita.", "error");
+                return;
             }
-        }
 
-        // Validación estricta anti-doble reserva (Double Booking Prevention)
-        if (finalAppt.status !== 'Cancelada' && finalAppt.therapistId && finalAppt.start && finalAppt.end) {
-            const hasRecurrence = finalAppt.recurrence && (finalAppt.recurrence.weeks || finalAppt.recurrence.until || (finalAppt.recurrence.days && finalAppt.recurrence.days.length > 0));
-            
-            if (!hasRecurrence) {
-                const conflict = await checkAppointmentConflict({
-                    therapistId: finalAppt.therapistId,
-                    start: finalAppt.start,
-                    end: finalAppt.end,
-                    excludeAppointmentId: finalAppt.id
-                });
+            const finalAppt = { ...selectedAppt };
+            const isBlocked = finalAppt.status === 'Bloqueada';
 
-                if (conflict.hasConflict) {
-                    showToast(conflict.message || "⚠️ Horario no disponible: la terapeuta ya tiene una cita asignada en ese intervalo.", "error");
-                    fetchData(); // Refrescar calendario para que la cita en conflicto aparezca inmediatamente
-                    return;
+            if (isBlocked) {
+                finalAppt.patientId = undefined;
+                finalAppt.serviceId = undefined;
+                finalAppt.patientName = finalAppt.patientName || 'HORARIO BLOQUEADO';
+                finalAppt.type = 'Bloqueo';
+            } else {
+                const p = patients.find(p => p.id === finalAppt.patientId);
+                if (p) finalAppt.patientName = `${p.firstName} ${p.lastName}`;
+                const t = therapists.find(t => t.id === finalAppt.therapistId);
+                if (t) finalAppt.therapistName = t.fullName;
+
+                // Ensure type name is set if service is selected
+                if (finalAppt.serviceId) {
+                    const s = services.find(s => s.id === finalAppt.serviceId);
+                    if (s) finalAppt.type = s.name;
                 }
             }
-        }
 
-        if (finalAppt.id) {
-            await updateAppointment(finalAppt as Appointment);
-            // If we just cancelled the appointment, check for waiting list matches
-            if (finalAppt.status === 'Cancelada' && finalAppt.start) {
-                await checkForWaitingListMatches(finalAppt.start);
-            }
-        } else {
-            if (finalAppt.recurrence && (finalAppt.recurrence.weeks || finalAppt.recurrence.until || (finalAppt.recurrence.days && finalAppt.recurrence.days.length > 0))) {
-                const startBase = parseISO(finalAppt.start!);
-                const endBase = parseISO(finalAppt.end!);
-                const duration = differenceInMinutes(endBase, startBase);
-
-                const selectedDays = finalAppt.recurrence.days || [getDay(startBase)];
-                let limitDate: Date;
-
-                if (finalAppt.recurrence.until) {
-                    limitDate = parseISO(finalAppt.recurrence.until);
-                } else {
-                    const weeks = finalAppt.recurrence.weeks || 1;
-                    limitDate = addWeeks(startBase, weeks - 1);
-                }
-
-                // Asegurar que abarcamos todo el día de la fecha límite
-                const finalLimit = endOfDay(limitDate);
-
-                // Empezamos desde el inicio de la semana de la fecha base para iterar bien los días
-                const startOfFirstWeek = startOfWeek(startBase, { weekStartsOn: 1 });
-
-                // Pre-calcular fechas y validar que ninguna entre en conflicto
-                const occurrences: { start: Date; end: Date }[] = [];
-                let currentWeekStart = startOfFirstWeek;
-                while (isBefore(currentWeekStart, finalLimit) || isSameDay(currentWeekStart, finalLimit)) {
-                    for (const dayIndex of selectedDays) {
-                        const targetDate = addDays(currentWeekStart, (dayIndex - 1));
-
-                        if ((isSameDay(targetDate, startBase) || isAfter(targetDate, startBase)) &&
-                            (isBefore(targetDate, finalLimit) || isSameDay(targetDate, finalLimit))) {
-
-                            const newStart = setMinutes(setHours(targetDate, startBase.getHours()), startBase.getMinutes());
-                            const newEnd = addMinutes(newStart, duration);
-                            occurrences.push({ start: newStart, end: newEnd });
-                        }
-                    }
-                    currentWeekStart = addWeeks(currentWeekStart, 1);
-                }
-
-                // Validar conflictos en todas las ocurrencias antes de insertar ninguna
-                for (const occ of occurrences) {
+            // Validación estricta anti-doble reserva (Double Booking Prevention)
+            if (finalAppt.status !== 'Cancelada' && finalAppt.therapistId && finalAppt.start && finalAppt.end) {
+                const hasRecurrence = finalAppt.recurrence && (finalAppt.recurrence.weeks || finalAppt.recurrence.until || (finalAppt.recurrence.days && finalAppt.recurrence.days.length > 0));
+                
+                if (!hasRecurrence) {
                     const conflict = await checkAppointmentConflict({
-                        therapistId: finalAppt.therapistId!,
-                        start: formatISO(occ.start),
-                        end: formatISO(occ.end)
+                        therapistId: finalAppt.therapistId,
+                        start: finalAppt.start,
+                        end: finalAppt.end,
+                        excludeAppointmentId: finalAppt.id
                     });
+
                     if (conflict.hasConflict) {
-                        const dateFormatted = format(occ.start, 'dd/MM/yyyy');
-                        showToast(`⚠️ Conflicto en la serie semanal: el día ${dateFormatted} ya existe una cita para esta terapeuta en ese horario.`, "error");
-                        fetchData();
+                        showToast(conflict.message || "⚠️ Horario no disponible: la terapeuta ya tiene una cita asignada en ese intervalo.", "error");
+                        fetchData(); // Refrescar calendario para que la cita en conflicto aparezca inmediatamente
                         return;
                     }
                 }
+            }
 
-                // Crear las citas de la serie si todas están libres
-                for (const occ of occurrences) {
-                    await createAppointment({
+            if (finalAppt.id) {
+                await updateAppointment(finalAppt as Appointment);
+                // If we just cancelled the appointment, check for waiting list matches
+                if (finalAppt.status === 'Cancelada' && finalAppt.start) {
+                    await checkForWaitingListMatches(finalAppt.start);
+                }
+            } else {
+                if (finalAppt.recurrence && (finalAppt.recurrence.weeks || finalAppt.recurrence.until || (finalAppt.recurrence.days && finalAppt.recurrence.days.length > 0))) {
+                    const startBase = parseISO(finalAppt.start!);
+                    const endBase = parseISO(finalAppt.end!);
+                    const duration = differenceInMinutes(endBase, startBase);
+
+                    const baseDayNum = getDay(startBase) === 0 ? 7 : getDay(startBase);
+                    const selectedDays = (finalAppt.recurrence.days && finalAppt.recurrence.days.length > 0)
+                        ? finalAppt.recurrence.days
+                        : [baseDayNum];
+
+                    let limitDate: Date;
+
+                    if (finalAppt.recurrence.until) {
+                        limitDate = parseISO(finalAppt.recurrence.until);
+                    } else {
+                        const weeks = finalAppt.recurrence.weeks || 1;
+                        limitDate = addWeeks(startBase, weeks - 1);
+                    }
+
+                    // Asegurar que abarcamos todo el día de la fecha límite
+                    const finalLimit = endOfDay(limitDate);
+
+                    // Empezamos desde el inicio de la semana de la fecha base para iterar bien los días
+                    const startOfFirstWeek = startOfWeek(startBase, { weekStartsOn: 1 });
+
+                    // Pre-calcular fechas y validar que ninguna entre en conflicto
+                    const occurrences: { start: Date; end: Date }[] = [];
+                    let currentWeekStart = startOfFirstWeek;
+                    while (isBefore(currentWeekStart, finalLimit) || isSameDay(currentWeekStart, finalLimit)) {
+                        for (const dayIndex of selectedDays) {
+                            const targetDate = addDays(currentWeekStart, (dayIndex - 1));
+
+                            if ((isSameDay(targetDate, startBase) || isAfter(targetDate, startBase)) &&
+                                (isBefore(targetDate, finalLimit) || isSameDay(targetDate, finalLimit))) {
+
+                                const newStart = setMinutes(setHours(targetDate, startBase.getHours()), startBase.getMinutes());
+                                const newEnd = addMinutes(newStart, duration);
+                                occurrences.push({ start: newStart, end: newEnd });
+                            }
+                        }
+                        currentWeekStart = addWeeks(currentWeekStart, 1);
+                    }
+
+                    if (occurrences.length === 0) {
+                        occurrences.push({ start: startBase, end: endBase });
+                    }
+
+                    // Validar conflictos de toda la serie en una única consulta
+                    const conflict = await checkBatchAppointmentConflicts({
+                        therapistId: finalAppt.therapistId!,
+                        slots: occurrences.map(occ => ({
+                            start: formatISO(occ.start),
+                            end: formatISO(occ.end)
+                        }))
+                    });
+
+                    if (conflict.hasConflict) {
+                        showToast(conflict.message || "⚠️ Conflicto en la serie semanal: ya existe una cita para esta terapeuta en ese horario.", "error");
+                        fetchData();
+                        return;
+                    }
+
+                    // Crear las citas de la serie de forma masiva (batch)
+                    const appointmentsToCreate = occurrences.map(occ => ({
                         ...finalAppt as Omit<Appointment, 'id'>,
                         start: formatISO(occ.start),
                         end: formatISO(occ.end),
                         recurrence: { weeks: 1, originalId: 'SERIE' }
-                    });
-                }
-            } else {
-                await createAppointment(finalAppt as Omit<Appointment, 'id'>);
-            }
-        }
+                    }));
 
-        setIsModalOpen(false);
-        fetchData();
+                    await createAppointmentsBatch(appointmentsToCreate);
+                    showToast(`📅 Serie de ${appointmentsToCreate.length} citas creada con éxito`, 'success');
+                } else {
+                    await createAppointment(finalAppt as Omit<Appointment, 'id'>);
+                }
+            }
+
+            setIsModalOpen(false);
+            fetchData();
+        } finally {
+            isSavingRef.current = false;
+            setIsSaving(false);
+        }
     };
 
     const handleAnularCita = (e?: React.MouseEvent) => {
@@ -2275,6 +2306,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({ mode: initialMode, therapis
                                         <button
                                             type="button"
                                             className="btn-secondary"
+                                            disabled={isSaving}
                                             onClick={(e) => handleAnularCita(e)}
                                             style={{
                                                 marginRight: 'auto',
@@ -2287,8 +2319,30 @@ const CalendarView: React.FC<CalendarViewProps> = ({ mode: initialMode, therapis
                                             Anular Cita
                                         </button>
                                     )}
-                                    <button type="button" className="btn-secondary" onClick={() => { setIsModalOpen(false); setIsCancelling(false); }}>Cancelar</button>
-                                    <button type="submit" className="btn-primary" form="appointment-form">Guardar</button>
+                                    <button
+                                        type="button"
+                                        className="btn-secondary"
+                                        disabled={isSaving}
+                                        onClick={() => { setIsModalOpen(false); setIsCancelling(false); }}
+                                    >
+                                        Cancelar
+                                    </button>
+                                    <button
+                                        type="submit"
+                                        className="btn-primary"
+                                        form="appointment-form"
+                                        disabled={isSaving}
+                                        style={{ minWidth: '100px', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}
+                                    >
+                                        {isSaving ? (
+                                            <>
+                                                <span className="animate-spin inline-block w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full" />
+                                                <span>Guardando...</span>
+                                            </>
+                                        ) : (
+                                            'Guardar'
+                                        )}
+                                    </button>
                                 </div>
                             </>
                         )}

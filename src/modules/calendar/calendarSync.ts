@@ -258,3 +258,77 @@ export async function checkAppointmentConflict({
         return { hasConflict: false };
     }
 }
+
+export async function checkBatchAppointmentConflicts({
+    therapistId,
+    slots,
+}: {
+    therapistId: string;
+    slots: { start: string; end: string }[];
+}): Promise<ConflictCheckResult> {
+    if (!therapistId || !slots || slots.length === 0) {
+        return { hasConflict: false };
+    }
+
+    try {
+        let minStart = slots[0].start;
+        let maxEnd = slots[0].end;
+        for (const slot of slots) {
+            if (slot.start < minStart) minStart = slot.start;
+            if (slot.end > maxEnd) maxEnd = slot.end;
+        }
+
+        const { data, error } = await supabase
+            .from('appointments')
+            .select('id, patient_name, therapist_name, start_time, end_time, status')
+            .eq('therapist_id', therapistId)
+            .neq('status', 'Cancelada')
+            .lt('start_time', maxEnd)
+            .gt('end_time', minStart);
+
+        if (error) {
+            console.error('Error querying batch conflicts:', error);
+            return { hasConflict: false };
+        }
+
+        if (data && data.length > 0) {
+            for (const slot of slots) {
+                const sStart = new Date(slot.start).getTime();
+                const sEnd = new Date(slot.end).getTime();
+
+                const conflict = data.find(existing => {
+                    const eStart = new Date(existing.start_time).getTime();
+                    const eEnd = new Date(existing.end_time).getTime();
+                    return eStart < sEnd && eEnd > sStart;
+                });
+
+                if (conflict) {
+                    const dateFormatted = format(parseISO(conflict.start_time), 'dd/MM/yyyy');
+                    const startStr = format(parseISO(conflict.start_time), 'HH:mm');
+                    const endStr = format(parseISO(conflict.end_time), 'HH:mm');
+                    const patientName = conflict.patient_name ? conflict.patient_name.trim() : 'otro paciente';
+                    const therapistName = conflict.therapist_name ? conflict.therapist_name.trim() : 'La terapeuta';
+
+                    return {
+                        hasConflict: true,
+                        conflictingAppointment: {
+                            id: conflict.id,
+                            patientName: conflict.patient_name,
+                            therapistName: conflict.therapist_name,
+                            start: conflict.start_time,
+                            end: conflict.end_time,
+                            status: conflict.status
+                        },
+                        message: `⚠️ Conflicto en la serie semanal: el día ${dateFormatted} ${therapistName} ya tiene una cita de ${startStr} a ${endStr} (${patientName}).`
+                    };
+                }
+            }
+        }
+
+        return { hasConflict: false };
+    } catch (err) {
+        console.error('Unexpected error in checkBatchAppointmentConflicts:', err);
+        return { hasConflict: false };
+    }
+}
+

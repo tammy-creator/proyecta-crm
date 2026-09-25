@@ -188,7 +188,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({ mode: initialMode, therapis
             const start = parseISO(appt.start);
             const end = parseISO(appt.end);
 
-            if (['Cancelada', 'Cobrada', 'Ausente'].includes(appt.status)) {
+            if (['Cancelada', 'Cobrada', 'Ausente', 'Bloqueada'].includes(appt.status)) {
                 return appt;
             }
 
@@ -197,7 +197,11 @@ const CalendarView: React.FC<CalendarViewProps> = ({ mode: initialMode, therapis
             if ((isAfter(now, start) || now.getTime() === start.getTime()) && isBefore(now, end)) {
                 if (appt.status === 'Programada') newStatus = 'En Sesión';
             } else if (isAfter(now, end) || now.getTime() === end.getTime()) {
-                if (appt.status === 'Programada' || appt.status === 'En Sesión') newStatus = 'Finalizada';
+                if (appt.isPaid) {
+                    newStatus = 'Cobrada';
+                } else if (appt.status === 'Programada' || appt.status === 'En Sesión') {
+                    newStatus = 'Finalizada';
+                }
             }
 
             return newStatus !== appt.status ? { ...appt, status: newStatus as AppointmentStatus } : appt;
@@ -2137,9 +2141,11 @@ const CalendarView: React.FC<CalendarViewProps> = ({ mode: initialMode, therapis
                                                 onChange={e => {
                                                     const newStatus = e.target.value as any;
                                                     if (selectedAppt) {
+                                                        const isPaid = newStatus === 'Cobrada' ? true : (newStatus === 'Finalizada' ? false : selectedAppt.isPaid);
                                                         setSelectedAppt({
                                                             ...selectedAppt,
                                                             status: newStatus,
+                                                            isPaid,
                                                             patientName: newStatus === 'Bloqueada' ? (selectedAppt.patientName || 'HORARIO BLOQUEADO') : selectedAppt.patientName
                                                         });
                                                         if (selectedAppt.start) {

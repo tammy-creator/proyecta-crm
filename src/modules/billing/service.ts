@@ -31,9 +31,13 @@ export const getTransactions = async (therapistName?: string): Promise<Transacti
 };
 
 export const recordPayment = async (transactionId: string, method: PaymentMethod): Promise<boolean> => {
+    const isFinDeMes = method === 'Fin de mes';
     const { error } = await supabase
         .from('transactions')
-        .update({ status: 'Pagado', method })
+        .update({
+            status: isFinDeMes ? 'Pendiente' : 'Pagado',
+            method
+        })
         .eq('id', transactionId);
     if (error) throw error;
     return true;

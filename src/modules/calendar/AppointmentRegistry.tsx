@@ -110,11 +110,25 @@ const AppointmentRegistry: React.FC = () => {
     const getPaymentInfo = (appt: Appointment) => {
         const tx = transactions.find(t => t.appointmentId === appt.id);
         if (tx) {
+            let label = tx.method || (tx.status === 'Pagado' ? 'Pagado' : 'Pendiente');
+            if (tx.method === 'Fin de mes') {
+                label = tx.status === 'Pagado' ? 'Fin de mes (Cobrado)' : 'Fin de mes (Pendiente)';
+            }
             return {
                 method: tx.method,
-                label: tx.method || (tx.status === 'Pagado' ? 'Pagado' : 'Pendiente'),
+                label,
                 isPaid: tx.status === 'Pagado',
                 status: tx.status
+            };
+        }
+
+        // Si la cita tiene isPaid marcado directamente
+        if (appt.isPaid) {
+            return {
+                method: 'PAGADO',
+                label: 'Cobrado',
+                isPaid: true,
+                status: 'Pagado'
             };
         }
 
@@ -153,6 +167,16 @@ const AppointmentRegistry: React.FC = () => {
         const now = new Date();
         const start = parseISO(appt.start);
         const end = parseISO(appt.end);
+        const payInfo = getPaymentInfo(appt);
+        // Si el método es Fin de mes y no está cobrado, nunca se considera pagado
+        const isPaid = (payInfo?.method === 'Fin de mes')
+            ? !!payInfo.isPaid
+            : (!!appt.isPaid || !!payInfo?.isPaid);
+
+        // Si la cita está pagada y ya concluyó, su estado efectivo es Cobrada
+        if (isPaid && now >= end) {
+            return 'Cobrada';
+        }
 
         if ((now >= start) && (now < end)) {
             if (appt.status === 'Programada') return 'En Sesión';
@@ -199,6 +223,8 @@ const AppointmentRegistry: React.FC = () => {
         try {
             await updateAppointment({ ...appt, price: newAmount });
             setAppointments(prev => prev.map(a => a.id === appt.id ? { ...a, price: newAmount } : a));
+            const txData = await getTransactions(isRole('THERAPIST') ? user?.name : undefined);
+            setTransactions(txData);
             showToast(`Importe actualizado a ${newAmount}€`, 'success');
         } catch (error) {
             console.error("Error updating amount:", error);
@@ -216,10 +242,17 @@ const AppointmentRegistry: React.FC = () => {
                     if (error) throw error;
                 }
 
-                // 2. Mark appt as unpaid
-                await updateAppointment({ ...appt, isPaid: false });
+                // 2. Mark appt as unpaid and revert status if it was Cobrada
+                const now = new Date();
+                const end = parseISO(appt.end);
+                let newStatus = appt.status;
+                if (appt.status === 'Cobrada') {
+                    newStatus = now < end ? 'Programada' : 'Finalizada';
+                }
 
-                setAppointments(prev => prev.map(a => a.id === appt.id ? { ...a, isPaid: false } : a));
+                await updateAppointment({ ...appt, isPaid: false, status: newStatus });
+
+                setAppointments(prev => prev.map(a => a.id === appt.id ? { ...a, isPaid: false, status: newStatus } : a));
                 showToast("Cobro eliminado", 'info');
             } else {
                 // 1. Validate we have a patient
@@ -258,11 +291,20 @@ const AppointmentRegistry: React.FC = () => {
                 }
 
                 // 4. Mark appointment status
-                // We only set to 'Cobrada' if it's a FINALIZED session being PAID now.
-                // If it's 'Fin de mes' (isPaid=false), we keep the status as is (usually 'Finalizada').
+                const now = new Date();
+                const end = parseISO(appt.end);
                 let newStatus = appt.status;
-                if (isPaid && (appt.status === 'Finalizada' || getEffectiveStatus(appt) === 'Finalizada')) {
-                    newStatus = 'Cobrada';
+
+                if (isPaid) {
+                    // Si ya pagó y la sesión ya concluyó o ya estaba finalizada/cobrada, pasa a Cobrada
+                    if (now >= end || appt.status === 'Finalizada' || getEffectiveStatus(appt) === 'Finalizada' || getEffectiveStatus(appt) === 'Cobrada') {
+                        newStatus = 'Cobrada';
+                    }
+                } else {
+                    // Si se marca Fin de mes (pendiente) y estaba en Cobrada, regresa a Finalizada
+                    if (appt.status === 'Cobrada') {
+                        newStatus = now < end ? 'Programada' : 'Finalizada';
+                    }
                 }
 
                 await updateAppointment({ ...appt, isPaid, status: newStatus });
@@ -283,8 +325,11 @@ const AppointmentRegistry: React.FC = () => {
 
     const handleStatusChange = async (appt: Appointment, newStatus: AppointmentStatus) => {
         try {
-            await updateAppointment({ ...appt, status: newStatus });
-            setAppointments(prev => prev.map(a => a.id === appt.id ? { ...a, status: newStatus } : a));
+            const isPaid = newStatus === 'Cobrada' ? true : (newStatus === 'Finalizada' ? false : appt.isPaid);
+            await updateAppointment({ ...appt, status: newStatus, isPaid });
+            setAppointments(prev => prev.map(a => a.id === appt.id ? { ...a, status: newStatus, isPaid } : a));
+            const txData = await getTransactions(isRole('THERAPIST') ? user?.name : undefined);
+            setTransactions(txData);
             showToast(`Estado actualizado a ${newStatus}`, 'success');
         } catch (error) {
             console.error("Error updating status:", error);
@@ -477,7 +522,7 @@ const AppointmentRegistry: React.FC = () => {
                                         {isRole('ADMIN') ? (
                                             <select
                                                 className={`registry-status-select ${getStatusBadgeClass(getEffectiveStatus(appt))}`}
-                                                value={appt.status}
+                                                value={getEffectiveStatus(appt)}
                                                 onChange={(e) => handleStatusChange(appt, e.target.value as AppointmentStatus)}
                                             >
                                                 <option value="Programada">Programada</option>
@@ -511,7 +556,7 @@ const AppointmentRegistry: React.FC = () => {
                                                         <option value="Tarjeta">💳 Tarjeta</option>
                                                         <option value="Efectivo">💵 Efectivo</option>
                                                         <option value="Transferencia">🏦 Transferencia</option>
-                                                        <option value="Fin de mes">📅 Fin de mes</option>
+                                                        <option value="Fin de mes">{isPaid ? '📅 Fin de mes (Cobrado)' : '📅 Fin de mes (Pendiente)'}</option>
                                                     </select>
                                                 );
                                             }

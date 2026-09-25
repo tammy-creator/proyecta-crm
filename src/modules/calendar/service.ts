@@ -184,6 +184,52 @@ export const updateAppointment = async (appointment: Appointment): Promise<Appoi
     if (error) throw error;
     const updated = mapAppointment(data);
 
+    // Synchronize linked transaction if one exists
+    try {
+        const { data: existingTx } = await supabase
+            .from('transactions')
+            .select('id, amount, category, status, method')
+            .eq('appointment_id', updated.id)
+            .maybeSingle();
+
+        if (existingTx) {
+            const txUpdatePayload: any = {};
+
+            // 1. Sync amount
+            if (updated.price != null && Number(updated.price) !== Number(existingTx.amount)) {
+                txUpdatePayload.amount = Number(updated.price);
+            }
+
+            // 2. Sync category (type of session)
+            if (updated.type && updated.type !== existingTx.category) {
+                txUpdatePayload.category = updated.type;
+            }
+
+            // 3. Sync names and date
+            if (updated.patientName) txUpdatePayload.patient_name = updated.patientName;
+            if (updated.therapistName) txUpdatePayload.therapist_name = updated.therapistName;
+            if (updated.start) txUpdatePayload.date = updated.start;
+
+            // 4. Sync status with appointment status / isPaid:
+            if (updated.status === 'Finalizada' || updated.status === 'Programada' || updated.isPaid === false) {
+                if (existingTx.method === 'Fin de mes' || updated.isPaid === false) {
+                    txUpdatePayload.status = 'Pendiente';
+                }
+            } else if (updated.status === 'Cobrada' || updated.isPaid === true) {
+                txUpdatePayload.status = 'Pagado';
+            }
+
+            if (Object.keys(txUpdatePayload).length > 0) {
+                await supabase
+                    .from('transactions')
+                    .update(txUpdatePayload)
+                    .eq('id', existingTx.id);
+            }
+        }
+    } catch (syncErr) {
+        console.warn('Error synchronizing transaction on updateAppointment:', syncErr);
+    }
+
     broadcastCalendarChange({
         action: 'update',
         appointmentId: updated.id,
@@ -214,11 +260,32 @@ export const deleteAppointment = async (appointmentId: string): Promise<void> =>
 };
 
 export const markAppointmentPaid = async (appointmentId: string): Promise<void> => {
+    const { data: currentAppt } = await supabase
+        .from('appointments')
+        .select('status, start_time, end_time')
+        .eq('id', appointmentId)
+        .maybeSingle();
+
+    const updatePayload: { is_paid: boolean; status?: string } = { is_paid: true };
+    if (currentAppt && !['Cancelada', 'Ausente', 'Bloqueada'].includes(currentAppt.status)) {
+        updatePayload.status = 'Cobrada';
+    }
+
     const { error } = await supabase
         .from('appointments')
-        .update({ is_paid: true })
+        .update(updatePayload)
         .eq('id', appointmentId);
     if (error) throw error;
+
+    // Sync linked transaction to Pagado
+    try {
+        await supabase
+            .from('transactions')
+            .update({ status: 'Pagado' })
+            .eq('appointment_id', appointmentId);
+    } catch (err) {
+        console.warn('Error syncing tx on markAppointmentPaid:', err);
+    }
 
     broadcastCalendarChange({
         action: 'status_change',
@@ -227,11 +294,39 @@ export const markAppointmentPaid = async (appointmentId: string): Promise<void> 
 };
 
 export const setAppointmentPaidStatus = async (appointmentId: string, isPaid: boolean): Promise<void> => {
+    const { data: currentAppt } = await supabase
+        .from('appointments')
+        .select('status, start_time, end_time')
+        .eq('id', appointmentId)
+        .maybeSingle();
+
+    const updatePayload: { is_paid: boolean; status?: string } = { is_paid: isPaid };
+
+    if (currentAppt && !['Cancelada', 'Ausente', 'Bloqueada'].includes(currentAppt.status)) {
+        if (isPaid) {
+            updatePayload.status = 'Cobrada';
+        } else if (currentAppt.status === 'Cobrada') {
+            const now = new Date();
+            const end = currentAppt.end_time ? new Date(currentAppt.end_time) : null;
+            updatePayload.status = (end && now < end) ? 'Programada' : 'Finalizada';
+        }
+    }
+
     const { error } = await supabase
         .from('appointments')
-        .update({ is_paid: isPaid })
+        .update(updatePayload)
         .eq('id', appointmentId);
     if (error) throw error;
+
+    // Sync linked transaction status
+    try {
+        await supabase
+            .from('transactions')
+            .update({ status: isPaid ? 'Pagado' : 'Pendiente' })
+            .eq('appointment_id', appointmentId);
+    } catch (err) {
+        console.warn('Error syncing tx on setAppointmentPaidStatus:', err);
+    }
 
     broadcastCalendarChange({
         action: 'status_change',
@@ -243,7 +338,7 @@ export const getPendingRegistrationAppointments = async (daysBack: number = 1): 
     let query = supabase
         .from('appointments')
         .select('*')
-        .eq('status', 'Finalizada')
+        .in('status', ['Finalizada', 'Cobrada'])
         .is('session_diary', null)
         .order('start_time', { ascending: false });
 

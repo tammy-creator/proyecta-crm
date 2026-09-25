@@ -147,17 +147,23 @@ const BillingView: React.FC = () => {
 
     const handlePayment = async (id: string, method: PaymentMethod) => {
         const tx = transactions.find(t => t.id === id);
+        const isFinDeMes = method === 'Fin de mes';
         const success = await recordPayment(id, method);
         if (success) {
             if (tx?.appointmentId) {
-                await markAppointmentPaid(tx.appointmentId);
+                if (isFinDeMes) {
+                    await setAppointmentPaidStatus(tx.appointmentId, false);
+                } else {
+                    await markAppointmentPaid(tx.appointmentId);
+                }
             }
             fetchData();
         }
     };
 
-    // Cobrar una cita que todavía no tiene transacción
+    // Cobrar o asignar una cita que todavía no tiene transacción
     const handleChargeAppointment = async (appt: Appointment, method: PaymentMethod) => {
+        const isFinDeMes = method === 'Fin de mes';
         const tx = await createTransaction({
             appointmentId: appt.id,
             patientId: appt.patientId ?? '',
@@ -165,14 +171,18 @@ const BillingView: React.FC = () => {
             therapistName: appt.therapistName,
             amount: appt.price ?? 0,
             date: appt.start, // Guardamos el timestamp completo para conservar la hora
-            status: 'Pagado',
+            status: isFinDeMes ? 'Pendiente' : 'Pagado',
             method,
             category: appt.type,
             invoiceId: undefined,
         });
         if (tx) {
-            // Marcar la cita como pagada para quitar el icono en calendario
-            await markAppointmentPaid(appt.id);
+            if (isFinDeMes) {
+                // Fin de mes queda como Pendiente de cobro, la cita no está pagada aún
+                await setAppointmentPaidStatus(appt.id, false);
+            } else {
+                await markAppointmentPaid(appt.id);
+            }
             fetchData();
         }
     };
@@ -661,7 +671,7 @@ const BillingView: React.FC = () => {
                                                     <button className="btn-payment-method" onClick={() => handleChargeAppointment(appt, 'Efectivo')} title="Cobrar Efectivo"><Wallet size={14} /></button>
                                                     <button className="btn-payment-method" onClick={() => handleChargeAppointment(appt, 'Tarjeta')} title="Cobrar Tarjeta"><CreditCard size={14} /></button>
                                                     <button className="btn-payment-method" onClick={() => handleChargeAppointment(appt, 'Transferencia')} title="Cobrar Transferencia"><Send size={14} /></button>
-                                                    <button className="btn-payment-method" onClick={() => handleChargeAppointment(appt, 'Fin de mes')} title="Cobrar Fin de Mes"><CalendarClock size={14} /></button>
+                                                    <button className="btn-payment-method" onClick={() => handleChargeAppointment(appt, 'Fin de mes')} title="Asignar Fin de Mes (Pendiente)"><CalendarClock size={14} /></button>
                                                 </div>
                                             </td>
                                         </tr>
@@ -715,10 +725,12 @@ const BillingView: React.FC = () => {
                                                     )}
                                                     {t.status === 'Pendiente' && (
                                                         <div className="payment-actions flex gap-1">
-                                                            <button className="btn-payment-method" onClick={() => handlePayment(t.id, 'Efectivo')} title="Efectivo"><Wallet size={14} /></button>
-                                                            <button className="btn-payment-method" onClick={() => handlePayment(t.id, 'Tarjeta')} title="Tarjeta"><CreditCard size={14} /></button>
-                                                            <button className="btn-payment-method" onClick={() => handlePayment(t.id, 'Transferencia')} title="Transferencia"><Send size={14} /></button>
-                                                            <button className="btn-payment-method" onClick={() => handlePayment(t.id, 'Fin de mes')} title="Fin de Mes"><CalendarClock size={14} /></button>
+                                                            <button className="btn-payment-method" onClick={() => handlePayment(t.id, 'Efectivo')} title="Cobrar Efectivo"><Wallet size={14} /></button>
+                                                            <button className="btn-payment-method" onClick={() => handlePayment(t.id, 'Tarjeta')} title="Cobrar Tarjeta"><CreditCard size={14} /></button>
+                                                            <button className="btn-payment-method" onClick={() => handlePayment(t.id, 'Transferencia')} title="Cobrar Transferencia"><Send size={14} /></button>
+                                                            {t.method !== 'Fin de mes' && (
+                                                                <button className="btn-payment-method" onClick={() => handlePayment(t.id, 'Fin de mes')} title="Asignar Fin de Mes (Pendiente)"><CalendarClock size={14} /></button>
+                                                            )}
                                                         </div>
                                                     )}
                                                 </div>

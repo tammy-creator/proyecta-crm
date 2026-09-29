@@ -860,7 +860,7 @@ const AdminView: React.FC = () => {
                                 <input
                                     type="number"
                                     required
-                                    value={selectedService.price || ''}
+                                    value={selectedService.price !== undefined && selectedService.price !== null ? selectedService.price : ''}
                                     onChange={e => setSelectedService({ ...selectedService, price: Number(e.target.value) })}
                                     placeholder="Ej. 60"
                                 />

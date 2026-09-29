@@ -273,7 +273,7 @@ const AppointmentRegistry: React.FC = () => {
                         ...existingTx,
                         status: txStatus,
                         method: method as any,
-                        amount: appt.price || 60
+                        amount: appt.price != null ? appt.price : 60
                     });
                 } else {
                     await createTransaction({
@@ -281,7 +281,7 @@ const AppointmentRegistry: React.FC = () => {
                         patientId: appt.patientId,
                         patientName: appt.patientName || '',
                         therapistName: appt.therapistName || '',
-                        amount: appt.price || 60,
+                        amount: appt.price != null ? appt.price : 60,
                         method: method as any,
                         date: appt.start,
                         status: txStatus,
@@ -507,15 +507,16 @@ const AppointmentRegistry: React.FC = () => {
                                         {isRole('ADMIN') ? (
                                             <div className="flex items-center gap-1">
                                                 <input
+                                                    key={`amt-${appt.id}-${appt.price ?? 'def'}`}
                                                     type="number"
                                                     className="registry-amount-input"
-                                                    defaultValue={appt.price || 60}
+                                                    defaultValue={appt.price != null ? appt.price : 60}
                                                     onBlur={(e) => handleAmountChange(appt, Number(e.target.value))}
                                                 />
                                                 <span className="text-secondary text-xs">€</span>
                                             </div>
                                         ) : (
-                                            <span className="font-bold">{appt.price || 60}€</span>
+                                            <span className="font-bold">{appt.price != null ? appt.price : 60}€</span>
                                         )}
                                     </td>
                                     <td>

@@ -59,6 +59,10 @@ const BillingView: React.FC = () => {
     const [breakdownTitle, setBreakdownTitle] = useState('');
     const [breakdownFilter, setBreakdownFilter] = useState<'ALL' | 'PAID' | 'PENDING'>('ALL');
 
+    // Concurrency / Loading guards to prevent double clicking
+    const [chargingApptIds, setChargingApptIds] = useState<Set<string>>(new Set());
+    const [payingTxIds, setPayingTxIds] = useState<Set<string>>(new Set());
+
     useEffect(() => {
         fetchData();
     }, [selectedDate, statusFilter, methodFilter, reconciledFilter, activeTab]);
@@ -146,44 +150,70 @@ const BillingView: React.FC = () => {
     // }, [isInvoiceModalOpen]);
 
     const handlePayment = async (id: string, method: PaymentMethod) => {
-        const tx = transactions.find(t => t.id === id);
-        const isFinDeMes = method === 'Fin de mes';
-        const success = await recordPayment(id, method);
-        if (success) {
-            if (tx?.appointmentId) {
-                if (isFinDeMes) {
-                    await setAppointmentPaidStatus(tx.appointmentId, false);
-                } else {
-                    await markAppointmentPaid(tx.appointmentId);
+        if (payingTxIds.has(id)) return;
+        setPayingTxIds(prev => new Set(prev).add(id));
+        try {
+            const tx = transactions.find(t => t.id === id);
+            const isFinDeMes = method === 'Fin de mes';
+            const success = await recordPayment(id, method);
+            if (success) {
+                if (tx?.appointmentId) {
+                    if (isFinDeMes) {
+                        await setAppointmentPaidStatus(tx.appointmentId, false);
+                    } else {
+                        await markAppointmentPaid(tx.appointmentId);
+                    }
                 }
+                await fetchData();
             }
-            fetchData();
+        } catch (error) {
+            console.error('Error recording payment:', error);
+            showToast('Error al registrar el cobro', 'error');
+        } finally {
+            setPayingTxIds(prev => {
+                const next = new Set(prev);
+                next.delete(id);
+                return next;
+            });
         }
     };
 
     // Cobrar o asignar una cita que todavía no tiene transacción
     const handleChargeAppointment = async (appt: Appointment, method: PaymentMethod) => {
-        const isFinDeMes = method === 'Fin de mes';
-        const tx = await createTransaction({
-            appointmentId: appt.id,
-            patientId: appt.patientId ?? '',
-            patientName: appt.patientName,
-            therapistName: appt.therapistName,
-            amount: appt.price ?? 0,
-            date: appt.start, // Guardamos el timestamp completo para conservar la hora
-            status: isFinDeMes ? 'Pendiente' : 'Pagado',
-            method,
-            category: appt.type,
-            invoiceId: undefined,
-        });
-        if (tx) {
-            if (isFinDeMes) {
-                // Fin de mes queda como Pendiente de cobro, la cita no está pagada aún
-                await setAppointmentPaidStatus(appt.id, false);
-            } else {
-                await markAppointmentPaid(appt.id);
+        if (chargingApptIds.has(appt.id)) return;
+        setChargingApptIds(prev => new Set(prev).add(appt.id));
+        try {
+            const isFinDeMes = method === 'Fin de mes';
+            const tx = await createTransaction({
+                appointmentId: appt.id,
+                patientId: appt.patientId ?? '',
+                patientName: appt.patientName,
+                therapistName: appt.therapistName,
+                amount: appt.price ?? 0,
+                date: appt.start, // Guardamos el timestamp completo para conservar la hora
+                status: isFinDeMes ? 'Pendiente' : 'Pagado',
+                method,
+                category: appt.type,
+                invoiceId: undefined,
+            });
+            if (tx) {
+                if (isFinDeMes) {
+                    // Fin de mes queda como Pendiente de cobro, la cita no está pagada aún
+                    await setAppointmentPaidStatus(appt.id, false);
+                } else {
+                    await markAppointmentPaid(appt.id);
+                }
+                await fetchData();
             }
-            fetchData();
+        } catch (error) {
+            console.error('Error charging appointment:', error);
+            showToast('Error al registrar cobro de la cita', 'error');
+        } finally {
+            setChargingApptIds(prev => {
+                const next = new Set(prev);
+                next.delete(appt.id);
+                return next;
+            });
         }
     };
 
@@ -642,7 +672,9 @@ const BillingView: React.FC = () => {
                                     </tr>
                                 </thead>
                                 <tbody>
-                                    {apptRowsWithoutTx.map((appt) => (
+                                    {apptRowsWithoutTx.map((appt) => {
+                                        const isCharging = chargingApptIds.has(appt.id);
+                                        return (
                                         <tr key={`appt-${appt.id}`} className="row-pending">
                                             <td className="text-secondary text-sm">
                                                 {appt.start ? format(new Date(appt.start), 'HH:mm') : '—'}
@@ -668,14 +700,14 @@ const BillingView: React.FC = () => {
                                             <td>—</td>
                                             <td style={{ textAlign: 'right' }}>
                                                 <div className="payment-actions flex gap-1 justify-end">
-                                                    <button className="btn-payment-method" onClick={() => handleChargeAppointment(appt, 'Efectivo')} title="Cobrar Efectivo"><Wallet size={14} /></button>
-                                                    <button className="btn-payment-method" onClick={() => handleChargeAppointment(appt, 'Tarjeta')} title="Cobrar Tarjeta"><CreditCard size={14} /></button>
-                                                    <button className="btn-payment-method" onClick={() => handleChargeAppointment(appt, 'Transferencia')} title="Cobrar Transferencia"><Send size={14} /></button>
-                                                    <button className="btn-payment-method" onClick={() => handleChargeAppointment(appt, 'Fin de mes')} title="Asignar Fin de Mes (Pendiente)"><CalendarClock size={14} /></button>
+                                                    <button disabled={isCharging} style={isCharging ? { opacity: 0.5, cursor: 'not-allowed' } : undefined} className="btn-payment-method" onClick={() => handleChargeAppointment(appt, 'Efectivo')} title="Cobrar Efectivo"><Wallet size={14} /></button>
+                                                    <button disabled={isCharging} style={isCharging ? { opacity: 0.5, cursor: 'not-allowed' } : undefined} className="btn-payment-method" onClick={() => handleChargeAppointment(appt, 'Tarjeta')} title="Cobrar Tarjeta"><CreditCard size={14} /></button>
+                                                    <button disabled={isCharging} style={isCharging ? { opacity: 0.5, cursor: 'not-allowed' } : undefined} className="btn-payment-method" onClick={() => handleChargeAppointment(appt, 'Transferencia')} title="Cobrar Transferencia"><Send size={14} /></button>
+                                                    <button disabled={isCharging} style={isCharging ? { opacity: 0.5, cursor: 'not-allowed' } : undefined} className="btn-payment-method" onClick={() => handleChargeAppointment(appt, 'Fin de mes')} title="Asignar Fin de Mes (Pendiente)"><CalendarClock size={14} /></button>
                                                 </div>
                                             </td>
                                         </tr>
-                                    ))}
+                                    );})}
                                     {filteredTx.map((t: Transaction) => (
                                         <tr key={t.id} className={t.status === 'Pendiente' ? 'row-pending' : ''}>
                                             <td className="text-secondary text-sm">
@@ -725,11 +757,11 @@ const BillingView: React.FC = () => {
                                                     )}
                                                     {t.status === 'Pendiente' && (
                                                         <div className="payment-actions flex gap-1">
-                                                            <button className="btn-payment-method" onClick={() => handlePayment(t.id, 'Efectivo')} title="Cobrar Efectivo"><Wallet size={14} /></button>
-                                                            <button className="btn-payment-method" onClick={() => handlePayment(t.id, 'Tarjeta')} title="Cobrar Tarjeta"><CreditCard size={14} /></button>
-                                                            <button className="btn-payment-method" onClick={() => handlePayment(t.id, 'Transferencia')} title="Cobrar Transferencia"><Send size={14} /></button>
+                                                            <button disabled={payingTxIds.has(t.id)} style={payingTxIds.has(t.id) ? { opacity: 0.5, cursor: 'not-allowed' } : undefined} className="btn-payment-method" onClick={() => handlePayment(t.id, 'Efectivo')} title="Cobrar Efectivo"><Wallet size={14} /></button>
+                                                            <button disabled={payingTxIds.has(t.id)} style={payingTxIds.has(t.id) ? { opacity: 0.5, cursor: 'not-allowed' } : undefined} className="btn-payment-method" onClick={() => handlePayment(t.id, 'Tarjeta')} title="Cobrar Tarjeta"><CreditCard size={14} /></button>
+                                                            <button disabled={payingTxIds.has(t.id)} style={payingTxIds.has(t.id) ? { opacity: 0.5, cursor: 'not-allowed' } : undefined} className="btn-payment-method" onClick={() => handlePayment(t.id, 'Transferencia')} title="Cobrar Transferencia"><Send size={14} /></button>
                                                             {t.method !== 'Fin de mes' && (
-                                                                <button className="btn-payment-method" onClick={() => handlePayment(t.id, 'Fin de mes')} title="Asignar Fin de Mes (Pendiente)"><CalendarClock size={14} /></button>
+                                                                <button disabled={payingTxIds.has(t.id)} style={payingTxIds.has(t.id) ? { opacity: 0.5, cursor: 'not-allowed' } : undefined} className="btn-payment-method" onClick={() => handlePayment(t.id, 'Fin de mes')} title="Asignar Fin de Mes (Pendiente)"><CalendarClock size={14} /></button>
                                                             )}
                                                         </div>
                                                     )}
@@ -907,7 +939,9 @@ const BillingView: React.FC = () => {
                                     </tr>
                                 </thead>
                                 <tbody>
-                                    {getBreakdownTransactions().map((t: any) => (
+                                    {getBreakdownTransactions().map((t: any) => {
+                                        const isBusy = t._rawAppt ? chargingApptIds.has(t._rawAppt.id) : payingTxIds.has(t.id);
+                                        return (
                                         <tr key={t.id} className={t.status === 'Pendiente' ? 'row-pending' : ''}>
                                             <td>{format(parseISO(t.date), 'dd/MM/yyyy')}</td>
                                             <td style={{ fontWeight: 600 }}>{t.patientName}</td>
@@ -922,6 +956,8 @@ const BillingView: React.FC = () => {
                                                 <td>
                                                     <div className="payment-actions flex gap-1">
                                                         <button
+                                                            disabled={isBusy}
+                                                            style={isBusy ? { opacity: 0.5, cursor: 'not-allowed' } : undefined}
                                                             className="btn-payment-method"
                                                             onClick={() => t._rawAppt ? handleChargeAppointment(t._rawAppt, 'Efectivo') : handlePayment(t.id, 'Efectivo')}
                                                             title="Cobrar Efectivo"
@@ -929,6 +965,8 @@ const BillingView: React.FC = () => {
                                                             <Wallet size={14} />
                                                         </button>
                                                         <button
+                                                            disabled={isBusy}
+                                                            style={isBusy ? { opacity: 0.5, cursor: 'not-allowed' } : undefined}
                                                             className="btn-payment-method"
                                                             onClick={() => t._rawAppt ? handleChargeAppointment(t._rawAppt, 'Tarjeta') : handlePayment(t.id, 'Tarjeta')}
                                                             title="Cobrar Tarjeta"
@@ -936,6 +974,8 @@ const BillingView: React.FC = () => {
                                                             <CreditCard size={14} />
                                                         </button>
                                                         <button
+                                                            disabled={isBusy}
+                                                            style={isBusy ? { opacity: 0.5, cursor: 'not-allowed' } : undefined}
                                                             className="btn-payment-method"
                                                             onClick={() => t._rawAppt ? handleChargeAppointment(t._rawAppt, 'Transferencia') : handlePayment(t.id, 'Transferencia')}
                                                             title="Cobrar Transferencia"
@@ -943,6 +983,8 @@ const BillingView: React.FC = () => {
                                                             <Send size={14} />
                                                         </button>
                                                         <button
+                                                            disabled={isBusy}
+                                                            style={isBusy ? { opacity: 0.5, cursor: 'not-allowed' } : undefined}
                                                             className="btn-payment-method"
                                                             onClick={() => t._rawAppt ? handleChargeAppointment(t._rawAppt, 'Fin de mes') : handlePayment(t.id, 'Fin de mes')}
                                                             title="Cobrar Fin de Mes"
@@ -953,7 +995,7 @@ const BillingView: React.FC = () => {
                                                 </td>
                                             )}
                                         </tr>
-                                    ))}
+                                    );})}
                                     {getBreakdownTransactions().length === 0 && (
                                         <tr>
                                             <td colSpan={5} className="text-center py-8 text-secondary">

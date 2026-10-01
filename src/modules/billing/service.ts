@@ -64,28 +64,79 @@ export const updateTransaction = async (transaction: Transaction): Promise<boole
     return true;
 };
 
+// In-flight map to prevent concurrent double-clicks or parallel requests creating duplicate transactions
+const inFlightAppointmentTx = new Map<string, Promise<Transaction>>();
+
 export const createTransaction = async (
     transaction: Omit<Transaction, 'id'>
 ): Promise<Transaction> => {
-    const { data, error } = await supabase
-        .from('transactions')
-        .insert({
-            appointment_id: transaction.appointmentId || null,
-            patient_id: transaction.patientId,
-            patient_name: transaction.patientName,
-            therapist_name: transaction.therapistName,
-            amount: transaction.amount,
-            date: transaction.date,
-            status: transaction.status,
-            method: transaction.method ?? null,
-            category: transaction.category,
-            invoice_id: transaction.invoiceId ?? null,
-            is_reconciled: transaction.isReconciled ?? false,
-        })
-        .select()
-        .single();
-    if (error) throw error;
-    return mapTransaction(data);
+    // If there is already a creation in flight for this appointment, reuse that promise
+    if (transaction.appointmentId && inFlightAppointmentTx.has(transaction.appointmentId)) {
+        return inFlightAppointmentTx.get(transaction.appointmentId)!;
+    }
+
+    const executeCreate = async (): Promise<Transaction> => {
+        // 1. If appointmentId is provided, check if a transaction already exists for it in DB
+        if (transaction.appointmentId) {
+            const { data: existing } = await supabase
+                .from('transactions')
+                .select('*')
+                .eq('appointment_id', transaction.appointmentId)
+                .maybeSingle();
+
+            if (existing) {
+                console.warn(`[createTransaction] Transaction already exists for appointment ${transaction.appointmentId}. Updating instead of creating duplicate.`);
+                const { data: updated, error: updateError } = await supabase
+                    .from('transactions')
+                    .update({
+                        patient_id: transaction.patientId,
+                        patient_name: transaction.patientName,
+                        therapist_name: transaction.therapistName,
+                        amount: transaction.amount,
+                        date: transaction.date,
+                        status: transaction.status,
+                        method: transaction.method ?? null,
+                        category: transaction.category,
+                    })
+                    .eq('id', existing.id)
+                    .select()
+                    .single();
+                if (updateError) throw updateError;
+                return mapTransaction(updated);
+            }
+        }
+
+        // 2. Insert new transaction
+        const { data, error } = await supabase
+            .from('transactions')
+            .insert({
+                appointment_id: transaction.appointmentId || null,
+                patient_id: transaction.patientId,
+                patient_name: transaction.patientName,
+                therapist_name: transaction.therapistName,
+                amount: transaction.amount,
+                date: transaction.date,
+                status: transaction.status,
+                method: transaction.method ?? null,
+                category: transaction.category,
+                invoice_id: transaction.invoiceId ?? null,
+                is_reconciled: transaction.isReconciled ?? false,
+            })
+            .select()
+            .single();
+        if (error) throw error;
+        return mapTransaction(data);
+    };
+
+    if (transaction.appointmentId) {
+        const promise = executeCreate().finally(() => {
+            inFlightAppointmentTx.delete(transaction.appointmentId!);
+        });
+        inFlightAppointmentTx.set(transaction.appointmentId, promise);
+        return promise;
+    }
+
+    return executeCreate();
 };
 
 export const toggleReconciliation = async (transactionId: string, isReconciled: boolean): Promise<boolean> => {

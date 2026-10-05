@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useMemo } from 'react';
+import React, { useState, useEffect, useLayoutEffect, useRef, useMemo } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import {
     format,
@@ -73,6 +73,8 @@ const CalendarView: React.FC<CalendarViewProps> = ({ mode: initialMode, therapis
     // Configuración ultra-flexible para que todo quepa en una sola pantalla
     const isEmbedded = !!initialMode;
     const gridRef = useRef<HTMLDivElement>(null);
+    const hasInitialScrolledRef = useRef(false);
+    const scrollPosRef = useRef<number>(0);
     const [containerHeight, setContainerHeight] = useState(600);
     // Garantizamos un mínimo de 70px por hora para que las citas se lean perfectamente
     const slotHeight = isEmbedded ? Math.max(70, (containerHeight - 70) / (dynamicHours.length || 1)) : 100;
@@ -320,18 +322,43 @@ const CalendarView: React.FC<CalendarViewProps> = ({ mode: initialMode, therapis
         };
     }, [isEmbedded, dynamicHours]);
 
-    // Auto-scroll to current hour when grid opens or dynamic hours update
+    const handleGridScroll = (e: React.UIEvent<HTMLDivElement>) => {
+        scrollPosRef.current = e.currentTarget.scrollTop;
+    };
+
+    // Auto-scroll a la hora actual ÚNICAMENTE la primera vez que se monta/abre el calendario
     useEffect(() => {
+        if (hasInitialScrolledRef.current) return;
+        if (!gridRef.current || dynamicHours.length === 0) return;
+
         const timeout = setTimeout(() => {
+            if (hasInitialScrolledRef.current || !gridRef.current) return;
             const currentHour = new Date().getHours();
             const element = document.getElementById(`time-row-${currentHour}`);
-            if (element && gridRef.current) {
-                // Scroll to the hour, minus half a slot to see the previous hour context
-                gridRef.current.scrollTop = element.offsetTop - (slotHeight / 2);
+            if (element) {
+                const targetScroll = Math.max(0, element.offsetTop - (slotHeight / 2));
+                gridRef.current.scrollTop = targetScroll;
+                scrollPosRef.current = targetScroll;
+                hasInitialScrolledRef.current = true;
+            } else if (dynamicHours.length > 0) {
+                const fallbackElement = document.getElementById('time-row-9') || document.getElementById(`time-row-${dynamicHours[0]}`);
+                if (fallbackElement) {
+                    const targetScroll = Math.max(0, fallbackElement.offsetTop - (slotHeight / 2));
+                    gridRef.current.scrollTop = targetScroll;
+                    scrollPosRef.current = targetScroll;
+                }
+                hasInitialScrolledRef.current = true;
             }
-        }, 300); // Small delay to ensure render is complete
+        }, 300); // Pequeño retraso para asegurar que el render inicial se haya completado
         return () => clearTimeout(timeout);
-    }, [dynamicHours]);
+    }, [dynamicHours, slotHeight]);
+
+    // Mantener la posición exacta de scroll del usuario al cambiar de semana o tras guardar/actualizar citas
+    useLayoutEffect(() => {
+        if (gridRef.current && hasInitialScrolledRef.current && scrollPosRef.current > 0) {
+            gridRef.current.scrollTop = scrollPosRef.current;
+        }
+    }, [currentDate, appointments]);
 
     // Handle navigation from Dashboard or Registry
     useEffect(() => {
@@ -439,14 +466,34 @@ const CalendarView: React.FC<CalendarViewProps> = ({ mode: initialMode, therapis
         const finalMin = Math.max(0, minHour - 1);
         const finalMax = Math.min(24, maxHour + 1);
 
-        const hours = [];
+        const hours: number[] = [];
         for (let i = finalMin; i < finalMax; i++) {
             hours.push(i);
         }
-        setDynamicHours(hours);
+        setDynamicHours(prev => {
+            if (prev.length === hours.length && prev.every((h, i) => h === hours[i])) {
+                return prev;
+            }
+            if (prev.length > 0 && hours.length > 0 && prev[0] !== hours[0] && scrollPosRef.current > 0) {
+                const hourDiff = prev[0] - hours[0];
+                scrollPosRef.current = Math.max(0, scrollPosRef.current + hourDiff * slotHeight);
+            }
+            return hours;
+        });
     };
 
-    const goToToday = () => setCurrentDate(new Date());
+    const goToToday = () => {
+        setCurrentDate(new Date());
+        setTimeout(() => {
+            const currentHour = new Date().getHours();
+            const element = document.getElementById(`time-row-${currentHour}`);
+            if (element && gridRef.current) {
+                const targetScroll = Math.max(0, element.offsetTop - (slotHeight / 2));
+                gridRef.current.scrollTop = targetScroll;
+                scrollPosRef.current = targetScroll;
+            }
+        }, 50);
+    };
 
     const isSlotEnabled = (date: Date, hour: number, tId?: string) => {
         if (!tId) return true;
@@ -1366,7 +1413,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({ mode: initialMode, therapis
                 </div>
 
                 <div className={`calendar-grid-wrapper h-full overflow-hidden flex flex-col bg-white ${isEmbedded ? 'flex-1 border border-gray-200 rounded-xl shadow-sm' : ''}`} style={isEmbedded ? { minHeight: '0' } : {}}>
-                    <div ref={gridRef} className="calendar-main-grid flex-1 overflow-y-auto" style={{ ...gridStyle, scrollbarGutter: 'stable', height: '100%' }}>
+                    <div ref={gridRef} onScroll={handleGridScroll} className="calendar-main-grid flex-1 overflow-y-auto" style={{ ...gridStyle, scrollbarGutter: 'stable', height: '100%' }}>
                         {/* --- HEADER ROW (Sticky) --- */}
                         <div className="weekly-header-cell"
                             style={{

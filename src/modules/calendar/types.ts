@@ -20,6 +20,7 @@ export interface Appointment {
         days?: number[];       // [1, 2, 3...] para Lunes, Martes...
         until?: string;        // Fecha límite
         originalId?: string;
+        frequency?: 'weekly' | 'biweekly'; // 'weekly' (semanal) o 'biweekly' (quincenal / cada 15 días)
     };
     cancellationReason?: string; // Motivo de cancelación
     voiceNoteUrl?: string; // Almacén de audio o referencia

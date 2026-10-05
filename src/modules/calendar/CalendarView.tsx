@@ -32,7 +32,7 @@ import {
     startOfDay
 } from 'date-fns';
 import { es } from 'date-fns/locale';
-import { ChevronLeft, ChevronRight, Plus, X, User, UserPlus, Rocket, Puzzle, AlertTriangle, Clock as ClockIcon, DollarSign, Mic, Square, Info, Search, ArrowLeft } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Plus, X, User, UserPlus, Rocket, Puzzle, AlertTriangle, Clock as ClockIcon, DollarSign, Mic, Square, Info, Search, ArrowLeft, CheckCircle2, Repeat } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { getAppointments, createAppointment, createAppointmentsBatch, updateAppointment, deleteAppointment, checkAppointmentConflict, checkBatchAppointmentConflicts, subscribeToCalendarSync } from './service';
 import { getPatients, getWaitingList } from '../patients/service';
@@ -623,6 +623,9 @@ const CalendarView: React.FC<CalendarViewProps> = ({ mode: initialMode, therapis
             const therapistId = tId || available[0]?.id || therapists[0]?.id || '';
             const therapist = therapists.find(t => t.id === therapistId);
 
+            const startBaseDate = parseISO(startStr);
+            const baseDayNum = isValid(startBaseDate) ? (getDay(startBaseDate) === 0 ? 7 : getDay(startBaseDate)) : 1;
+
             setSelectedAppt({
                 therapistId,
                 therapistName: therapist?.fullName || '',
@@ -632,11 +635,66 @@ const CalendarView: React.FC<CalendarViewProps> = ({ mode: initialMode, therapis
                 patientId: '',
                 patientName: '',
                 type: 'Terapia',
-                isPaid: false
+                isPaid: false,
+                recurrence: {
+                    frequency: 'weekly',
+                    days: [baseDayNum]
+                }
             });
             setPatientSearch('');
         }
         setIsModalOpen(true);
+    };
+
+    const getRecurrenceSummary = (appt: Partial<Appointment> | null) => {
+        if (!appt || !appt.start) return null;
+        const recurrence = appt.recurrence;
+        if (!recurrence?.weeks && !recurrence?.until) return null;
+
+        const startBase = parseISO(appt.start);
+        if (!isValid(startBase)) return null;
+
+        const isBiweekly = recurrence.frequency === 'biweekly';
+        const weekStep = isBiweekly ? 2 : 1;
+
+        const baseDayNum = getDay(startBase) === 0 ? 7 : getDay(startBase);
+        const selectedDays = (recurrence.days && recurrence.days.length > 0)
+            ? recurrence.days
+            : [baseDayNum];
+
+        let limitDate: Date;
+        if (recurrence.until) {
+            limitDate = parseISO(recurrence.until);
+        } else {
+            const weeks = recurrence.weeks || 1;
+            limitDate = addWeeks(startBase, weeks - 1);
+        }
+
+        if (!isValid(limitDate)) return null;
+        const finalLimit = endOfDay(limitDate);
+        const startOfFirstWeek = startOfWeek(startBase, { weekStartsOn: 1 });
+
+        const previewDates: Date[] = [];
+        let currentWeekStart = startOfFirstWeek;
+        while (isBefore(currentWeekStart, finalLimit) || isSameDay(currentWeekStart, finalLimit)) {
+            for (const dayIndex of selectedDays) {
+                const targetDate = addDays(currentWeekStart, (dayIndex - 1));
+                if ((isSameDay(targetDate, startBase) || isAfter(targetDate, startBase)) &&
+                    (isBefore(targetDate, finalLimit) || isSameDay(targetDate, finalLimit))) {
+                    previewDates.push(targetDate);
+                }
+            }
+            currentWeekStart = addWeeks(currentWeekStart, weekStep);
+        }
+
+        if (previewDates.length === 0) return null;
+
+        return {
+            count: previewDates.length,
+            isBiweekly,
+            firstDate: format(previewDates[0], "d 'de' MMMM", { locale: es }),
+            lastDate: format(previewDates[previewDates.length - 1], "d 'de' MMMM yyyy", { locale: es })
+        };
     };
 
     const handleSave = async (e: React.FormEvent) => {
@@ -677,7 +735,11 @@ const CalendarView: React.FC<CalendarViewProps> = ({ mode: initialMode, therapis
 
             // Validación estricta anti-doble reserva (Double Booking Prevention)
             if (finalAppt.status !== 'Cancelada' && finalAppt.therapistId && finalAppt.start && finalAppt.end) {
-                const hasRecurrence = finalAppt.recurrence && (finalAppt.recurrence.weeks || finalAppt.recurrence.until || (finalAppt.recurrence.days && finalAppt.recurrence.days.length > 0));
+                const hasRecurrence = finalAppt.recurrence && (
+                    (finalAppt.recurrence.weeks && finalAppt.recurrence.weeks > 0) || 
+                    (finalAppt.recurrence.until && finalAppt.recurrence.until.trim() !== '') || 
+                    (finalAppt.recurrence.days && finalAppt.recurrence.days.length > 1)
+                );
                 
                 if (!hasRecurrence) {
                     const conflict = await checkAppointmentConflict({
@@ -702,22 +764,31 @@ const CalendarView: React.FC<CalendarViewProps> = ({ mode: initialMode, therapis
                     await checkForWaitingListMatches(finalAppt.start);
                 }
             } else {
-                if (finalAppt.recurrence && (finalAppt.recurrence.weeks || finalAppt.recurrence.until || (finalAppt.recurrence.days && finalAppt.recurrence.days.length > 0))) {
+                const hasRecurrence = finalAppt.recurrence && (
+                    (finalAppt.recurrence.weeks && finalAppt.recurrence.weeks > 0) || 
+                    (finalAppt.recurrence.until && finalAppt.recurrence.until.trim() !== '') || 
+                    (finalAppt.recurrence.days && finalAppt.recurrence.days.length > 1)
+                );
+
+                if (hasRecurrence) {
                     const startBase = parseISO(finalAppt.start!);
                     const endBase = parseISO(finalAppt.end!);
                     const duration = differenceInMinutes(endBase, startBase);
 
+                    const isBiweekly = finalAppt.recurrence?.frequency === 'biweekly';
+                    const weekStep = isBiweekly ? 2 : 1;
+
                     const baseDayNum = getDay(startBase) === 0 ? 7 : getDay(startBase);
-                    const selectedDays = (finalAppt.recurrence.days && finalAppt.recurrence.days.length > 0)
+                    const selectedDays = (finalAppt.recurrence?.days && finalAppt.recurrence.days.length > 0)
                         ? finalAppt.recurrence.days
                         : [baseDayNum];
 
                     let limitDate: Date;
 
-                    if (finalAppt.recurrence.until) {
+                    if (finalAppt.recurrence?.until) {
                         limitDate = parseISO(finalAppt.recurrence.until);
                     } else {
-                        const weeks = finalAppt.recurrence.weeks || 1;
+                        const weeks = finalAppt.recurrence?.weeks || 1;
                         limitDate = addWeeks(startBase, weeks - 1);
                     }
 
@@ -742,7 +813,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({ mode: initialMode, therapis
                                 occurrences.push({ start: newStart, end: newEnd });
                             }
                         }
-                        currentWeekStart = addWeeks(currentWeekStart, 1);
+                        currentWeekStart = addWeeks(currentWeekStart, weekStep);
                     }
 
                     if (occurrences.length === 0) {
@@ -759,7 +830,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({ mode: initialMode, therapis
                     });
 
                     if (conflict.hasConflict) {
-                        showToast(conflict.message || "⚠️ Conflicto en la serie semanal: ya existe una cita para esta terapeuta en ese horario.", "error");
+                        showToast(conflict.message || `⚠️ Conflicto en la serie ${isBiweekly ? 'quincenal' : 'semanal'}: ya existe una cita para esta terapeuta en ese horario.`, "error");
                         fetchData();
                         return;
                     }
@@ -769,11 +840,16 @@ const CalendarView: React.FC<CalendarViewProps> = ({ mode: initialMode, therapis
                         ...finalAppt as Omit<Appointment, 'id'>,
                         start: formatISO(occ.start),
                         end: formatISO(occ.end),
-                        recurrence: { weeks: 1, originalId: 'SERIE' }
+                        recurrence: { 
+                            weeks: finalAppt.recurrence?.weeks,
+                            until: finalAppt.recurrence?.until,
+                            frequency: finalAppt.recurrence?.frequency || 'weekly',
+                            originalId: 'SERIE' 
+                        }
                     }));
 
                     await createAppointmentsBatch(appointmentsToCreate);
-                    showToast(`📅 Serie de ${appointmentsToCreate.length} citas creada con éxito`, 'success');
+                    showToast(`📅 Serie ${isBiweekly ? 'quincenal' : 'semanal'} de ${appointmentsToCreate.length} citas creada con éxito`, 'success');
                 } else {
                     await createAppointment(finalAppt as Omit<Appointment, 'id'>);
                 }
@@ -2281,15 +2357,69 @@ const CalendarView: React.FC<CalendarViewProps> = ({ mode: initialMode, therapis
                                     )}
 
                                     {!selectedAppt.id && (
-                                        <div className="recurrence-section p-3 bg-gray-50 rounded-xl border border-dashed mb-4">
-                                            <label className="flex items-center gap-2 font-bold text-xs mb-3 text-secondary uppercase tracking-wider">
-                                                <Puzzle size={14} /> Configuración de Recurrencia
-                                            </label>
+                                        <div className="recurrence-section p-3.5 bg-gray-50 rounded-xl border border-dashed border-gray-300 mb-4">
+                                            <div className="flex items-center justify-between mb-3">
+                                                <label className="flex items-center gap-2 font-bold text-xs text-secondary uppercase tracking-wider">
+                                                    <Repeat size={14} className="text-primary" /> Configuración de Recurrencia
+                                                </label>
+                                                {(selectedAppt.recurrence?.weeks || selectedAppt.recurrence?.until) && (
+                                                    <span className="text-[10px] font-bold px-2.5 py-0.5 rounded-full bg-indigo-100 text-indigo-700">
+                                                        {selectedAppt.recurrence?.frequency === 'biweekly' ? 'Quincenal (cada 15 días)' : 'Semanal (cada 7 días)'}
+                                                    </span>
+                                                )}
+                                            </div>
 
-                                            <div className="day-selector flex gap-1 mb-2">
+                                            {/* Selector de Frecuencia: Semanal vs Quincenal */}
+                                            <div className="recurrence-freq-group flex gap-2 mb-3">
+                                                <button
+                                                    type="button"
+                                                    className={`recurrence-freq-btn flex-1 py-1.5 px-3 rounded-lg text-xs font-bold border transition-all flex items-center justify-center gap-1.5 ${
+                                                        (selectedAppt.recurrence?.frequency || 'weekly') === 'weekly'
+                                                            ? 'bg-primary text-white border-primary shadow-sm'
+                                                            : 'bg-white text-gray-700 border-gray-200 hover:bg-gray-50'
+                                                    }`}
+                                                    onClick={() => setSelectedAppt({
+                                                        ...selectedAppt,
+                                                        recurrence: {
+                                                            ...selectedAppt.recurrence,
+                                                            frequency: 'weekly',
+                                                            weeks: selectedAppt.recurrence?.weeks || 4
+                                                        }
+                                                    })}
+                                                >
+                                                    <Repeat size={13} /> Semanal (cada semana)
+                                                </button>
+                                                <button
+                                                    type="button"
+                                                    className={`recurrence-freq-btn flex-1 py-1.5 px-3 rounded-lg text-xs font-bold border transition-all flex items-center justify-center gap-1.5 ${
+                                                        selectedAppt.recurrence?.frequency === 'biweekly'
+                                                            ? 'bg-primary text-white border-primary shadow-sm'
+                                                            : 'bg-white text-gray-700 border-gray-200 hover:bg-gray-50'
+                                                    }`}
+                                                    onClick={() => setSelectedAppt({
+                                                        ...selectedAppt,
+                                                        recurrence: {
+                                                            ...selectedAppt.recurrence,
+                                                            frequency: 'biweekly',
+                                                            weeks: selectedAppt.recurrence?.weeks || 8
+                                                        }
+                                                    })}
+                                                >
+                                                    <Repeat size={13} /> Quincenal (cada 15 días)
+                                                </button>
+                                            </div>
+
+                                            {/* Selector de días de repetición */}
+                                            <div className="day-selector flex gap-1 mb-2.5">
                                                 {['L', 'M', 'X', 'J', 'V', 'S'].map((day, i) => {
                                                     const dayNum = i + 1;
-                                                    const isSelected = selectedAppt.recurrence?.days?.includes(dayNum);
+                                                    const startBaseDate = selectedAppt.start ? parseISO(selectedAppt.start) : new Date();
+                                                    const baseDayNum = isValid(startBaseDate) ? (getDay(startBaseDate) === 0 ? 7 : getDay(startBaseDate)) : 1;
+                                                    const activeDays = (selectedAppt.recurrence?.days && selectedAppt.recurrence.days.length > 0)
+                                                        ? selectedAppt.recurrence.days
+                                                        : [baseDayNum];
+                                                    const isSelected = activeDays.includes(dayNum);
+
                                                     return (
                                                         <button
                                                             key={day}
@@ -2297,7 +2427,9 @@ const CalendarView: React.FC<CalendarViewProps> = ({ mode: initialMode, therapis
                                                             className={`day-btn ${isSelected ? 'active' : ''}`}
                                                             style={{ width: '28px', height: '28px', fontSize: '0.7rem' }}
                                                             onClick={() => {
-                                                                const currentDays = selectedAppt.recurrence?.days || [];
+                                                                const currentDays = (selectedAppt.recurrence?.days && selectedAppt.recurrence.days.length > 0)
+                                                                    ? selectedAppt.recurrence.days
+                                                                    : [baseDayNum];
                                                                 const newDays = isSelected
                                                                     ? currentDays.filter(d => d !== dayNum)
                                                                     : [...currentDays, dayNum].sort();
@@ -2315,7 +2447,9 @@ const CalendarView: React.FC<CalendarViewProps> = ({ mode: initialMode, therapis
 
                                             <div className="form-grid">
                                                 <div className="form-group">
-                                                    <label>Repetir (Semanas)</label>
+                                                    <label>
+                                                        {selectedAppt.recurrence?.frequency === 'biweekly' ? 'Duración (Semanas)' : 'Repetir (Semanas)'}
+                                                    </label>
                                                     <input
                                                         type="number"
                                                         min="1"
@@ -2344,9 +2478,92 @@ const CalendarView: React.FC<CalendarViewProps> = ({ mode: initialMode, therapis
                                                     />
                                                 </div>
                                             </div>
-                                            {(!selectedAppt.recurrence?.weeks && !selectedAppt.recurrence?.until) && (
-                                                <p className="text-[10px] text-secondary mt-2 italic">Cita única si no se indica duración.</p>
-                                            )}
+
+                                            {/* Botones de duración rápida */}
+                                            <div className="flex gap-1.5 mt-2.5 flex-wrap items-center">
+                                                {(selectedAppt.recurrence?.frequency === 'biweekly' ? [
+                                                    { weeks: 4, label: '1 mes (2 citas)' },
+                                                    { weeks: 8, label: '2 meses (4 citas)' },
+                                                    { weeks: 12, label: '3 meses (6 citas)' },
+                                                    { weeks: 24, label: '6 meses (12 citas)' },
+                                                ] : [
+                                                    { weeks: 4, label: '4 semanas (1 mes)' },
+                                                    { weeks: 8, label: '8 semanas (2 meses)' },
+                                                    { weeks: 12, label: '12 semanas (3 meses)' },
+                                                    { weeks: 24, label: '24 semanas (6 meses)' },
+                                                ]).map(preset => (
+                                                    <button
+                                                        key={preset.weeks}
+                                                        type="button"
+                                                        className={`text-[11px] px-2.5 py-1 rounded-full border transition-all ${
+                                                            selectedAppt.recurrence?.weeks === preset.weeks
+                                                                ? 'bg-primary/10 border-primary text-primary font-bold shadow-xs'
+                                                                : 'bg-white border-gray-200 text-gray-600 hover:bg-gray-50'
+                                                        }`}
+                                                        onClick={() => setSelectedAppt({
+                                                            ...selectedAppt,
+                                                            recurrence: {
+                                                                ...selectedAppt.recurrence,
+                                                                weeks: preset.weeks,
+                                                                until: undefined
+                                                            }
+                                                        })}
+                                                    >
+                                                        {preset.label}
+                                                    </button>
+                                                ))}
+
+                                                {(selectedAppt.recurrence?.weeks || selectedAppt.recurrence?.until) && (
+                                                    <button
+                                                        type="button"
+                                                        className="text-[11px] px-2.5 py-1 rounded-full border border-gray-200 text-rose-600 hover:bg-rose-50 transition-all ml-auto font-medium"
+                                                        onClick={() => setSelectedAppt({
+                                                            ...selectedAppt,
+                                                            recurrence: {
+                                                                frequency: selectedAppt.recurrence?.frequency || 'weekly',
+                                                                weeks: undefined,
+                                                                until: undefined,
+                                                                days: undefined
+                                                            }
+                                                        })}
+                                                    >
+                                                        Cita única
+                                                    </button>
+                                                )}
+                                            </div>
+
+                                            {/* Resumen dinámico en tiempo real */}
+                                            {(() => {
+                                                const summary = getRecurrenceSummary(selectedAppt);
+                                                if (summary) {
+                                                    return (
+                                                        <div className="recurrence-summary mt-3 p-2.5 bg-emerald-50 border border-emerald-200 rounded-lg text-emerald-800 text-[11px] flex items-start gap-2">
+                                                            <CheckCircle2 size={15} className="mt-0.5 shrink-0 text-emerald-600" />
+                                                            <div>
+                                                                <span className="font-bold">Serie {summary.isBiweekly ? 'quincenal' : 'semanal'}: </span>
+                                                                <span>
+                                                                    Se crearán <strong>{summary.count} {summary.count === 1 ? 'cita' : 'citas'}</strong>{' '}
+                                                                    {summary.isBiweekly ? '(cada 15 días / semanas alternas)' : '(cada semana)'} desde el <strong>{summary.firstDate}</strong> hasta el <strong>{summary.lastDate}</strong>.
+                                                                </span>
+                                                            </div>
+                                                        </div>
+                                                    );
+                                                }
+                                                return (
+                                                    <p className="text-[10px] text-gray-500 mt-2.5 italic">
+                                                        Cita única si no se indica duración. Pulsa en semanas o fecha límite para programar una serie recurrente.
+                                                    </p>
+                                                );
+                                            })()}
+                                        </div>
+                                    )}
+
+                                    {selectedAppt.id && selectedAppt.recurrence?.originalId === 'SERIE' && (
+                                        <div className="mb-4 p-2.5 bg-indigo-50 border border-indigo-200 rounded-xl flex items-center gap-2 text-indigo-800 text-xs">
+                                            <Repeat size={14} className="text-indigo-600 shrink-0" />
+                                            <span>
+                                                Esta cita forma parte de una <strong>serie recurrente {selectedAppt.recurrence.frequency === 'biweekly' ? 'quincenal (cada 15 días)' : 'semanal'}</strong>.
+                                            </span>
                                         </div>
                                     )}
 

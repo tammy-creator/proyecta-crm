@@ -80,15 +80,20 @@ const InvoiceList: React.FC<InvoiceListProps> = ({ onPrint, patients }) => {
     };
 
     const filteredInvoices = useMemo(() => {
-        console.log("Rendering InvoiceList V2 - High Contrast Mode");
-        const filtered = invoices.filter(inv => {
-            const patientName = (inv.patientName || '').toLowerCase();
-            const invNumber = (inv.number || '').toLowerCase();
-            const searchLower = searchTerm.toLowerCase();
+        const norm = (s: string | null | undefined) =>
+            (s || '').normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().replace(/\s+/g, ' ').trim();
 
-            const matchesSearch =
-                patientName.includes(searchLower) ||
-                invNumber.includes(searchLower);
+        const searchNorm = norm(searchTerm);
+        const searchTokens = searchNorm.split(' ').filter(Boolean);
+
+        const filtered = invoices.filter(inv => {
+            const patientNorm = norm(inv.patientName);
+            const invNumberNorm = (inv.number || '').toLowerCase();
+            const combined = `${patientNorm} ${invNumberNorm}`;
+
+            const matchesSearch = searchTokens.length === 0 ||
+                combined.includes(searchNorm) ||
+                searchTokens.every(token => combined.includes(token));
 
             const matchesDate = filterDate ? inv.date.startsWith(filterDate) : true;
 

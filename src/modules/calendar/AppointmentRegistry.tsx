@@ -187,14 +187,32 @@ const AppointmentRegistry: React.FC = () => {
         return appt.status;
     };
 
+    const normalizeSearchText = (str: string | null | undefined): string => {
+        if (!str) return '';
+        return str
+            .normalize("NFD")
+            .replace(/[\u0300-\u036f]/g, "")
+            .toLowerCase()
+            .replace(/\s+/g, ' ')
+            .trim();
+    };
+
     const filteredAppointments = appointments.filter(appt => {
         // Search term (Patient, Therapist, Type, or Notes)
-        const searchLower = searchTerm.toLowerCase();
-        const matchesSearch =
-            appt.patientName?.toLowerCase().includes(searchLower) ||
-            appt.therapistName?.toLowerCase().includes(searchLower) ||
-            appt.type?.toLowerCase().includes(searchLower) ||
-            appt.notes?.toLowerCase().includes(searchLower);
+        const normalizedSearch = normalizeSearchText(searchTerm);
+        let matchesSearch = true;
+
+        if (normalizedSearch) {
+            const searchTokens = normalizedSearch.split(' ').filter(Boolean);
+            const patientNorm = normalizeSearchText(appt.patientName);
+            const therapistNorm = normalizeSearchText(appt.therapistName);
+            const typeNorm = normalizeSearchText(appt.type);
+            const notesNorm = normalizeSearchText(appt.notes);
+            const combined = `${patientNorm} ${therapistNorm} ${typeNorm} ${notesNorm}`;
+
+            // Coincide si coincide la frase completa o si todas las palabras buscadas están presentes
+            matchesSearch = combined.includes(normalizedSearch) || searchTokens.every(token => combined.includes(token));
+        }
 
         // Status filter
         const effectiveStatus = getEffectiveStatus(appt);

@@ -2196,15 +2196,18 @@ const CalendarView: React.FC<CalendarViewProps> = ({ mode: initialMode, therapis
                                                             .filter(p => {
                                                                 const fullName = `${p.firstName} ${p.lastName}`.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().replace(/\s+/g, ' ').trim();
                                                                 const search = patientSearch.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().replace(/\s+/g, ' ').trim();
-                                                                return fullName.includes(search);
+                                                                const tokens = search.split(' ').filter(Boolean);
+                                                                return fullName.includes(search) || (tokens.length > 0 && tokens.every(t => fullName.includes(t)));
                                                             })
                                                             .slice(0, 6)
-                                                            .map(p => (
+                                                            .map(p => {
+                                                                const cleanName = `${p.firstName} ${p.lastName}`.replace(/\s+/g, ' ').trim();
+                                                                return (
                                                                 <div
                                                                     key={p.id}
                                                                     onClick={() => {
-                                                                        setSelectedAppt({ ...selectedAppt, patientId: p.id, patientName: `${p.firstName} ${p.lastName}` });
-                                                                        setPatientSearch(`${p.firstName} ${p.lastName}`);
+                                                                        setSelectedAppt({ ...selectedAppt, patientId: p.id, patientName: cleanName });
+                                                                        setPatientSearch(cleanName);
                                                                         setShowPatientSuggestions(false);
                                                                     }}
                                                                     style={{
@@ -2219,8 +2222,8 @@ const CalendarView: React.FC<CalendarViewProps> = ({ mode: initialMode, therapis
                                                                     <div style={{ fontWeight: 'bold', color: '#1e293b' }}>{p.firstName} {p.lastName}</div>
                                                                     <div style={{ fontSize: '0.75rem', color: '#64748b' }}>{p.email || 'Sin email'}</div>
                                                                 </div>
-                                                            ))
-                                                        }
+                                                            );
+                                                        })}
                                                         {patientSearch && (
                                                             <div
                                                                 onClick={() => handleOpenQuickPatientModal(patientSearch)}

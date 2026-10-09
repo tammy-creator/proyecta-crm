@@ -9,8 +9,8 @@ const mapPatient = (row: any): Patient => {
 
     return {
         id: row.id,
-        firstName: row.first_name,
-        lastName: row.last_name,
+        firstName: (row.first_name || '').replace(/\s+/g, ' ').trim(),
+        lastName: (row.last_name || '').replace(/\s+/g, ' ').trim(),
         birthDate: row.birth_date === '1900-01-01' ? '' : row.birth_date,
         schooling: row.schooling,
         address: row.address,

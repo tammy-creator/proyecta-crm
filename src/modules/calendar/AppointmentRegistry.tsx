@@ -273,8 +273,31 @@ const AppointmentRegistry: React.FC = () => {
                 setAppointments(prev => prev.map(a => a.id === appt.id ? { ...a, isPaid: false, status: newStatus } : a));
                 showToast("Cobro eliminado", 'info');
             } else {
-                // 1. Validate we have a patient
-                if (!appt.patientId) {
+                // 1. Validate we have a patient (auto-resolve by name if patientId is null)
+                let effectivePatientId = appt.patientId;
+                if (!effectivePatientId && appt.patientName) {
+                    try {
+                        const { data: matchedPatients } = await supabase
+                            .from('patients')
+                            .select('id, first_name, last_name');
+                        if (matchedPatients) {
+                            const targetNorm = normalizeSearchText(appt.patientName);
+                            const match = matchedPatients.find(p =>
+                                normalizeSearchText(`${p.first_name} ${p.last_name}`) === targetNorm
+                            );
+                            if (match) {
+                                effectivePatientId = match.id;
+                                await updateAppointment({ ...appt, patientId: match.id });
+                                appt.patientId = match.id;
+                                setAppointments(prev => prev.map(a => a.id === appt.id ? { ...a, patientId: match.id } : a));
+                            }
+                        }
+                    } catch (e) {
+                        console.warn("Could not auto-resolve patientId:", e);
+                    }
+                }
+
+                if (!effectivePatientId) {
                     showToast("No se puede cobrar una cita sin paciente asignado", 'error');
                     return;
                 }
@@ -289,6 +312,7 @@ const AppointmentRegistry: React.FC = () => {
                 if (existingTx) {
                     await updateTransaction({
                         ...existingTx,
+                        patientId: effectivePatientId,
                         status: txStatus,
                         method: method as any,
                         amount: appt.price != null ? appt.price : 60
@@ -296,7 +320,7 @@ const AppointmentRegistry: React.FC = () => {
                 } else {
                     await createTransaction({
                         appointmentId: appt.id,
-                        patientId: appt.patientId,
+                        patientId: effectivePatientId,
                         patientName: appt.patientName || '',
                         therapistName: appt.therapistName || '',
                         amount: appt.price != null ? appt.price : 60,

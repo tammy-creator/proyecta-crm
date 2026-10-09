@@ -1264,7 +1264,7 @@ const PatientList: React.FC = () => {
                                     ) : (
                                         <div className="history-timeline">
                                             {patientAppointments
-                                                .filter(a => a.sessionDiary || (a.notes && a.status === 'Finalizada'))
+                                                .filter(a => a.sessionDiary || a.notes)
                                                 .sort((a, b) => new Date(b.start).getTime() - new Date(a.start).getTime()) // Sort descending (newest first)
                                                 .map((appt) => (
                                                     <div key={appt.id} className="history-item">
@@ -1283,20 +1283,23 @@ const PatientList: React.FC = () => {
                                                             </div>
                                                         </div>
                                                         <div className="history-content">
-                                                            {appt.sessionDiary ? (
+                                                            {appt.sessionDiary && (
                                                                 <div
-                                                                    className="history-diary-text"
+                                                                    className="history-diary-text mb-2"
                                                                     dangerouslySetInnerHTML={{ __html: appt.sessionDiary }}
                                                                 />
-                                                            ) : appt.notes ? (
+                                                            )}
+                                                            {appt.notes && (
                                                                 <div className="history-notes-text">
-                                                                    <div className="flex items-center gap-2 mb-2 opacity-60">
+                                                                    <div className="flex items-center gap-2 mb-1.5 opacity-75 text-amber-700">
                                                                         <ClipboardList size={14} />
-                                                                        <span className="text-xs font-bold uppercase tracking-wider">Notas de Sesión</span>
+                                                                        <span className="text-xs font-bold uppercase tracking-wider">Notas / Estado de Terapia</span>
                                                                     </div>
-                                                                    {appt.notes}
+                                                                    <div className="p-2.5 bg-amber-50/70 border border-amber-200 rounded-lg text-sm text-amber-950 italic whitespace-pre-wrap">
+                                                                        {appt.notes}
+                                                                    </div>
                                                                 </div>
-                                                            ) : null}
+                                                            )}
                                                         </div>
                                                     </div>
                                                 ))}

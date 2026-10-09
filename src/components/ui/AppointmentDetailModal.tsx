@@ -107,6 +107,17 @@ const AppointmentDetailModal: React.FC<AppointmentDetailModalProps> = ({ appoint
                         </div>
                     )}
 
+                    {appointment.notes && (
+                        <div className="form-group">
+                            <label className="flex items-center gap-2">
+                                <FileText size={14} className="text-amber-600" /> Notas de la Cita / Estado de Terapia
+                            </label>
+                            <div className="p-3 bg-amber-50/60 rounded-lg border border-amber-200 whitespace-pre-wrap italic text-sm text-amber-950">
+                                {appointment.notes}
+                            </div>
+                        </div>
+                    )}
+
                     <div className="form-group">
                         <label className="flex items-center gap-2">
                             <DollarSign size={14} className="text-secondary" /> Pago

@@ -32,7 +32,7 @@ import {
     startOfDay
 } from 'date-fns';
 import { es } from 'date-fns/locale';
-import { ChevronLeft, ChevronRight, Plus, X, User, UserPlus, Rocket, Puzzle, AlertTriangle, Clock as ClockIcon, DollarSign, Mic, Square, Info, Search, ArrowLeft, CheckCircle2, Repeat } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Plus, X, User, UserPlus, Rocket, Puzzle, AlertTriangle, Clock as ClockIcon, DollarSign, Mic, Square, Info, Search, ArrowLeft, CheckCircle2, Repeat, FileText } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { getAppointments, createAppointment, createAppointmentsBatch, updateAppointment, deleteAppointment, checkAppointmentConflict, checkBatchAppointmentConflicts, subscribeToCalendarSync } from './service';
 import { getPatients, getWaitingList } from '../patients/service';
@@ -93,6 +93,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({ mode: initialMode, therapis
     const [isRadarOpen, setIsRadarOpen] = useState(false);
     // const [confirmDelete, setConfirmDelete] = useState(false); // Unused
     const [isRecording, setIsRecording] = useState(false);
+    const [isRecordingNotes, setIsRecordingNotes] = useState(false);
     const [miniCalendarDate, setMiniCalendarDate] = useState(new Date());
     const [gaps, setGaps] = useState<{ start: Date; end: Date; count: number; therapists?: string[]; therapistIds?: string[] }[]>([]);
     const [radarRange, setRadarRange] = useState<'today' | 'week' | 'month'>('today');
@@ -606,6 +607,8 @@ const CalendarView: React.FC<CalendarViewProps> = ({ mode: initialMode, therapis
     const handleOpenModal = async (appt?: Appointment, tId?: string, date?: Date, _isOutsideSchedule?: boolean) => {
         setIsCancelling(false);
         setIsSaving(false);
+        setIsRecording(false);
+        setIsRecordingNotes(false);
         isSavingRef.current = false;
         if (appt) {
             setSelectedAppt(appt);
@@ -1218,6 +1221,58 @@ const CalendarView: React.FC<CalendarViewProps> = ({ mode: initialMode, therapis
         // El stop se controla con el estado isRecording
         const checkStop = setInterval(() => {
             if (!isRecordingRef.current) {
+                recognition.stop();
+                clearInterval(checkStop);
+            }
+        }, 100);
+    };
+
+    const isRecordingNotesRef = React.useRef(isRecordingNotes);
+    useEffect(() => {
+        isRecordingNotesRef.current = isRecordingNotes;
+    }, [isRecordingNotes]);
+
+    const toggleVoiceNotes = () => {
+        if (!('webkitSpeechRecognition' in window) && !('SpeechRecognition' in window)) {
+            showToast("Tu navegador no soporta el reconocimiento de voz. Te recomendamos Chrome.", "info");
+            return;
+        }
+
+        if (isRecordingNotes) {
+            setIsRecordingNotes(false);
+            return;
+        }
+
+        const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+        const recognition = new SpeechRecognition();
+        recognition.lang = 'es-ES';
+        recognition.interimResults = true;
+        recognition.continuous = true;
+
+        recognition.onstart = () => setIsRecordingNotes(true);
+        recognition.onend = () => setIsRecordingNotes(false);
+        recognition.onerror = () => setIsRecordingNotes(false);
+
+        recognition.onresult = (event: any) => {
+            let finalTranscript = '';
+            for (let i = event.resultIndex; i < event.results.length; ++i) {
+                if (event.results[i].isFinal) {
+                    finalTranscript += event.results[i][0].transcript;
+                }
+            }
+            if (finalTranscript && selectedAppt) {
+                const currentNotes = selectedAppt.notes || '';
+                setSelectedAppt({
+                    ...selectedAppt,
+                    notes: currentNotes + (currentNotes ? ' ' : '') + finalTranscript
+                });
+            }
+        };
+
+        recognition.start();
+
+        const checkStop = setInterval(() => {
+            if (!isRecordingNotesRef.current) {
                 recognition.stop();
                 clearInterval(checkStop);
             }
@@ -1847,6 +1902,11 @@ const CalendarView: React.FC<CalendarViewProps> = ({ mode: initialMode, therapis
                                                     {appt.status === 'Cancelada' && <AlertTriangle size={12} />}
                                                     {appt.status === 'Ausente' && <User size={12} />}
                                                     {appt.status === 'Bloqueada' && <Info size={12} />}
+                                                    {appt.notes && (
+                                                        <span title={`Notas: ${appt.notes}`} className="inline-flex items-center">
+                                                            <FileText size={11} className="text-amber-500" />
+                                                        </span>
+                                                    )}
                                                 </div>
                                                 <div className="appt-block-content">
                                                     <div className="appt-block-header">
@@ -1873,6 +1933,12 @@ const CalendarView: React.FC<CalendarViewProps> = ({ mode: initialMode, therapis
                                                     }}>
                                                         {appt.type}
                                                     </div>
+                                                    {appt.notes && !isShortBlock && (
+                                                        <div className="text-[9px] truncate opacity-85 italic flex items-center gap-1 mt-0.5" title={`Notas: ${appt.notes}`}>
+                                                            <FileText size={9} className="shrink-0 text-amber-600" />
+                                                            <span className="truncate">{appt.notes}</span>
+                                                        </div>
+                                                    )}
                                                 </div>
 
                                                 {/* Hover Tooltip flotante mejorado */}
@@ -1902,6 +1968,14 @@ const CalendarView: React.FC<CalendarViewProps> = ({ mode: initialMode, therapis
                                                                 </b>
                                                             </div>
                                                             <div className="tooltip-badge">{appt.type}</div>
+                                                            {appt.notes && (
+                                                                <div className="tooltip-detail" style={{ alignItems: 'flex-start', marginTop: '4px', borderTop: '1px dashed #e2e8f0', paddingTop: '4px' }}>
+                                                                    <FileText size={12} style={{ flexShrink: 0, marginTop: '2px', color: '#d97706' }} />
+                                                                    <span style={{ fontSize: '11px', color: '#475569', fontStyle: 'italic', wordBreak: 'break-word' }}>
+                                                                        <b>Nota clínica:</b> {appt.notes}
+                                                                    </span>
+                                                                </div>
+                                                            )}
                                                         </>
                                                     )}
                                                     {appt.status === 'Bloqueada' && <div className="tooltip-badge">Bloqueo</div>}
@@ -2319,6 +2393,35 @@ const CalendarView: React.FC<CalendarViewProps> = ({ mode: initialMode, therapis
                                                 <option value="Personal">Motivo Personal</option>
                                                 <option value="Otro">Otro</option>
                                             </select>
+                                        </div>
+                                    )}
+
+                                    {selectedAppt.status !== 'Bloqueada' && (
+                                        <div className="form-group notes-group mb-3">
+                                            <div className="flex justify-between items-center mb-1">
+                                                <label className="flex items-center gap-1.5 m-0 font-semibold text-xs text-gray-700">
+                                                    <FileText size={14} className="text-secondary" /> Notas de la Cita / Estado de Terapia
+                                                </label>
+                                                <button
+                                                    type="button"
+                                                    className={`btn-voice-toggle ${isRecordingNotes ? 'recording' : ''}`}
+                                                    onClick={toggleVoiceNotes}
+                                                    title={isRecordingNotes ? 'Detener grabación' : 'Dictar notas por voz'}
+                                                >
+                                                    {isRecordingNotes ? <Square size={14} fill="currentColor" /> : <Mic size={14} />}
+                                                    <span>{isRecordingNotes ? 'Grabando...' : 'Dictar'}</span>
+                                                </button>
+                                            </div>
+                                            <textarea
+                                                value={selectedAppt.notes || ''}
+                                                onChange={e => setSelectedAppt({ ...selectedAppt, notes: e.target.value })}
+                                                placeholder="Indica en qué momento de la terapia se encuentra el paciente o notas para el terapeuta que atienda la sesión..."
+                                                rows={2}
+                                                style={{ width: '100%', minHeight: '65px', padding: '0.6rem 0.75rem', borderRadius: '8px', border: '1px solid #ddd', fontFamily: 'inherit', fontSize: '0.85rem' }}
+                                            />
+                                            <p className="text-[10px] text-gray-400 mt-1 italic">
+                                                Visible para cualquier terapeuta que atienda a este paciente para conocer el momento de la terapia.
+                                            </p>
                                         </div>
                                     )}
 

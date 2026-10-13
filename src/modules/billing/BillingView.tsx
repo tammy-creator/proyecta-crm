@@ -2,8 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { getTransactions, recordPayment, updateTransaction, createTransaction, toggleReconciliation } from './service';
 import { type Transaction, type PaymentMethod } from './types';
 import Card from '../../components/ui/Card';
-import { DollarSign, Clock, CheckCircle, CreditCard, Wallet, Send, Download, Calendar as CalendarIcon, Edit2, X, FileText, Receipt, Filter, TrendingUp, AlertTriangle, Banknote, User, CalendarClock } from 'lucide-react';
-import { format, parseISO, startOfDay, endOfDay, isValid, isSameMonth } from 'date-fns';
+import { DollarSign, Clock, CheckCircle, CreditCard, Wallet, Send, Download, Calendar as CalendarIcon, Edit2, X, FileText, Receipt, Filter, TrendingUp, AlertTriangle, Banknote, User, CalendarClock, Search, ChevronLeft, ChevronRight, CheckCheck } from 'lucide-react';
+import { format, parseISO, startOfDay, endOfDay, isValid, isSameMonth, parse } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { getPatients } from '../patients/service';
 import { type Patient } from '../patients/types';
@@ -39,6 +39,11 @@ const BillingView: React.FC = () => {
     const [methodFilter, setMethodFilter] = useState<'ALL' | 'Efectivo' | 'Tarjeta' | 'Transferencia' | 'Fin de mes'>('ALL');
     const [reconciledFilter, setReconciledFilter] = useState<'ALL' | 'VERIFIED' | 'PENDING'>('ALL');
 
+    // Reconciliation Sub-states (Datáfono vs Transferencias)
+    const [reconciliationType, setReconciliationType] = useState<'CARD' | 'TRANSFER'>('CARD');
+    const [reconciliationMonth, setReconciliationMonth] = useState<string>(format(new Date(), 'yyyy-MM'));
+    const [cardSearchChild, setCardSearchChild] = useState<string>('');
+    const [cardReconciledFilter, setCardReconciledFilter] = useState<'ALL' | 'PENDING' | 'VERIFIED'>('ALL');
 
     // Transaction Modals
     const [isEditModalOpen, setIsEditModalOpen] = useState(false);
@@ -323,9 +328,108 @@ const BillingView: React.FC = () => {
     };
 
     const handleToggleReconciliation = async (txId: string, current: boolean) => {
-        const success = await toggleReconciliation(txId, !current);
-        if (success) {
-            setTransactions(prev => prev.map(t => t.id === txId ? { ...t, isReconciled: !current } : t));
+        setTransactions(prev => prev.map(t => t.id === txId ? { ...t, isReconciled: !current } : t));
+        try {
+            const success = await toggleReconciliation(txId, !current);
+            if (!success) {
+                setTransactions(prev => prev.map(t => t.id === txId ? { ...t, isReconciled: current } : t));
+                showToast("Error al actualizar cotejo", 'error');
+            } else {
+                showToast(!current ? "Ticket cotejado ✅" : "Cotejo desmarcado", 'info');
+            }
+        } catch (error) {
+            setTransactions(prev => prev.map(t => t.id === txId ? { ...t, isReconciled: current } : t));
+            showToast("Error al actualizar cotejo", 'error');
+        }
+    };
+
+    const handlePrevMonth = () => {
+        try {
+            const [year, month] = reconciliationMonth.split('-').map(Number);
+            const prev = new Date(year, month - 2, 1);
+            setReconciliationMonth(format(prev, 'yyyy-MM'));
+        } catch (e) {
+            console.error(e);
+        }
+    };
+
+    const handleNextMonth = () => {
+        try {
+            const [year, month] = reconciliationMonth.split('-').map(Number);
+            const next = new Date(year, month, 1);
+            setReconciliationMonth(format(next, 'yyyy-MM'));
+        } catch (e) {
+            console.error(e);
+        }
+    };
+
+    const normalizeSearch = (str: string | null | undefined): string => {
+        if (!str) return '';
+        return str
+            .normalize("NFD")
+            .replace(/[\u0300-\u036f]/g, "")
+            .toLowerCase()
+            .replace(/\s+/g, ' ')
+            .trim();
+    };
+
+    const formatTxDateTime = (dateStr: string) => {
+        try {
+            const d = parseISO(dateStr);
+            if (!isValid(d)) return dateStr;
+            const hasTime = dateStr.includes('T') && !dateStr.includes('T00:00:00');
+            return hasTime ? format(d, "dd/MM/yyyy HH:mm") : format(d, 'dd/MM/yyyy');
+        } catch {
+            return dateStr;
+        }
+    };
+
+    // Cobros con tarjeta del mes seleccionado para cotejo
+    const cardTransactionsMonth = transactions.filter(t => {
+        if (t.method !== 'Tarjeta') return false;
+        const txDate = t.date || '';
+        return txDate.startsWith(reconciliationMonth);
+    });
+
+    const cardMonthTotal = cardTransactionsMonth.reduce((acc, t) => acc + (t.amount || 0), 0);
+    const cardMonthCount = cardTransactionsMonth.length;
+
+    const cardMonthVerified = cardTransactionsMonth.filter(t => t.isReconciled);
+    const cardMonthVerifiedTotal = cardMonthVerified.reduce((acc, t) => acc + (t.amount || 0), 0);
+    const cardMonthVerifiedCount = cardMonthVerified.length;
+
+    const cardMonthPending = cardTransactionsMonth.filter(t => !t.isReconciled);
+    const cardMonthPendingTotal = cardMonthPending.reduce((acc, t) => acc + (t.amount || 0), 0);
+    const cardMonthPendingCount = cardMonthPending.length;
+
+    const filteredCardTransactions = cardTransactionsMonth
+        .filter(t => {
+            if (cardReconciledFilter === 'PENDING') return !t.isReconciled;
+            if (cardReconciledFilter === 'VERIFIED') return t.isReconciled;
+            return true;
+        })
+        .filter(t => {
+            if (!cardSearchChild.trim()) return true;
+            const searchTokens = normalizeSearch(cardSearchChild).split(' ').filter(Boolean);
+            const pNorm = normalizeSearch(t.patientName);
+            return searchTokens.every(token => pNorm.includes(token));
+        })
+        .sort((a, b) => b.date.localeCompare(a.date));
+
+    const handleBatchReconcileShown = async (txList: Transaction[]) => {
+        const toReconcile = txList.filter(t => !t.isReconciled);
+        if (toReconcile.length === 0) return;
+
+        const ids = new Set(toReconcile.map(t => t.id));
+        setTransactions(prev => prev.map(t => ids.has(t.id) ? { ...t, isReconciled: true } : t));
+
+        try {
+            await Promise.all(toReconcile.map(t => toggleReconciliation(t.id, true)));
+            showToast(`${toReconcile.length} tickets cotejados correctamente`, 'success');
+        } catch (error) {
+            console.error("Error batch reconciling:", error);
+            showToast("Error al cotejar algunos tickets", 'error');
+            fetchData();
         }
     };
 
@@ -567,7 +671,7 @@ const BillingView: React.FC = () => {
                     >
                         <div className="flex items-center gap-2">
                             <CheckCircle size={18} />
-                            Cotejo Bancario
+                            Cotejo y Conciliación
                         </div>
                     </button>
                 </div>
@@ -577,78 +681,279 @@ const BillingView: React.FC = () => {
                 <InvoiceList onPrint={handlePrintInvoice} patients={patients} />
             ) : activeTab === 'RECONCILIATION' ? (
                 <div className="reconciliation-view">
-                    <div className="flex justify-between items-center mb-6 px-2">
-                        <div>
-                            <h3 className="text-lg font-bold text-primary">Cotejo de Transferencias</h3>
-                            <p className="text-sm text-secondary">Verifica que las transferencias del banco coinciden con el registro</p>
-                        </div>
-                        <div className="flex gap-2">
-                            <select
-                                className="date-input-clean"
-                                value={reconciledFilter}
-                                onChange={(e) => setReconciledFilter(e.target.value as any)}
-                            >
-                                <option value="ALL">Todos los estados</option>
-                                <option value="PENDING">Pendientes de cotejo</option>
-                                <option value="VERIFIED">Verificadas</option>
-                            </select>
-                        </div>
+                    {/* Sub-pestañas: Datáfono / Tarjetas vs Transferencias */}
+                    <div className="reconciliation-subtabs">
+                        <button
+                            className={`reconcile-subtab-btn ${reconciliationType === 'CARD' ? 'active' : ''}`}
+                            onClick={() => setReconciliationType('CARD')}
+                        >
+                            <CreditCard size={18} />
+                            Cotejo de Datáfono / Tarjetas
+                        </button>
+                        <button
+                            className={`reconcile-subtab-btn ${reconciliationType === 'TRANSFER' ? 'active' : ''}`}
+                            onClick={() => setReconciliationType('TRANSFER')}
+                        >
+                            <CheckCircle size={18} />
+                            Cotejo de Transferencias
+                        </button>
                     </div>
 
-                    <div className="billing-table-wrapper">
-                        <table className="billing-table">
-                            <thead>
-                                <tr>
-                                    <th>Fecha</th>
-                                    <th>Paciente</th>
-                                    <th>Importe</th>
-                                    <th>Estado Pago</th>
-                                    <th>Cotejo Bancario</th>
-                                    <th>Acciones</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {transactions
-                                    .filter(t => t.method === 'Transferencia')
-                                    .filter(t => {
-                                        if (reconciledFilter === 'PENDING') return !t.isReconciled;
-                                        if (reconciledFilter === 'VERIFIED') return t.isReconciled;
-                                        return true;
-                                    })
-                                    .map(t => (
-                                        <tr key={t.id} style={{ opacity: t.isReconciled ? 0.7 : 1 }}>
-                                            <td>{format(parseISO(t.date), 'dd/MM/yyyy')}</td>
-                                            <td style={{ fontWeight: 600 }}>{t.patientName}</td>
-                                            <td className="amount-text">{t.amount.toFixed(2)}€</td>
-                                            <td>
-                                                <span className={`badge ${t.status === 'Pagado' ? 'badge-success' : 'badge-warning'}`}>
-                                                    {t.status}
-                                                </span>
-                                            </td>
-                                            <td>
-                                                {t.isReconciled ? (
-                                                    <span className="flex items-center gap-1 text-success font-medium">
-                                                        <CheckCircle size={14} /> Verificada
-                                                    </span>
-                                                ) : (
-                                                    <span className="flex items-center gap-1 text-secondary">
-                                                        <Clock size={14} /> Pendiente
-                                                    </span>
-                                                )}
-                                            </td>
-                                            <td>
-                                                <button
-                                                    className={`btn-${t.isReconciled ? 'secondary' : 'primary'} micro flex items-center gap-1`}
-                                                    onClick={() => handleToggleReconciliation(t.id, t.isReconciled ?? false)}
-                                                >
-                                                    {t.isReconciled ? 'Desmarcar' : 'Verificar Pago'}
-                                                </button>
-                                            </td>
+                    {reconciliationType === 'CARD' ? (
+                        <div className="card-reconciliation-view">
+                            {/* Resumen del mes */}
+                            <div className="reconcile-stats-grid">
+                                <div className="reconcile-stat-card">
+                                    <div className="reconcile-stat-icon card-total">
+                                        <CreditCard size={22} />
+                                    </div>
+                                    <div className="reconcile-stat-info">
+                                        <div className="label">
+                                            Total Tarjeta ({format(parse(reconciliationMonth, 'yyyy-MM', new Date()), "MMMM yyyy", { locale: es })})
+                                        </div>
+                                        <div className="value">{cardMonthTotal.toFixed(2)}€</div>
+                                        <div className="sub">{cardMonthCount} cobros registrados</div>
+                                    </div>
+                                </div>
+
+                                <div className="reconcile-stat-card">
+                                    <div className="reconcile-stat-icon card-verified">
+                                        <CheckCircle size={22} />
+                                    </div>
+                                    <div className="reconcile-stat-info">
+                                        <div className="label">Tickets Cotejados</div>
+                                        <div className="value" style={{ color: '#059669' }}>{cardMonthVerifiedTotal.toFixed(2)}€</div>
+                                        <div className="sub">{cardMonthVerifiedCount} tickets verificados</div>
+                                    </div>
+                                </div>
+
+                                <div className="reconcile-stat-card">
+                                    <div className="reconcile-stat-icon card-pending">
+                                        <Clock size={22} />
+                                    </div>
+                                    <div className="reconcile-stat-info">
+                                        <div className="label">Pendientes de Cotejo</div>
+                                        <div className="value" style={{ color: '#d97706' }}>{cardMonthPendingTotal.toFixed(2)}€</div>
+                                        <div className="sub">{cardMonthPendingCount} tickets por revisar</div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* Barra de Filtros */}
+                            <div className="reconcile-filter-bar">
+                                {/* Selector de Mes */}
+                                <div className="flex items-center gap-2">
+                                    <span className="text-xs font-bold uppercase text-secondary">Mes:</span>
+                                    <div className="month-navigator">
+                                        <button className="month-nav-btn" onClick={handlePrevMonth} title="Mes anterior">
+                                            <ChevronLeft size={16} />
+                                        </button>
+                                        <input
+                                            type="month"
+                                            className="month-input-clean"
+                                            value={reconciliationMonth}
+                                            onChange={(e) => setReconciliationMonth(e.target.value)}
+                                        />
+                                        <button className="month-nav-btn" onClick={handleNextMonth} title="Mes siguiente">
+                                            <ChevronRight size={16} />
+                                        </button>
+                                    </div>
+                                </div>
+
+                                {/* Buscador Rápido por Niño */}
+                                <div className="child-search-box">
+                                    <Search size={16} className="search-icon-left" />
+                                    <input
+                                        type="text"
+                                        placeholder="Buscar por niño (ej. Izan, Adrián...)"
+                                        value={cardSearchChild}
+                                        onChange={(e) => setCardSearchChild(e.target.value)}
+                                    />
+                                    {cardSearchChild && (
+                                        <button className="clear-search-btn" onClick={() => setCardSearchChild('')} title="Limpiar búsqueda">
+                                            <X size={14} />
+                                        </button>
+                                    )}
+                                </div>
+
+                                {/* Filtro de Estado de Cotejo */}
+                                <div className="flex items-center gap-2">
+                                    <select
+                                        className="date-input-clean"
+                                        value={cardReconciledFilter}
+                                        onChange={(e) => setCardReconciledFilter(e.target.value as any)}
+                                        style={{ background: '#f8fafc', padding: '0.45rem 0.8rem', borderRadius: '10px', border: '1px solid #e2e8f0' }}
+                                    >
+                                        <option value="ALL">Todos los tickets ({cardMonthCount})</option>
+                                        <option value="PENDING">⚠️ Pendientes ({cardMonthPendingCount})</option>
+                                        <option value="VERIFIED">✅ Cotejados ({cardMonthVerifiedCount})</option>
+                                    </select>
+                                </div>
+                            </div>
+
+                            {/* Banner cuando se filtra por un niño */}
+                            {cardSearchChild.trim() && (
+                                <div className="child-banner-info">
+                                    <div className="text-sm">
+                                        <span>Resultados para <strong>"{cardSearchChild}"</strong>: </span>
+                                        <span className="font-bold text-primary">{filteredCardTransactions.length} pagos encontrados ({filteredCardTransactions.reduce((acc, t) => acc + t.amount, 0).toFixed(2)}€)</span>
+                                        <span className="text-secondary ml-2">
+                                            ({filteredCardTransactions.filter(t => t.isReconciled).length} cotejados, {filteredCardTransactions.filter(t => !t.isReconciled).length} pendientes)
+                                        </span>
+                                    </div>
+                                    {filteredCardTransactions.some(t => !t.isReconciled) && (
+                                        <button
+                                            className="btn-primary micro flex items-center gap-1"
+                                            onClick={() => handleBatchReconcileShown(filteredCardTransactions)}
+                                        >
+                                            <CheckCheck size={14} />
+                                            Cotejar todos los de este niño
+                                        </button>
+                                    )}
+                                </div>
+                            )}
+
+                            {/* Tabla de cobros por tarjeta */}
+                            <div className="billing-table-wrapper">
+                                <table className="billing-table">
+                                    <thead>
+                                        <tr>
+                                            <th>Fecha y Hora</th>
+                                            <th>Niño / Paciente</th>
+                                            <th>Terapeuta</th>
+                                            <th>Importe</th>
+                                            <th>Estado de Pago</th>
+                                            <th>Cotejo Datáfono</th>
+                                            <th style={{ textAlign: 'right' }}>Acción</th>
                                         </tr>
-                                    ))}
-                            </tbody>
-                        </table>
-                    </div>
+                                    </thead>
+                                    <tbody>
+                                        {filteredCardTransactions.length === 0 ? (
+                                            <tr>
+                                                <td colSpan={7} className="text-center py-8 text-secondary">
+                                                    {cardSearchChild
+                                                        ? `No se encontraron cobros con tarjeta para "${cardSearchChild}" en este mes.`
+                                                        : `No hay cobros con tarjeta registrados en este periodo.`}
+                                                </td>
+                                            </tr>
+                                        ) : (
+                                            filteredCardTransactions.map(t => (
+                                                <tr key={t.id} style={{ opacity: t.isReconciled ? 0.75 : 1 }}>
+                                                    <td>{formatTxDateTime(t.date)}</td>
+                                                    <td style={{ fontWeight: 600 }}>{t.patientName}</td>
+                                                    <td className="text-secondary text-sm">{t.therapistName || '—'}</td>
+                                                    <td className="amount-text">{t.amount.toFixed(2)}€</td>
+                                                    <td>
+                                                        <span className={`badge ${t.status === 'Pagado' ? 'badge-success' : 'badge-warning'}`}>
+                                                            {t.status}
+                                                        </span>
+                                                    </td>
+                                                    <td>
+                                                        {t.isReconciled ? (
+                                                            <span className="flex items-center gap-1 text-success font-semibold text-xs bg-emerald-50 px-2 py-1 rounded-md border border-emerald-100" style={{ width: 'fit-content' }}>
+                                                                <CheckCircle size={14} /> Cotejado
+                                                            </span>
+                                                        ) : (
+                                                            <span className="flex items-center gap-1 text-amber-600 font-semibold text-xs bg-amber-50 px-2 py-1 rounded-md border border-amber-100" style={{ width: 'fit-content' }}>
+                                                                <Clock size={14} /> Pendiente de ticket
+                                                            </span>
+                                                        )}
+                                                    </td>
+                                                    <td style={{ textAlign: 'right' }}>
+                                                        <button
+                                                            className={`btn-reconcile-action ${t.isReconciled ? 'action-unverify' : 'action-verify'}`}
+                                                            onClick={() => handleToggleReconciliation(t.id, t.isReconciled ?? false)}
+                                                        >
+                                                            {t.isReconciled ? (
+                                                                <>Desmarcar</>
+                                                            ) : (
+                                                                <><CheckCircle size={14} /> Cotejar</>
+                                                            )}
+                                                        </button>
+                                                    </td>
+                                                </tr>
+                                            ))
+                                        )}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    ) : (
+                        <div className="transfer-reconciliation-view">
+                            <div className="flex justify-between items-center mb-6 px-2">
+                                <div>
+                                    <h3 className="text-lg font-bold text-primary">Cotejo de Transferencias</h3>
+                                    <p className="text-sm text-secondary">Verifica que las transferencias del banco coinciden con el registro</p>
+                                </div>
+                                <div className="flex gap-2">
+                                    <select
+                                        className="date-input-clean"
+                                        value={reconciledFilter}
+                                        onChange={(e) => setReconciledFilter(e.target.value as any)}
+                                    >
+                                        <option value="ALL">Todos los estados</option>
+                                        <option value="PENDING">Pendientes de cotejo</option>
+                                        <option value="VERIFIED">Verificadas</option>
+                                    </select>
+                                </div>
+                            </div>
+
+                            <div className="billing-table-wrapper">
+                                <table className="billing-table">
+                                    <thead>
+                                        <tr>
+                                            <th>Fecha</th>
+                                            <th>Paciente</th>
+                                            <th>Importe</th>
+                                            <th>Estado Pago</th>
+                                            <th>Cotejo Bancario</th>
+                                            <th>Acciones</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {transactions
+                                            .filter(t => t.method === 'Transferencia')
+                                            .filter(t => {
+                                                if (reconciledFilter === 'PENDING') return !t.isReconciled;
+                                                if (reconciledFilter === 'VERIFIED') return t.isReconciled;
+                                                return true;
+                                            })
+                                            .map(t => (
+                                                <tr key={t.id} style={{ opacity: t.isReconciled ? 0.7 : 1 }}>
+                                                    <td>{format(parseISO(t.date), 'dd/MM/yyyy')}</td>
+                                                    <td style={{ fontWeight: 600 }}>{t.patientName}</td>
+                                                    <td className="amount-text">{t.amount.toFixed(2)}€</td>
+                                                    <td>
+                                                        <span className={`badge ${t.status === 'Pagado' ? 'badge-success' : 'badge-warning'}`}>
+                                                            {t.status}
+                                                        </span>
+                                                    </td>
+                                                    <td>
+                                                        {t.isReconciled ? (
+                                                            <span className="flex items-center gap-1 text-success font-medium">
+                                                                <CheckCircle size={14} /> Verificada
+                                                            </span>
+                                                        ) : (
+                                                            <span className="flex items-center gap-1 text-secondary">
+                                                                <Clock size={14} /> Pendiente
+                                                            </span>
+                                                        )}
+                                                    </td>
+                                                    <td>
+                                                        <button
+                                                            className={`btn-${t.isReconciled ? 'secondary' : 'primary'} micro flex items-center gap-1`}
+                                                            onClick={() => handleToggleReconciliation(t.id, t.isReconciled ?? false)}
+                                                        >
+                                                            {t.isReconciled ? 'Desmarcar' : 'Verificar Pago'}
+                                                        </button>
+                                                    </td>
+                                                </tr>
+                                            ))}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    )}
                 </div>
             ) : (
                 <div id="BILLING-CONTENT">

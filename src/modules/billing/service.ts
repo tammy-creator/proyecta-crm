@@ -5,8 +5,8 @@ const mapTransaction = (row: any): Transaction => ({
     id: row.id,
     appointmentId: row.appointment_id ?? '',
     patientId: row.patient_id,
-    patientName: row.patient_name ?? '',
-    therapistName: row.therapist_name,
+    patientName: (row.patient_name ?? '').replace(/\s+/g, ' ').trim(),
+    therapistName: (row.therapist_name ?? '').replace(/\s+/g, ' ').trim(),
     amount: row.amount,
     date: row.date,
     status: row.status,
@@ -17,17 +17,38 @@ const mapTransaction = (row: any): Transaction => ({
 });
 
 export const getTransactions = async (therapistName?: string): Promise<Transaction[]> => {
-    let query = supabase
-        .from('transactions')
-        .select('*');
-    
-    if (therapistName) {
-        query = query.eq('therapist_name', therapistName);
+    const PAGE_SIZE = 1000;
+    const allRows: any[] = [];
+    let page = 0;
+    let hasMore = true;
+
+    while (hasMore) {
+        let query = supabase
+            .from('transactions')
+            .select('*');
+        
+        if (therapistName) {
+            query = query.eq('therapist_name', therapistName);
+        }
+
+        const { data, error } = await query
+            .order('date', { ascending: false })
+            .range(page * PAGE_SIZE, (page + 1) * PAGE_SIZE - 1);
+
+        if (error) throw error;
+        if (data && data.length > 0) {
+            allRows.push(...data);
+            if (data.length < PAGE_SIZE) {
+                hasMore = false;
+            } else {
+                page++;
+            }
+        } else {
+            hasMore = false;
+        }
     }
 
-    const { data, error } = await query.order('date', { ascending: false });
-    if (error) throw error;
-    return (data ?? []).map(mapTransaction);
+    return allRows.map(mapTransaction);
 };
 
 export const recordPayment = async (transactionId: string, method: PaymentMethod): Promise<boolean> => {

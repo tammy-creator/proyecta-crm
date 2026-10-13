@@ -24,19 +24,40 @@ const mapAppointment = (row: any): Appointment => ({
 
 
 export const getAppointments = async (start: Date, end: Date, therapistId?: string): Promise<Appointment[]> => {
-    let query = supabase
-        .from('appointments')
-        .select('*, clinical_services(price)')
-        .gte('start_time', start.toISOString())
-        .lte('start_time', end.toISOString());
-    
-    if (therapistId && therapistId !== 'all') {
-        query = query.eq('therapist_id', therapistId);
+    const PAGE_SIZE = 1000;
+    const allRows: any[] = [];
+    let page = 0;
+    let hasMore = true;
+
+    while (hasMore) {
+        let query = supabase
+            .from('appointments')
+            .select('*, clinical_services(price)')
+            .gte('start_time', start.toISOString())
+            .lte('start_time', end.toISOString());
+        
+        if (therapistId && therapistId !== 'all') {
+            query = query.eq('therapist_id', therapistId);
+        }
+
+        const { data, error } = await query
+            .order('start_time')
+            .range(page * PAGE_SIZE, (page + 1) * PAGE_SIZE - 1);
+
+        if (error) throw error;
+        if (data && data.length > 0) {
+            allRows.push(...data);
+            if (data.length < PAGE_SIZE) {
+                hasMore = false;
+            } else {
+                page++;
+            }
+        } else {
+            hasMore = false;
+        }
     }
 
-    const { data, error } = await query.order('start_time');
-    if (error) throw error;
-    return (data ?? []).map(mapAppointment);
+    return allRows.map(mapAppointment);
 };
 
 
@@ -75,8 +96,8 @@ export const createAppointment = async (appointment: Omit<Appointment, 'id'>): P
             patient_id: appointment.patientId || null,
             therapist_id: appointment.therapistId,
             service_id: appointment.serviceId || null,
-            patient_name: appointment.patientName,
-            therapist_name: appointment.therapistName,
+            patient_name: (appointment.patientName ?? '').replace(/\s+/g, ' ').trim(),
+            therapist_name: (appointment.therapistName ?? '').replace(/\s+/g, ' ').trim(),
             start_time: appointment.start,
             end_time: appointment.end,
             status: appointment.status,
@@ -115,8 +136,8 @@ export const createAppointmentsBatch = async (appointments: Omit<Appointment, 'i
         patient_id: appointment.patientId || null,
         therapist_id: appointment.therapistId,
         service_id: appointment.serviceId || null,
-        patient_name: appointment.patientName,
-        therapist_name: appointment.therapistName,
+        patient_name: (appointment.patientName ?? '').replace(/\s+/g, ' ').trim(),
+        therapist_name: (appointment.therapistName ?? '').replace(/\s+/g, ' ').trim(),
         start_time: appointment.start,
         end_time: appointment.end,
         status: appointment.status,
@@ -163,8 +184,8 @@ export const updateAppointment = async (appointment: Appointment): Promise<Appoi
             patient_id: appointment.patientId || null,
             therapist_id: appointment.therapistId,
             service_id: appointment.serviceId || null,
-            patient_name: appointment.patientName,
-            therapist_name: appointment.therapistName,
+            patient_name: (appointment.patientName ?? '').replace(/\s+/g, ' ').trim(),
+            therapist_name: (appointment.therapistName ?? '').replace(/\s+/g, ' ').trim(),
             start_time: appointment.start,
             end_time: appointment.end,
             status: appointment.status,

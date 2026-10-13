@@ -725,9 +725,9 @@ const CalendarView: React.FC<CalendarViewProps> = ({ mode: initialMode, therapis
                 finalAppt.type = 'Bloqueo';
             } else {
                 const p = patients.find(p => p.id === finalAppt.patientId);
-                if (p) finalAppt.patientName = `${p.firstName} ${p.lastName}`;
+                if (p) finalAppt.patientName = `${p.firstName} ${p.lastName}`.replace(/\s+/g, ' ').trim();
                 const t = therapists.find(t => t.id === finalAppt.therapistId);
-                if (t) finalAppt.therapistName = t.fullName;
+                if (t) finalAppt.therapistName = (t.fullName ?? '').replace(/\s+/g, ' ').trim();
 
                 // Ensure type name is set if service is selected
                 if (finalAppt.serviceId) {

@@ -2,7 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { getTransactions, recordPayment, updateTransaction, createTransaction, toggleReconciliation } from './service';
 import { type Transaction, type PaymentMethod } from './types';
 import Card from '../../components/ui/Card';
-import { DollarSign, Clock, CheckCircle, CreditCard, Wallet, Send, Download, Calendar as CalendarIcon, Edit2, X, FileText, Receipt, Filter, TrendingUp, AlertTriangle, Banknote, User, CalendarClock, Search, ChevronLeft, ChevronRight, CheckCheck, ArrowUpDown, ArrowUp, ArrowDown, RotateCcw, Landmark } from 'lucide-react';
+import { DollarSign, Clock, CheckCircle, CreditCard, Wallet, Send, Download, Calendar as CalendarIcon, Edit2, X, FileText, Receipt, Filter, TrendingUp, AlertTriangle, Banknote, User, CalendarClock, Search, ChevronLeft, ChevronRight, CheckCheck, ArrowUpDown, ArrowUp, ArrowDown, RotateCcw, Landmark, FileSpreadsheet } from 'lucide-react';
+import * as XLSX from 'xlsx';
 import { format, parseISO, startOfDay, endOfDay, isValid, isSameMonth, parse } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { getPatients } from '../patients/service';
@@ -723,6 +724,95 @@ const BillingView: React.FC = () => {
         }
     };
 
+    const exportReconciliationToExcel = (
+        txList: Transaction[],
+        type: 'CARD' | 'TRANSFER',
+        scope: 'MONTH' | 'ALL_PENDING',
+        month: string,
+        filterChildName?: string
+    ) => {
+        if (!txList || txList.length === 0) {
+            showToast("No hay registros para exportar con los filtros seleccionados", "error");
+            return;
+        }
+
+        const typeLabel = type === 'CARD' ? 'Datafono' : 'Transferencias';
+
+        const rows: any[] = txList.map((t, idx) => {
+            let dateFormatted = t.date;
+            let timeFormatted = '';
+            try {
+                const d = parseISO(t.date);
+                if (isValid(d)) {
+                    dateFormatted = format(d, 'dd/MM/yyyy');
+                    if (t.date && t.date.includes('T') && !t.date.includes('T00:00:00')) {
+                        timeFormatted = format(d, 'HH:mm');
+                    }
+                }
+            } catch {
+                // Keep raw
+            }
+
+            return {
+                'Nº': idx + 1,
+                'Fecha': dateFormatted,
+                'Hora': timeFormatted || '—',
+                'Niño / Paciente': t.patientName || 'Sin asignar',
+                'Terapeuta': t.therapistName || 'Sin asignar',
+                'Importe (€)': Number((t.amount || 0).toFixed(2)),
+                'Estado Cobro': t.status || 'Pagado',
+                'Forma de Pago': t.method || (type === 'CARD' ? 'Tarjeta' : 'Transferencia'),
+                'Estado Cotejo': t.isReconciled ? 'Cotejado' : 'Pendiente',
+            };
+        });
+
+        // Fila de resumen total
+        const totalAmount = txList.reduce((sum, t) => sum + (t.amount || 0), 0);
+        const totalVerified = txList.filter(t => t.isReconciled).length;
+        const totalPending = txList.filter(t => !t.isReconciled).length;
+
+        rows.push({
+            'Nº': '',
+            'Fecha': 'TOTALES',
+            'Hora': '',
+            'Niño / Paciente': `${txList.length} registros`,
+            'Terapeuta': '',
+            'Importe (€)': Number(totalAmount.toFixed(2)),
+            'Estado Cobro': '',
+            'Forma de Pago': '',
+            'Estado Cotejo': `${totalVerified} cotejados / ${totalPending} pendientes`,
+        });
+
+        const worksheet = XLSX.utils.json_to_sheet(rows);
+
+        // Anchos de columna óptimos para Excel
+        worksheet['!cols'] = [
+            { wch: 6 },  // Nº
+            { wch: 14 }, // Fecha
+            { wch: 10 }, // Hora
+            { wch: 32 }, // Niño / Paciente
+            { wch: 24 }, // Terapeuta
+            { wch: 14 }, // Importe (€)
+            { wch: 16 }, // Estado Cobro
+            { wch: 18 }, // Forma de Pago
+            { wch: 28 }, // Estado Cotejo
+        ];
+
+        const workbook = XLSX.utils.book_new();
+        const sheetName = type === 'CARD' ? 'Cotejo Datáfono' : 'Cotejo Transferencias';
+        XLSX.utils.book_append_sheet(workbook, worksheet, sheetName);
+
+        // Nombre de archivo descriptivo
+        let childClean = filterChildName?.trim()
+            ? `_${filterChildName.trim().replace(/[^a-zA-Z0-9áéíóúÁÉÍÓÚñÑ]/g, '_')}`
+            : '';
+        let scopeClean = scope === 'ALL_PENDING' ? '_Pendientes_Global' : `_${month}`;
+        const fileName = `Cotejo_${typeLabel}${childClean}${scopeClean}.xlsx`;
+
+        XLSX.writeFile(workbook, fileName);
+        showToast(`Excel descargado con éxito (${txList.length} registros)`, 'success');
+    };
+
     // ─── Listado diario: combina citas del día + transacciones ─────────────────
     // 1. IDs de citas que ya tienen transacción
     const txByApptId = new Map(transactions.filter(t => t.appointmentId).map(t => [t.appointmentId, t]));
@@ -1098,7 +1188,7 @@ const BillingView: React.FC = () => {
                                     </div>
                                 )}
 
-                                {/* Resumen y Limpieza Rápida */}
+                                {/* Resumen, Limpieza y Descarga Excel */}
                                 <div className="reconcile-counter-badge ml-auto flex items-center gap-2">
                                     <span className="text-xs text-secondary font-medium">
                                         Mostrando <strong>{filteredCardTransactions.length}</strong> de {sourceTransactions.length} cobros
@@ -1113,6 +1203,15 @@ const BillingView: React.FC = () => {
                                             <RotateCcw size={12} /> Limpiar filtros
                                         </button>
                                     )}
+                                    <button
+                                        type="button"
+                                        className="btn-export-excel"
+                                        onClick={() => exportReconciliationToExcel(filteredCardTransactions, 'CARD', cardScope, reconciliationMonth, cardSearchChild)}
+                                        title={`Descargar ${filteredCardTransactions.length} cobros de datáfono a Excel (.xlsx)`}
+                                    >
+                                        <FileSpreadsheet size={15} />
+                                        <span>Exportar Excel</span>
+                                    </button>
                                 </div>
                             </div>
 
@@ -1568,7 +1667,7 @@ const BillingView: React.FC = () => {
                                     </div>
                                 )}
 
-                                {/* Resumen y Limpieza Rápida */}
+                                {/* Resumen, Limpieza y Descarga Excel */}
                                 <div className="reconcile-counter-badge ml-auto flex items-center gap-2">
                                     <span className="text-xs text-secondary font-medium">
                                         Mostrando <strong>{filteredTransferTransactions.length}</strong> de {transferSourceTransactions.length} cobros
@@ -1583,6 +1682,15 @@ const BillingView: React.FC = () => {
                                             <RotateCcw size={12} /> Limpiar filtros
                                         </button>
                                     )}
+                                    <button
+                                        type="button"
+                                        className="btn-export-excel"
+                                        onClick={() => exportReconciliationToExcel(filteredTransferTransactions, 'TRANSFER', transferScope, reconciliationMonth, transferSearchChild)}
+                                        title={`Descargar ${filteredTransferTransactions.length} transferencias a Excel (.xlsx)`}
+                                    >
+                                        <FileSpreadsheet size={15} />
+                                        <span>Exportar Excel</span>
+                                    </button>
                                 </div>
                             </div>
 

@@ -453,6 +453,31 @@ const BillingView: React.FC = () => {
         }
     };
 
+    const handleQuickChangeAmount = async (t: Transaction, newAmount: number) => {
+        if (Number(t.amount) === Number(newAmount) || isNaN(newAmount) || newAmount < 0) return;
+
+        const updatedTx: Transaction = {
+            ...t,
+            amount: Number(newAmount)
+        };
+
+        setTransactions(prev => prev.map(item => item.id === t.id ? updatedTx : item));
+
+        try {
+            const success = await updateTransaction(updatedTx);
+            if (!success) {
+                setTransactions(prev => prev.map(item => item.id === t.id ? t : item));
+                showToast("Error al actualizar el importe", "error");
+            } else {
+                showToast(`Importe actualizado a ${newAmount}€`, "success");
+            }
+        } catch (error) {
+            console.error("Error updating amount:", error);
+            setTransactions(prev => prev.map(item => item.id === t.id ? t : item));
+            showToast("Error al actualizar el importe", "error");
+        }
+    };
+
     const handleBatchReconcileShown = async (txList: Transaction[]) => {
         const toReconcile = txList.filter(t => !t.isReconciled);
         if (toReconcile.length === 0) return;
@@ -908,7 +933,20 @@ const BillingView: React.FC = () => {
                                                     <td>{formatTxDateTime(t.date)}</td>
                                                     <td style={{ fontWeight: 600 }}>{t.patientName}</td>
                                                     <td className="text-secondary text-sm">{t.therapistName || '—'}</td>
-                                                    <td className="amount-text">{t.amount.toFixed(2)}€</td>
+                                                    <td className="amount-text">
+                                                        <div className="flex items-center gap-1">
+                                                            <input
+                                                                key={`amt-${t.id}-${t.amount}`}
+                                                                type="number"
+                                                                className="reconcile-amount-input"
+                                                                defaultValue={t.amount}
+                                                                onBlur={(e) => handleQuickChangeAmount(t, Number(e.target.value))}
+                                                                style={{ width: '65px', padding: '0.2rem 0.4rem', borderRadius: '6px', border: '1px solid #cbd5e1', fontWeight: 700, fontSize: '0.85rem' }}
+                                                                title="Modificar importe de la cita / cobro"
+                                                            />
+                                                            <span className="text-secondary text-xs">€</span>
+                                                        </div>
+                                                    </td>
                                                     <td>
                                                         <span className={`badge ${t.status === 'Pagado' ? 'badge-success' : 'badge-warning'}`}>
                                                             {t.status}

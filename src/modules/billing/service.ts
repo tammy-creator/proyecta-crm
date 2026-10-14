@@ -82,6 +82,13 @@ export const updateTransaction = async (transaction: Transaction): Promise<boole
         })
         .eq('id', transaction.id);
     if (error) throw error;
+
+    if (transaction.appointmentId) {
+        await supabase
+            .from('appointments')
+            .update({ price: transaction.amount })
+            .eq('id', transaction.appointmentId);
+    }
     return true;
 };
 

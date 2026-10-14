@@ -118,7 +118,8 @@ const AppointmentRegistry: React.FC = () => {
                 method: tx.method,
                 label,
                 isPaid: tx.status === 'Pagado',
-                status: tx.status
+                status: tx.status,
+                isReconciled: !!tx.isReconciled
             };
         }
 
@@ -128,7 +129,8 @@ const AppointmentRegistry: React.FC = () => {
                 method: 'PAGADO',
                 label: 'Cobrado',
                 isPaid: true,
-                status: 'Pagado'
+                status: 'Pagado',
+                isReconciled: false
             };
         }
 
@@ -139,7 +141,8 @@ const AppointmentRegistry: React.FC = () => {
             return {
                 label: 'Pendiente de pago',
                 isPaid: false,
-                method: 'PENDIENTE'
+                method: 'PENDIENTE',
+                isReconciled: false
             };
         }
 
@@ -238,6 +241,12 @@ const AppointmentRegistry: React.FC = () => {
 
 
     const handleAmountChange = async (appt: Appointment, newAmount: number) => {
+        const payInfo = getPaymentInfo(appt);
+        if (payInfo?.isReconciled) {
+            showToast("🔒 No se puede modificar el importe: cita ya cotejada con ticket o banco.", "info");
+            return;
+        }
+
         try {
             await updateAppointment({ ...appt, price: newAmount });
             setAppointments(prev => prev.map(a => a.id === appt.id ? { ...a, price: newAmount } : a));
@@ -251,6 +260,12 @@ const AppointmentRegistry: React.FC = () => {
     };
 
     const handlePaymentChange = async (appt: Appointment, method: string) => {
+        const payInfo = getPaymentInfo(appt);
+        if (payInfo?.isReconciled) {
+            showToast("🔒 No se puede modificar la forma de pago: cita ya cotejada. Modifícala desde Cotejo y Conciliación.", "info");
+            return;
+        }
+
         try {
             if (method === 'PENDIENTE') {
                 // 1. Delete transactions for this appt
@@ -518,7 +533,11 @@ const AppointmentRegistry: React.FC = () => {
                                 </td>
                             </tr>
                         ) : (
-                            filteredAppointments.map(appt => (
+                            filteredAppointments.map(appt => {
+                                const payInfo = getPaymentInfo(appt);
+                                const isReconciled = !!payInfo?.isReconciled;
+
+                                return (
                                 <tr key={appt.id} className={appt.status === 'Cancelada' ? 'row-cancelled' : ''}>
                                     <td className="cell-datetime">
                                         <div className="date-main">{format(parseISO(appt.start), 'dd/MM/yyyy')}</div>
@@ -546,7 +565,7 @@ const AppointmentRegistry: React.FC = () => {
                                         <div className="service-tag">{appt.type}</div>
                                     </td>
                                     <td>
-                                        {isRole('ADMIN') ? (
+                                        {isRole('ADMIN') && !isReconciled ? (
                                             <div className="flex items-center gap-1">
                                                 <input
                                                     key={`amt-${appt.id}-${appt.price ?? 'def'}`}
@@ -558,7 +577,17 @@ const AppointmentRegistry: React.FC = () => {
                                                 <span className="text-secondary text-xs">€</span>
                                             </div>
                                         ) : (
-                                            <span className="font-bold">{appt.price != null ? appt.price : 60}€</span>
+                                            <div
+                                                className="flex items-center gap-1.5"
+                                                title={isReconciled ? "🔒 Cita cotejada: importe bloqueado para edición. Modifícalo desde Facturación -> Cotejo." : undefined}
+                                            >
+                                                <span className="font-bold">{appt.price != null ? appt.price : 60}€</span>
+                                                {isReconciled && (
+                                                    <span className="text-emerald-600 flex items-center" title="🔒 Importe bloqueado: cita ya cotejada">
+                                                        <Lock size={12} />
+                                                    </span>
+                                                )}
+                                            </div>
                                         )}
                                     </td>
                                     <td>
@@ -584,7 +613,25 @@ const AppointmentRegistry: React.FC = () => {
                                     </td>
                                     <td>
                                         {(() => {
-                                            const payInfo = getPaymentInfo(appt);
+                                            if (isReconciled) {
+                                                return (
+                                                    <div
+                                                        className="flex items-center gap-1.5 text-emerald-700 font-bold text-xs uppercase bg-emerald-50 px-2.5 py-1.5 rounded-lg border border-emerald-200"
+                                                        title="🔒 Cita cotejada: forma de pago bloqueada para edición. Solo se puede modificar desde Facturación -> Cotejo."
+                                                        style={{ width: 'fit-content', cursor: 'not-allowed' }}
+                                                    >
+                                                        <Lock size={12} className="text-emerald-600 flex-shrink-0" />
+                                                        {payInfo?.method === 'Tarjeta' && <CreditCard size={13} />}
+                                                        {payInfo?.method === 'Efectivo' && <Wallet size={13} />}
+                                                        {payInfo?.method === 'Transferencia' && <Send size={13} />}
+                                                        {payInfo?.method === 'Fin de mes' && <CalendarClock size={13} />}
+                                                        <span>{payInfo?.method || 'Cotejado'}</span>
+                                                        <span className="text-[10px] text-emerald-700 bg-emerald-100 px-1 py-0.5 rounded font-semibold ml-0.5">
+                                                            Cotejado
+                                                        </span>
+                                                    </div>
+                                                );
+                                            }
 
                                             if (isRole('ADMIN')) {
                                                 const currentMethod = payInfo?.method || 'PENDIENTE';
@@ -643,7 +690,8 @@ const AppointmentRegistry: React.FC = () => {
                                         </div>
                                     </td>
                                 </tr>
-                            ))
+                            );
+                        })
                         )}
                     </tbody>
                 </table>

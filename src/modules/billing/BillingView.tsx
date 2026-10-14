@@ -42,8 +42,8 @@ const BillingView: React.FC = () => {
     const [statusFilter, setStatusFilter] = useState<'ALL' | 'Pendiente' | 'Pagado'>('ALL');
     const [methodFilter, setMethodFilter] = useState<'ALL' | 'Efectivo' | 'Tarjeta' | 'Transferencia' | 'Fin de mes'>('ALL');
 
-    // Reconciliation Sub-states (Datáfono vs Transferencias)
-    const [reconciliationType, setReconciliationType] = useState<'CARD' | 'TRANSFER'>('CARD');
+    // Reconciliation Sub-states (Datáfono vs Transferencias vs Otras Formas)
+    const [reconciliationType, setReconciliationType] = useState<'CARD' | 'TRANSFER' | 'OTHER'>('CARD');
     const [cardScope, setCardScope] = useState<'MONTH' | 'ALL_PENDING'>('MONTH');
     const [reconciliationMonth, setReconciliationMonth] = useState<string>(format(new Date(), 'yyyy-MM'));
     const [cardSearchChild, setCardSearchChild] = useState<string>('');
@@ -63,6 +63,16 @@ const BillingView: React.FC = () => {
     const [transferStatusFilter, setTransferStatusFilter] = useState<'ALL' | 'Pagado' | 'Pendiente'>('ALL');
     const [transferSortField, setTransferSortField] = useState<CardSortField>('date');
     const [transferSortOrder, setTransferSortOrder] = useState<CardSortOrder>('desc');
+
+    // Other Methods Reconciliation States (Efectivo, Fin de mes, etc.)
+    const [otherScope, setOtherScope] = useState<'MONTH' | 'ALL_PENDING'>('MONTH');
+    const [otherSearchChild, setOtherSearchChild] = useState<string>('');
+    const [otherReconciledFilter, setOtherReconciledFilter] = useState<'ALL' | 'PENDING' | 'VERIFIED'>('ALL');
+    const [otherMethodFilter, setOtherMethodFilter] = useState<'ALL_OTHER' | 'Efectivo' | 'Fin de mes' | 'ALL'>('ALL_OTHER');
+    const [otherTherapistFilter, setOtherTherapistFilter] = useState<string>('ALL');
+    const [otherStatusFilter, setOtherStatusFilter] = useState<'ALL' | 'Pagado' | 'Pendiente'>('ALL');
+    const [otherSortField, setOtherSortField] = useState<CardSortField>('date');
+    const [otherSortOrder, setOtherSortOrder] = useState<CardSortOrder>('desc');
 
     // Transaction Modals
     const [isEditModalOpen, setIsEditModalOpen] = useState(false);
@@ -654,6 +664,136 @@ const BillingView: React.FC = () => {
             return transferSortOrder === 'asc' ? comp : -comp;
         });
 
+    // Cobros por otros métodos (Efectivo, Fin de mes, etc.) que no son Tarjeta ni Transferencia
+    const otherTransactionsMonth = allTransactionsMonth.filter(t => t.method !== 'Tarjeta' && t.method !== 'Transferencia');
+
+    const otherMonthTotal = otherTransactionsMonth.reduce((acc, t) => acc + (t.amount || 0), 0);
+    const otherMonthCount = otherTransactionsMonth.length;
+    const otherMonthCashCount = otherTransactionsMonth.filter(t => t.method === 'Efectivo').length;
+    const otherMonthFinDeMesCount = otherTransactionsMonth.filter(t => t.method === 'Fin de mes').length;
+
+    const otherMonthVerified = otherTransactionsMonth.filter(t => t.isReconciled);
+    const otherMonthVerifiedTotal = otherMonthVerified.reduce((acc, t) => acc + (t.amount || 0), 0);
+    const otherMonthVerifiedCount = otherMonthVerified.length;
+
+    const otherMonthPending = otherTransactionsMonth.filter(t => !t.isReconciled);
+    const otherMonthPendingTotal = otherMonthPending.reduce((acc, t) => acc + (t.amount || 0), 0);
+    const otherMonthPendingCount = otherMonthPending.length;
+
+    // Todas las citas/cobros que no son tarjeta ni transferencia pendientes de cotejar en todo el histórico
+    const allPendingOtherTransactions = transactions.filter(t => t.method !== 'Tarjeta' && t.method !== 'Transferencia' && !t.isReconciled);
+    const allPendingOtherTotal = allPendingOtherTransactions.reduce((acc, t) => acc + (t.amount || 0), 0);
+    const allPendingOtherCount = allPendingOtherTransactions.length;
+
+    // Fuente de datos según el ámbito para otras formas
+    const otherSourceTransactions = otherScope === 'ALL_PENDING'
+        ? allPendingOtherTransactions
+        : allTransactionsMonth;
+
+    // Lista de terapeutas únicos para la tabla de otras formas
+    const uniqueOtherTherapists = Array.from(
+        new Set(otherSourceTransactions.map(t => t.therapistName).filter(Boolean))
+    ).sort((a, b) => (a as string).localeCompare(b as string, 'es', { sensitivity: 'base' })) as string[];
+
+    const hasActiveOtherFilters = Boolean(
+        otherSearchChild.trim() !== '' ||
+        otherTherapistFilter !== 'ALL' ||
+        otherStatusFilter !== 'ALL' ||
+        (otherScope === 'MONTH' && otherMethodFilter !== 'ALL_OTHER') ||
+        (otherScope === 'MONTH' && otherReconciledFilter !== 'ALL')
+    );
+
+    const handleResetOtherFilters = () => {
+        setOtherSearchChild('');
+        setOtherTherapistFilter('ALL');
+        setOtherStatusFilter('ALL');
+        setOtherMethodFilter('ALL_OTHER');
+        setOtherReconciledFilter('ALL');
+    };
+
+    const handleToggleOtherSort = (field: CardSortField) => {
+        if (otherSortField === field) {
+            setOtherSortOrder(prev => prev === 'asc' ? 'desc' : 'asc');
+        } else {
+            setOtherSortField(field);
+            if (field === 'patient' || field === 'therapist' || field === 'status' || field === 'method') {
+                setOtherSortOrder('asc');
+            } else {
+                setOtherSortOrder('desc');
+            }
+        }
+    };
+
+    const renderOtherSortIcon = (field: CardSortField) => {
+        if (otherSortField !== field) {
+            return <ArrowUpDown size={13} className="sort-icon-inactive" />;
+        }
+        return otherSortOrder === 'asc' 
+            ? <ArrowUp size={13} className="sort-icon-active" /> 
+            : <ArrowDown size={13} className="sort-icon-active" />;
+    };
+
+    // Transacciones filtradas para el cotejo de otras formas
+    const filteredOtherTransactions = otherSourceTransactions
+        .filter(t => {
+            if (otherScope === 'ALL_PENDING') return true;
+            if (otherMethodFilter === 'ALL_OTHER') return t.method !== 'Tarjeta' && t.method !== 'Transferencia';
+            if (otherMethodFilter === 'ALL') return true;
+            return t.method === otherMethodFilter;
+        })
+        .filter(t => {
+            if (otherScope === 'ALL_PENDING') return true;
+            if (otherReconciledFilter === 'PENDING') return !t.isReconciled;
+            if (otherReconciledFilter === 'VERIFIED') return t.isReconciled;
+            return true;
+        })
+        .filter(t => {
+            if (otherTherapistFilter === 'ALL') return true;
+            return t.therapistName === otherTherapistFilter;
+        })
+        .filter(t => {
+            if (otherStatusFilter === 'ALL') return true;
+            return t.status === otherStatusFilter;
+        })
+        .filter(t => {
+            if (!otherSearchChild.trim()) return true;
+            const searchTokens = normalizeSearch(otherSearchChild).split(' ').filter(Boolean);
+            const pNorm = normalizeSearch(t.patientName);
+            return searchTokens.every(token => pNorm.includes(token));
+        })
+        .sort((a, b) => {
+            let comp = 0;
+            switch (otherSortField) {
+                case 'date':
+                    comp = (a.date || '').localeCompare(b.date || '');
+                    break;
+                case 'patient':
+                    comp = (a.patientName || '').localeCompare(b.patientName || '', 'es', { sensitivity: 'base' });
+                    break;
+                case 'therapist':
+                    comp = (a.therapistName || '').localeCompare(b.therapistName || '', 'es', { sensitivity: 'base' });
+                    break;
+                case 'amount':
+                    comp = (a.amount || 0) - (b.amount || 0);
+                    break;
+                case 'status':
+                    comp = (a.status || '').localeCompare(b.status || '');
+                    break;
+                case 'method':
+                    comp = (a.method || '').localeCompare(b.method || '');
+                    break;
+                case 'reconciled': {
+                    const recA = a.isReconciled ? 1 : 0;
+                    const recB = b.isReconciled ? 1 : 0;
+                    comp = recA - recB;
+                    break;
+                }
+                default:
+                    comp = (a.date || '').localeCompare(b.date || '');
+            }
+            return otherSortOrder === 'asc' ? comp : -comp;
+        });
+
     const handleQuickChangeMethod = async (t: Transaction, newMethod: PaymentMethod) => {
         if (t.method === newMethod) return;
 
@@ -726,7 +866,7 @@ const BillingView: React.FC = () => {
 
     const exportReconciliationToExcel = (
         txList: Transaction[],
-        type: 'CARD' | 'TRANSFER',
+        type: 'CARD' | 'TRANSFER' | 'OTHER',
         scope: 'MONTH' | 'ALL_PENDING',
         month: string,
         filterChildName?: string
@@ -736,7 +876,7 @@ const BillingView: React.FC = () => {
             return;
         }
 
-        const typeLabel = type === 'CARD' ? 'Datafono' : 'Transferencias';
+        const typeLabel = type === 'CARD' ? 'Datafono' : type === 'TRANSFER' ? 'Transferencias' : 'Efectivo_Otras';
 
         const rows: any[] = txList.map((t, idx) => {
             let dateFormatted = t.date;
@@ -761,7 +901,7 @@ const BillingView: React.FC = () => {
                 'Terapeuta': t.therapistName || 'Sin asignar',
                 'Importe (€)': Number((t.amount || 0).toFixed(2)),
                 'Estado Cobro': t.status || 'Pagado',
-                'Forma de Pago': t.method || (type === 'CARD' ? 'Tarjeta' : 'Transferencia'),
+                'Forma de Pago': t.method || (type === 'CARD' ? 'Tarjeta' : type === 'TRANSFER' ? 'Transferencia' : 'Efectivo'),
                 'Estado Cotejo': t.isReconciled ? 'Cotejado' : 'Pendiente',
             };
         });
@@ -799,7 +939,7 @@ const BillingView: React.FC = () => {
         ];
 
         const workbook = XLSX.utils.book_new();
-        const sheetName = type === 'CARD' ? 'Cotejo Datáfono' : 'Cotejo Transferencias';
+        const sheetName = type === 'CARD' ? 'Cotejo Datáfono' : type === 'TRANSFER' ? 'Cotejo Transferencias' : 'Cotejo Otras Formas';
         XLSX.utils.book_append_sheet(workbook, worksheet, sheetName);
 
         // Nombre de archivo descriptivo
@@ -1061,7 +1201,7 @@ const BillingView: React.FC = () => {
                 <InvoiceList onPrint={handlePrintInvoice} patients={patients} />
             ) : activeTab === 'RECONCILIATION' ? (
                 <div className="reconciliation-view">
-                    {/* Sub-pestañas: Datáfono / Tarjetas vs Transferencias */}
+                    {/* Sub-pestañas: Datáfono / Tarjetas vs Transferencias vs Otras Formas */}
                     <div className="reconciliation-subtabs">
                         <button
                             className={`reconcile-subtab-btn ${reconciliationType === 'CARD' ? 'active' : ''}`}
@@ -1084,6 +1224,18 @@ const BillingView: React.FC = () => {
                             {transferMonthPendingCount > 0 && (
                                 <span style={{ fontSize: '0.72rem', background: '#fef3c7', color: '#b45309', padding: '1px 6px', borderRadius: '10px', fontWeight: 700 }}>
                                     {transferMonthPendingCount}
+                                </span>
+                            )}
+                        </button>
+                        <button
+                            className={`reconcile-subtab-btn ${reconciliationType === 'OTHER' ? 'active' : ''}`}
+                            onClick={() => setReconciliationType('OTHER')}
+                        >
+                            <Banknote size={18} />
+                            Otras Formas (Efectivo / Fin de mes)
+                            {otherMonthPendingCount > 0 && (
+                                <span style={{ fontSize: '0.72rem', background: '#fef3c7', color: '#b45309', padding: '1px 6px', borderRadius: '10px', fontWeight: 700 }}>
+                                    {otherMonthPendingCount}
                                 </span>
                             )}
                         </button>
@@ -1568,7 +1720,7 @@ const BillingView: React.FC = () => {
                                 </table>
                             </div>
                         </div>
-                    ) : (
+                    ) : reconciliationType === 'TRANSFER' ? (
                         <div className="transfer-reconciliation-view">
                             {/* Resumen del mes */}
                             <div className="reconcile-stats-grid">
@@ -2039,6 +2191,466 @@ const BillingView: React.FC = () => {
                                                                 Pasar a Transferencia
                                                             </button>
                                                         )}
+                                                    </td>
+                                                </tr>
+                                            ))
+                                        )}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    ) : (
+                        <div className="other-reconciliation-view">
+                            {/* Resumen del mes */}
+                            <div className="reconcile-stats-grid">
+                                <div
+                                    className={`reconcile-stat-card clickable ${otherScope === 'MONTH' && otherReconciledFilter === 'ALL' ? 'active-filter' : ''}`}
+                                    onClick={() => { setOtherScope('MONTH'); setOtherReconciledFilter('ALL'); }}
+                                    title="Clic para ver todos los cobros en efectivo o fin de mes de este mes"
+                                >
+                                    <div className="reconcile-stat-icon other-total">
+                                        <Banknote size={22} />
+                                    </div>
+                                    <div className="reconcile-stat-info">
+                                        <div className="label">
+                                            Total Otras Formas ({format(parse(reconciliationMonth, 'yyyy-MM', new Date()), "MMMM yyyy", { locale: es })})
+                                        </div>
+                                        <div className="value">{otherMonthTotal.toFixed(2)}€</div>
+                                        <div className="sub">{otherMonthCount} cobros ({otherMonthCashCount} efectivo, {otherMonthFinDeMesCount} fin de mes)</div>
+                                    </div>
+                                </div>
+
+                                <div
+                                    className={`reconcile-stat-card clickable ${otherScope === 'MONTH' && otherReconciledFilter === 'VERIFIED' ? 'active-filter verified' : ''}`}
+                                    onClick={() => { setOtherScope('MONTH'); setOtherReconciledFilter('VERIFIED'); }}
+                                    title="Clic para ver los cobros ya cotejados"
+                                >
+                                    <div className="reconcile-stat-icon other-verified">
+                                        <CheckCircle size={22} />
+                                    </div>
+                                    <div className="reconcile-stat-info">
+                                        <div className="label">Cobros Cotejados</div>
+                                        <div className="value" style={{ color: '#059669' }}>{otherMonthVerifiedTotal.toFixed(2)}€</div>
+                                        <div className="sub">{otherMonthVerifiedCount} verificados (clic para ver)</div>
+                                    </div>
+                                </div>
+
+                                <div
+                                    className={`reconcile-stat-card clickable ${otherScope === 'MONTH' && otherReconciledFilter === 'PENDING' ? 'active-filter pending' : ''}`}
+                                    onClick={() => { setOtherScope('MONTH'); setOtherReconciledFilter('PENDING'); }}
+                                    title="Clic para ver los cobros pendientes de cotejar"
+                                >
+                                    <div className="reconcile-stat-icon other-pending">
+                                        <Clock size={22} />
+                                    </div>
+                                    <div className="reconcile-stat-info">
+                                        <div className="label flex items-center justify-between">
+                                            <span>Pendientes de Cotejo</span>
+                                            {otherMonthPendingCount > 0 && <span className="text-[10px] bg-amber-100 text-amber-800 font-bold px-1.5 py-0.5 rounded-full">¡Revisar!</span>}
+                                        </div>
+                                        <div className="value" style={{ color: '#d97706' }}>{otherMonthPendingTotal.toFixed(2)}€</div>
+                                        <div className="sub font-semibold" style={{ color: '#b45309' }}>
+                                            {otherMonthPendingCount} pendientes (👉 Clic para listar)
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* Barra Superior de Periodo y Ámbito */}
+                            <div className="reconcile-filter-bar">
+                                {/* Selector de Ámbito */}
+                                <div className="scope-toggle-pills">
+                                    <button
+                                        type="button"
+                                        className={`scope-pill-btn ${otherScope === 'MONTH' ? 'active' : ''}`}
+                                        onClick={() => setOtherScope('MONTH')}
+                                        title="Ver cobros de efectivo y fin de mes del mes seleccionado"
+                                    >
+                                        📅 Por Mes
+                                    </button>
+                                    <button
+                                        type="button"
+                                        className={`scope-pill-btn ${otherScope === 'ALL_PENDING' ? 'active' : ''}`}
+                                        onClick={() => setOtherScope('ALL_PENDING')}
+                                        title="Ver todos los cobros pendientes de cotejar de todo el centro"
+                                    >
+                                        ⚡ Todas las Pendientes ({allPendingOtherCount})
+                                    </button>
+                                </div>
+
+                                {otherScope === 'MONTH' && (
+                                    <div className="flex items-center gap-2">
+                                        <span className="text-xs font-bold uppercase text-secondary">Mes:</span>
+                                        <div className="month-navigator">
+                                            <button className="month-nav-btn" onClick={handlePrevMonth} title="Mes anterior">
+                                                <ChevronLeft size={16} />
+                                            </button>
+                                            <input
+                                                type="month"
+                                                className="month-input-clean"
+                                                value={reconciliationMonth}
+                                                onChange={(e) => setReconciliationMonth(e.target.value)}
+                                            />
+                                            <button className="month-nav-btn" onClick={handleNextMonth} title="Mes siguiente">
+                                                <ChevronRight size={16} />
+                                            </button>
+                                        </div>
+                                    </div>
+                                )}
+
+                                {/* Resumen, Limpieza y Descarga Excel */}
+                                <div className="reconcile-counter-badge ml-auto flex items-center gap-2">
+                                    <span className="text-xs text-secondary font-medium">
+                                        Mostrando <strong>{filteredOtherTransactions.length}</strong> de {otherSourceTransactions.length} cobros
+                                    </span>
+                                    {hasActiveOtherFilters && (
+                                        <button
+                                            type="button"
+                                            className="th-clear-filters-btn active"
+                                            onClick={handleResetOtherFilters}
+                                            title="Restablecer todos los filtros de la tabla"
+                                        >
+                                            <RotateCcw size={12} /> Limpiar filtros
+                                        </button>
+                                    )}
+                                    <button
+                                        type="button"
+                                        className="btn-export-excel"
+                                        onClick={() => exportReconciliationToExcel(filteredOtherTransactions, 'OTHER', otherScope, reconciliationMonth, otherSearchChild)}
+                                        title={`Descargar ${filteredOtherTransactions.length} cobros a Excel (.xlsx)`}
+                                    >
+                                        <FileSpreadsheet size={15} />
+                                        <span>Exportar Excel</span>
+                                    </button>
+                                </div>
+                            </div>
+
+                            {/* Banner cuando se visualizan Todas las pendientes globales */}
+                            {otherScope === 'ALL_PENDING' && (
+                                <div className="scope-all-pending-banner">
+                                    <div className="flex items-center gap-2">
+                                        <Clock size={18} className="text-amber-600 flex-shrink-0" />
+                                        <div>
+                                            <span className="font-bold text-amber-900 text-sm">
+                                                Listado Global de Cobros Pendientes de Cotejar:
+                                            </span>
+                                            <span className="text-amber-800 text-sm ml-2">
+                                                {allPendingOtherCount} cobros (efectivo/fin de mes) sin verificar en todo el centro ({allPendingOtherTotal.toFixed(2)}€).
+                                            </span>
+                                        </div>
+                                    </div>
+                                    <button
+                                        type="button"
+                                        className="btn-secondary micro"
+                                        onClick={() => setOtherScope('MONTH')}
+                                    >
+                                        Volver a vista por mes
+                                    </button>
+                                </div>
+                            )}
+
+                            {/* Banner cuando se filtra por un niño */}
+                            {otherSearchChild.trim() && (
+                                <div className="child-banner-info">
+                                    <div className="text-sm">
+                                        <span>Resultados para <strong>"{otherSearchChild}"</strong>: </span>
+                                        <span className="font-bold text-primary">{filteredOtherTransactions.length} pagos encontrados ({filteredOtherTransactions.reduce((acc, t) => acc + (t.amount || 0), 0).toFixed(2)}€)</span>
+                                        <span className="text-secondary ml-2">
+                                            ({filteredOtherTransactions.filter(t => t.isReconciled).length} cotejadas, {filteredOtherTransactions.filter(t => !t.isReconciled).length} pendientes)
+                                        </span>
+                                    </div>
+                                    <div className="flex items-center gap-2">
+                                        {otherMethodFilter === 'ALL_OTHER' && allTransactionsMonth.some(t => (t.method === 'Tarjeta' || t.method === 'Transferencia') && normalizeSearch(t.patientName).includes(normalizeSearch(otherSearchChild))) && (
+                                            <button
+                                                className="btn-secondary micro"
+                                                onClick={() => setOtherMethodFilter('ALL')}
+                                            >
+                                                🔍 Ver otros métodos de este niño
+                                            </button>
+                                        )}
+                                        {filteredOtherTransactions.some(t => !t.isReconciled) && (
+                                            <button
+                                                className="btn-primary micro flex items-center gap-1"
+                                                onClick={() => handleBatchReconcileShown(filteredOtherTransactions)}
+                                            >
+                                                <CheckCheck size={14} />
+                                                Cotejar cobros de este niño
+                                            </button>
+                                        )}
+                                    </div>
+                                </div>
+                            )}
+
+                            {/* Tabla de cobros por otras formas */}
+                            <div className="billing-table-wrapper">
+                                <table className="billing-table">
+                                    <thead>
+                                        {/* Fila 1: Cabeceras Ordenables con Clic */}
+                                        <tr className="tr-header-sort">
+                                            <th style={{ width: '125px' }} className="th-sortable" onClick={() => handleToggleOtherSort('date')} title="Clic para ordenar por Fecha y Hora">
+                                                <div className="th-sort-btn">
+                                                    <span>Fecha y Hora</span>
+                                                    {renderOtherSortIcon('date')}
+                                                </div>
+                                            </th>
+                                            <th className="th-sortable" onClick={() => handleToggleOtherSort('patient')} title="Clic para ordenar alfabéticamente por Niño">
+                                                <div className="th-sort-btn">
+                                                    <span>Niño / Paciente</span>
+                                                    {renderOtherSortIcon('patient')}
+                                                </div>
+                                            </th>
+                                            <th style={{ width: '150px' }} className="th-sortable" onClick={() => handleToggleOtherSort('therapist')} title="Clic para ordenar por Terapeuta">
+                                                <div className="th-sort-btn">
+                                                    <span>Terapeuta</span>
+                                                    {renderOtherSortIcon('therapist')}
+                                                </div>
+                                            </th>
+                                            <th style={{ width: '90px' }} className="th-sortable" onClick={() => handleToggleOtherSort('amount')} title="Clic para ordenar por Importe">
+                                                <div className="th-sort-btn">
+                                                    <span>Importe</span>
+                                                    {renderOtherSortIcon('amount')}
+                                                </div>
+                                            </th>
+                                            <th style={{ width: '105px' }} className="th-sortable" onClick={() => handleToggleOtherSort('status')} title="Clic para ordenar por Estado">
+                                                <div className="th-sort-btn">
+                                                    <span>Estado</span>
+                                                    {renderOtherSortIcon('status')}
+                                                </div>
+                                            </th>
+                                            <th style={{ width: '150px' }} className="th-sortable" onClick={() => handleToggleOtherSort('method')} title="Clic para ordenar por Forma de Pago">
+                                                <div className="th-sort-btn">
+                                                    <span>Forma de Pago</span>
+                                                    {renderOtherSortIcon('method')}
+                                                </div>
+                                            </th>
+                                            <th style={{ width: '160px' }} className="th-sortable" onClick={() => handleToggleOtherSort('reconciled')} title="Clic para ordenar por Estado de Cotejo">
+                                                <div className="th-sort-btn">
+                                                    <span>Estado Cotejo</span>
+                                                    {renderOtherSortIcon('reconciled')}
+                                                </div>
+                                            </th>
+                                            <th style={{ width: '125px', textAlign: 'right' }}>
+                                                <span>Acción</span>
+                                            </th>
+                                        </tr>
+
+                                        {/* Fila 2: Cabeceras con Filtros Integrados */}
+                                        <tr className="tr-filter-header">
+                                            {/* Filtro Fecha y Hora */}
+                                            <th>
+                                                <span className="th-filter-hint">Ordenar ↕</span>
+                                            </th>
+
+                                            {/* Filtro Niño / Paciente */}
+                                            <th>
+                                                <div className="th-filter-input-wrapper">
+                                                    <Search size={13} className="th-filter-icon" />
+                                                    <input
+                                                        type="text"
+                                                        className="th-filter-input"
+                                                        placeholder="Filtrar por niño..."
+                                                        value={otherSearchChild}
+                                                        onChange={(e) => setOtherSearchChild(e.target.value)}
+                                                        title="Filtrar por nombre o apellido de niño"
+                                                    />
+                                                    {otherSearchChild && (
+                                                        <button
+                                                            type="button"
+                                                            className="th-filter-clear-btn"
+                                                            onClick={() => setOtherSearchChild('')}
+                                                            title="Borrar filtro de niño"
+                                                        >
+                                                            <X size={12} />
+                                                        </button>
+                                                    )}
+                                                </div>
+                                            </th>
+
+                                            {/* Filtro Terapeuta */}
+                                            <th>
+                                                <select
+                                                    className="th-filter-select"
+                                                    value={otherTherapistFilter}
+                                                    onChange={(e) => setOtherTherapistFilter(e.target.value)}
+                                                    title="Filtrar por terapeuta"
+                                                >
+                                                    <option value="ALL">Todos ({uniqueOtherTherapists.length})</option>
+                                                    {uniqueOtherTherapists.map(name => (
+                                                        <option key={name} value={name}>{name}</option>
+                                                    ))}
+                                                </select>
+                                            </th>
+
+                                            {/* Filtro Importe */}
+                                            <th>
+                                                <span className="th-filter-hint">—</span>
+                                            </th>
+
+                                            {/* Filtro Estado */}
+                                            <th>
+                                                <select
+                                                    className="th-filter-select"
+                                                    value={otherStatusFilter}
+                                                    onChange={(e) => setOtherStatusFilter(e.target.value as any)}
+                                                    title="Filtrar por estado del cobro"
+                                                >
+                                                    <option value="ALL">Todos</option>
+                                                    <option value="Pagado">Pagado</option>
+                                                    <option value="Pendiente">Pendiente</option>
+                                                </select>
+                                            </th>
+
+                                            {/* Filtro Forma de Pago */}
+                                            <th>
+                                                {otherScope === 'ALL_PENDING' ? (
+                                                    <span className="th-filter-locked" title="En ámbito global se listan las formas pendientes no bancarias">
+                                                        💵/📅 Efectivo/Fin mes
+                                                    </span>
+                                                ) : (
+                                                    <select
+                                                        className="th-filter-select"
+                                                        value={otherMethodFilter}
+                                                        onChange={(e) => setOtherMethodFilter(e.target.value as any)}
+                                                        title="Filtrar por forma de pago"
+                                                    >
+                                                        <option value="ALL_OTHER">💵/📅 Efectivo y Fin de mes</option>
+                                                        <option value="Efectivo">💵 Solo Efectivo</option>
+                                                        <option value="Fin de mes">📅 Solo Fin de mes</option>
+                                                        <option value="ALL">🔍 Todas (incl. Tarjeta/Transf.)</option>
+                                                    </select>
+                                                )}
+                                            </th>
+
+                                            {/* Filtro Estado Cotejo */}
+                                            <th>
+                                                {otherScope === 'ALL_PENDING' ? (
+                                                    <span className="th-filter-locked" title="En ámbito global todas las citas mostradas están pendientes de cotejar">
+                                                        ⚠️ Pendientes
+                                                    </span>
+                                                ) : (
+                                                    <select
+                                                        className="th-filter-select"
+                                                        value={otherReconciledFilter}
+                                                        onChange={(e) => setOtherReconciledFilter(e.target.value as any)}
+                                                        title="Filtrar por estado de cotejo"
+                                                    >
+                                                        <option value="ALL">Todos</option>
+                                                        <option value="PENDING">⚠️ Pendientes</option>
+                                                        <option value="VERIFIED">✅ Cotejadas</option>
+                                                    </select>
+                                                )}
+                                            </th>
+
+                                            {/* Acción: Botón Limpiar filtros si hay alguno activo */}
+                                            <th style={{ textAlign: 'right' }}>
+                                                {hasActiveOtherFilters ? (
+                                                    <button
+                                                        type="button"
+                                                        className="th-clear-filters-btn active"
+                                                        onClick={handleResetOtherFilters}
+                                                        title="Limpiar todos los filtros"
+                                                    >
+                                                        <RotateCcw size={12} /> Limpiar
+                                                    </button>
+                                                ) : (
+                                                    <span className="th-filter-hint">Filtros</span>
+                                                )}
+                                            </th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {filteredOtherTransactions.length === 0 ? (
+                                            <tr>
+                                                <td colSpan={8} className="text-center py-8 text-secondary">
+                                                    {otherSearchChild
+                                                        ? `No se encontraron cobros para "${otherSearchChild}" con los filtros seleccionados.`
+                                                        : `No hay cobros registrados con los filtros seleccionados en este periodo.`}
+                                                </td>
+                                            </tr>
+                                        ) : (
+                                            filteredOtherTransactions.map(t => (
+                                                <tr key={t.id} style={{ opacity: t.isReconciled ? 0.75 : 1 }}>
+                                                    <td>
+                                                        <div style={{ fontWeight: 600, color: '#1e293b', fontSize: '0.85rem' }}>
+                                                            {(() => {
+                                                                try {
+                                                                    const d = parseISO(t.date);
+                                                                    return isValid(d) ? format(d, 'dd/MM/yyyy') : t.date;
+                                                                } catch {
+                                                                    return t.date;
+                                                                }
+                                                            })()}
+                                                        </div>
+                                                        {t.date && t.date.includes('T') && !t.date.includes('T00:00:00') && (
+                                                            <div style={{ fontSize: '0.75rem', color: '#64748b' }}>
+                                                                {(() => {
+                                                                    try {
+                                                                        const d = parseISO(t.date);
+                                                                        return isValid(d) ? format(d, 'HH:mm') : '';
+                                                                    } catch {
+                                                                        return '';
+                                                                    }
+                                                                })()}
+                                                            </div>
+                                                        )}
+                                                    </td>
+                                                    <td style={{ fontWeight: 600 }}>{t.patientName}</td>
+                                                    <td className="text-secondary text-sm">{t.therapistName || '—'}</td>
+                                                    <td className="amount-text">
+                                                        <div className="flex items-center gap-1">
+                                                            <input
+                                                                key={`amt-${t.id}-${t.amount}`}
+                                                                type="number"
+                                                                className="reconcile-amount-input"
+                                                                defaultValue={t.amount}
+                                                                onBlur={(e) => handleQuickChangeAmount(t, Number(e.target.value))}
+                                                                style={{ width: '56px', padding: '0.2rem 0.35rem', borderRadius: '6px', border: '1px solid #cbd5e1', fontWeight: 700, fontSize: '0.85rem' }}
+                                                                title="Modificar importe de la cita / cobro"
+                                                            />
+                                                            <span className="text-secondary text-xs">€</span>
+                                                        </div>
+                                                    </td>
+                                                    <td>
+                                                        <span className={`badge ${t.status === 'Pagado' ? 'badge-success' : 'badge-warning'}`} style={{ whiteSpace: 'nowrap' }}>
+                                                            {t.status}
+                                                        </span>
+                                                    </td>
+                                                    <td>
+                                                        <select
+                                                            className="reconcile-method-select"
+                                                            value={t.method || 'Efectivo'}
+                                                            onChange={(e) => handleQuickChangeMethod(t, e.target.value as PaymentMethod)}
+                                                            title="Cambiar forma de pago si hubo un error en admin"
+                                                        >
+                                                            <option value="Efectivo">💵 Efectivo</option>
+                                                            <option value="Fin de mes">📅 Fin de mes</option>
+                                                            <option value="Tarjeta">💳 Tarjeta</option>
+                                                            <option value="Transferencia">🏦 Transferencia</option>
+                                                        </select>
+                                                    </td>
+                                                    <td>
+                                                        {t.isReconciled ? (
+                                                            <span className="flex items-center gap-1 text-success font-semibold text-xs bg-emerald-50 px-2 py-1 rounded-md border border-emerald-100" style={{ width: 'fit-content', whiteSpace: 'nowrap' }}>
+                                                                <CheckCircle size={14} /> Cotejado
+                                                            </span>
+                                                        ) : (
+                                                            <span className="flex items-center gap-1 text-amber-600 font-semibold text-xs bg-amber-50 px-2 py-1 rounded-md border border-amber-100" style={{ width: 'fit-content', whiteSpace: 'nowrap' }}>
+                                                                <Clock size={14} /> Pendiente
+                                                            </span>
+                                                        )}
+                                                    </td>
+                                                    <td style={{ textAlign: 'right', whiteSpace: 'nowrap' }}>
+                                                        <button
+                                                            className={`btn-reconcile-action ${t.isReconciled ? 'action-unverify' : 'action-verify'}`}
+                                                            onClick={() => handleToggleReconciliation(t.id, t.isReconciled ?? false)}
+                                                            style={{ whiteSpace: 'nowrap' }}
+                                                        >
+                                                            {t.isReconciled ? (
+                                                                <>Desmarcar</>
+                                                            ) : (
+                                                                <><CheckCircle size={14} /> Cotejar</>
+                                                            )}
+                                                        </button>
                                                     </td>
                                                 </tr>
                                             ))

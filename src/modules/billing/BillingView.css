@@ -935,3 +935,27 @@
     background: #e2e8f0;
     color: #1e293b;
 }
+
+.reconcile-method-select {
+    padding: 0.35rem 0.6rem;
+    border-radius: 8px;
+    border: 1px solid #cbd5e1;
+    background-color: #f8fafc;
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: #1e293b;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    outline: none;
+}
+
+.reconcile-method-select:hover {
+    border-color: #1A5F7A;
+    background-color: white;
+}
+
+.reconcile-method-select:focus {
+    border-color: #1A5F7A;
+    background-color: white;
+    box-shadow: 0 0 0 2px rgba(26, 95, 122, 0.15);
+}

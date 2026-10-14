@@ -44,6 +44,7 @@ const BillingView: React.FC = () => {
     const [reconciliationMonth, setReconciliationMonth] = useState<string>(format(new Date(), 'yyyy-MM'));
     const [cardSearchChild, setCardSearchChild] = useState<string>('');
     const [cardReconciledFilter, setCardReconciledFilter] = useState<'ALL' | 'PENDING' | 'VERIFIED'>('ALL');
+    const [cardMethodFilter, setCardMethodFilter] = useState<'CARD_ONLY' | 'ALL' | 'Efectivo' | 'Transferencia'>('CARD_ONLY');
 
     // Transaction Modals
     const [isEditModalOpen, setIsEditModalOpen] = useState(false);
@@ -384,12 +385,14 @@ const BillingView: React.FC = () => {
         }
     };
 
-    // Cobros con tarjeta del mes seleccionado para cotejo
-    const cardTransactionsMonth = transactions.filter(t => {
-        if (t.method !== 'Tarjeta') return false;
+    // Todas las transacciones del mes seleccionado
+    const allTransactionsMonth = transactions.filter(t => {
         const txDate = t.date || '';
         return txDate.startsWith(reconciliationMonth);
     });
+
+    // Cobros con tarjeta del mes para las métricas de cuadre del Datáfono
+    const cardTransactionsMonth = allTransactionsMonth.filter(t => t.method === 'Tarjeta');
 
     const cardMonthTotal = cardTransactionsMonth.reduce((acc, t) => acc + (t.amount || 0), 0);
     const cardMonthCount = cardTransactionsMonth.length;
@@ -402,7 +405,13 @@ const BillingView: React.FC = () => {
     const cardMonthPendingTotal = cardMonthPending.reduce((acc, t) => acc + (t.amount || 0), 0);
     const cardMonthPendingCount = cardMonthPending.length;
 
-    const filteredCardTransactions = cardTransactionsMonth
+    // Transacciones filtradas según método seleccionado (Tarjeta por defecto, o Todas para corregir errores)
+    const filteredCardTransactions = allTransactionsMonth
+        .filter(t => {
+            if (cardMethodFilter === 'CARD_ONLY') return t.method === 'Tarjeta';
+            if (cardMethodFilter === 'ALL') return true;
+            return t.method === cardMethodFilter;
+        })
         .filter(t => {
             if (cardReconciledFilter === 'PENDING') return !t.isReconciled;
             if (cardReconciledFilter === 'VERIFIED') return t.isReconciled;
@@ -415,6 +424,34 @@ const BillingView: React.FC = () => {
             return searchTokens.every(token => pNorm.includes(token));
         })
         .sort((a, b) => b.date.localeCompare(a.date));
+
+    const handleQuickChangeMethod = async (t: Transaction, newMethod: PaymentMethod) => {
+        if (t.method === newMethod) return;
+
+        const updatedTx: Transaction = {
+            ...t,
+            method: newMethod,
+            // Si deja de ser tarjeta, desmarcar cotejo si estaba marcado
+            isReconciled: newMethod === 'Tarjeta' ? t.isReconciled : false
+        };
+
+        // Actualización optimista inmediata
+        setTransactions(prev => prev.map(item => item.id === t.id ? updatedTx : item));
+
+        try {
+            const success = await updateTransaction(updatedTx);
+            if (!success) {
+                setTransactions(prev => prev.map(item => item.id === t.id ? t : item));
+                showToast("Error al actualizar la forma de pago", "error");
+            } else {
+                showToast(`Forma de pago de ${t.patientName || 'cita'} actualizada a ${newMethod}`, "success");
+            }
+        } catch (error) {
+            console.error("Error updating payment method:", error);
+            setTransactions(prev => prev.map(item => item.id === t.id ? t : item));
+            showToast("Error al actualizar la forma de pago", "error");
+        }
+    };
 
     const handleBatchReconcileShown = async (txList: Transaction[]) => {
         const toReconcile = txList.filter(t => !t.isReconciled);
@@ -776,6 +813,22 @@ const BillingView: React.FC = () => {
                                     )}
                                 </div>
 
+                                {/* Filtro de Forma de Pago (Para ver Tarjetas o Todos los métodos por si hubo error en admin) */}
+                                <div className="flex items-center gap-2">
+                                    <span className="text-xs font-bold uppercase text-secondary">Ver:</span>
+                                    <select
+                                        className="date-input-clean"
+                                        value={cardMethodFilter}
+                                        onChange={(e) => setCardMethodFilter(e.target.value as any)}
+                                        style={{ background: '#f8fafc', padding: '0.45rem 0.8rem', borderRadius: '10px', border: '1px solid #e2e8f0', fontWeight: 600 }}
+                                    >
+                                        <option value="CARD_ONLY">💳 Solo Tarjetas ({cardMonthCount})</option>
+                                        <option value="ALL">🔍 Todas las formas de pago ({allTransactionsMonth.length})</option>
+                                        <option value="Efectivo">💵 Solo Efectivo ({allTransactionsMonth.filter(t => t.method === 'Efectivo').length})</option>
+                                        <option value="Transferencia">🏦 Solo Transferencia ({allTransactionsMonth.filter(t => t.method === 'Transferencia').length})</option>
+                                    </select>
+                                </div>
+
                                 {/* Filtro de Estado de Cotejo */}
                                 <div className="flex items-center gap-2">
                                     <select
@@ -784,7 +837,7 @@ const BillingView: React.FC = () => {
                                         onChange={(e) => setCardReconciledFilter(e.target.value as any)}
                                         style={{ background: '#f8fafc', padding: '0.45rem 0.8rem', borderRadius: '10px', border: '1px solid #e2e8f0' }}
                                     >
-                                        <option value="ALL">Todos los tickets ({cardMonthCount})</option>
+                                        <option value="ALL">Todos los estados</option>
                                         <option value="PENDING">⚠️ Pendientes ({cardMonthPendingCount})</option>
                                         <option value="VERIFIED">✅ Cotejados ({cardMonthVerifiedCount})</option>
                                     </select>
@@ -798,18 +851,30 @@ const BillingView: React.FC = () => {
                                         <span>Resultados para <strong>"{cardSearchChild}"</strong>: </span>
                                         <span className="font-bold text-primary">{filteredCardTransactions.length} pagos encontrados ({filteredCardTransactions.reduce((acc, t) => acc + t.amount, 0).toFixed(2)}€)</span>
                                         <span className="text-secondary ml-2">
-                                            ({filteredCardTransactions.filter(t => t.isReconciled).length} cotejados, {filteredCardTransactions.filter(t => !t.isReconciled).length} pendientes)
+                                            ({filteredCardTransactions.filter(t => t.method === 'Tarjeta' && t.isReconciled).length} cotejados, {filteredCardTransactions.filter(t => t.method === 'Tarjeta' && !t.isReconciled).length} pendientes de tarjeta
+                                            {filteredCardTransactions.some(t => t.method !== 'Tarjeta') && `, ${filteredCardTransactions.filter(t => t.method !== 'Tarjeta').length} con otro método`}
+                                            )
                                         </span>
                                     </div>
-                                    {filteredCardTransactions.some(t => !t.isReconciled) && (
-                                        <button
-                                            className="btn-primary micro flex items-center gap-1"
-                                            onClick={() => handleBatchReconcileShown(filteredCardTransactions)}
-                                        >
-                                            <CheckCheck size={14} />
-                                            Cotejar todos los de este niño
-                                        </button>
-                                    )}
+                                    <div className="flex items-center gap-2">
+                                        {cardMethodFilter === 'CARD_ONLY' && allTransactionsMonth.some(t => t.method !== 'Tarjeta' && normalizeSearch(t.patientName).includes(normalizeSearch(cardSearchChild))) && (
+                                            <button
+                                                className="btn-secondary micro"
+                                                onClick={() => setCardMethodFilter('ALL')}
+                                            >
+                                                🔍 Ver otros métodos de este niño
+                                            </button>
+                                        )}
+                                        {filteredCardTransactions.some(t => t.method === 'Tarjeta' && !t.isReconciled) && (
+                                            <button
+                                                className="btn-primary micro flex items-center gap-1"
+                                                onClick={() => handleBatchReconcileShown(filteredCardTransactions.filter(t => t.method === 'Tarjeta'))}
+                                            >
+                                                <CheckCheck size={14} />
+                                                Cotejar tarjetas de este niño
+                                            </button>
+                                        )}
+                                    </div>
                                 </div>
                             )}
 
@@ -823,6 +888,7 @@ const BillingView: React.FC = () => {
                                             <th>Terapeuta</th>
                                             <th>Importe</th>
                                             <th>Estado de Pago</th>
+                                            <th>Forma de Pago</th>
                                             <th>Cotejo Datáfono</th>
                                             <th style={{ textAlign: 'right' }}>Acción</th>
                                         </tr>
@@ -830,10 +896,10 @@ const BillingView: React.FC = () => {
                                     <tbody>
                                         {filteredCardTransactions.length === 0 ? (
                                             <tr>
-                                                <td colSpan={7} className="text-center py-8 text-secondary">
+                                                <td colSpan={8} className="text-center py-8 text-secondary">
                                                     {cardSearchChild
-                                                        ? `No se encontraron cobros con tarjeta para "${cardSearchChild}" en este mes.`
-                                                        : `No hay cobros con tarjeta registrados en este periodo.`}
+                                                        ? `No se encontraron cobros para "${cardSearchChild}" con los filtros seleccionados.`
+                                                        : `No hay cobros registrados con los filtros seleccionados en este periodo.`}
                                                 </td>
                                             </tr>
                                         ) : (
@@ -849,27 +915,56 @@ const BillingView: React.FC = () => {
                                                         </span>
                                                     </td>
                                                     <td>
-                                                        {t.isReconciled ? (
-                                                            <span className="flex items-center gap-1 text-success font-semibold text-xs bg-emerald-50 px-2 py-1 rounded-md border border-emerald-100" style={{ width: 'fit-content' }}>
-                                                                <CheckCircle size={14} /> Cotejado
-                                                            </span>
+                                                        <select
+                                                            className="reconcile-method-select"
+                                                            value={t.method || 'Tarjeta'}
+                                                            onChange={(e) => handleQuickChangeMethod(t, e.target.value as PaymentMethod)}
+                                                            title="Cambiar forma de pago si hubo un error en admin"
+                                                        >
+                                                            <option value="Tarjeta">💳 Tarjeta</option>
+                                                            <option value="Efectivo">💵 Efectivo</option>
+                                                            <option value="Transferencia">🏦 Transferencia</option>
+                                                            <option value="Fin de mes">📅 Fin de mes</option>
+                                                        </select>
+                                                    </td>
+                                                    <td>
+                                                        {t.method === 'Tarjeta' ? (
+                                                            t.isReconciled ? (
+                                                                <span className="flex items-center gap-1 text-success font-semibold text-xs bg-emerald-50 px-2 py-1 rounded-md border border-emerald-100" style={{ width: 'fit-content' }}>
+                                                                    <CheckCircle size={14} /> Cotejado
+                                                                </span>
+                                                            ) : (
+                                                                <span className="flex items-center gap-1 text-amber-600 font-semibold text-xs bg-amber-50 px-2 py-1 rounded-md border border-amber-100" style={{ width: 'fit-content' }}>
+                                                                    <Clock size={14} /> Pendiente de ticket
+                                                                </span>
+                                                            )
                                                         ) : (
-                                                            <span className="flex items-center gap-1 text-amber-600 font-semibold text-xs bg-amber-50 px-2 py-1 rounded-md border border-amber-100" style={{ width: 'fit-content' }}>
-                                                                <Clock size={14} /> Pendiente de ticket
+                                                            <span className="text-secondary text-xs italic opacity-75">
+                                                                No aplica ({t.method})
                                                             </span>
                                                         )}
                                                     </td>
                                                     <td style={{ textAlign: 'right' }}>
-                                                        <button
-                                                            className={`btn-reconcile-action ${t.isReconciled ? 'action-unverify' : 'action-verify'}`}
-                                                            onClick={() => handleToggleReconciliation(t.id, t.isReconciled ?? false)}
-                                                        >
-                                                            {t.isReconciled ? (
-                                                                <>Desmarcar</>
-                                                            ) : (
-                                                                <><CheckCircle size={14} /> Cotejar</>
-                                                            )}
-                                                        </button>
+                                                        {t.method === 'Tarjeta' ? (
+                                                            <button
+                                                                className={`btn-reconcile-action ${t.isReconciled ? 'action-unverify' : 'action-verify'}`}
+                                                                onClick={() => handleToggleReconciliation(t.id, t.isReconciled ?? false)}
+                                                            >
+                                                                {t.isReconciled ? (
+                                                                    <>Desmarcar</>
+                                                                ) : (
+                                                                    <><CheckCircle size={14} /> Cotejar</>
+                                                                )}
+                                                            </button>
+                                                        ) : (
+                                                            <button
+                                                                className="btn-secondary micro"
+                                                                onClick={() => handleQuickChangeMethod(t, 'Tarjeta')}
+                                                                title="Cambiar a Tarjeta para poder cotejar el ticket de datáfono"
+                                                            >
+                                                                Pasar a Tarjeta
+                                                            </button>
+                                                        )}
                                                     </td>
                                                 </tr>
                                             ))

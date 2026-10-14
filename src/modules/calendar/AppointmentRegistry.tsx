@@ -231,6 +231,10 @@ const AppointmentRegistry: React.FC = () => {
             matchesPayment = !!payInfo?.isPaid;
         } else if (paymentFilter === 'PENDIENTE') {
             matchesPayment = !!(payInfo && !payInfo.isPaid);
+        } else if (paymentFilter === 'PENDIENTE_COTEJO') {
+            matchesPayment = payInfo?.method === 'Tarjeta' && !payInfo?.isReconciled;
+        } else if (paymentFilter === 'COTEJADO') {
+            matchesPayment = !!payInfo?.isReconciled;
         } else if (paymentFilter !== 'ALL') {
             matchesPayment = payInfo?.method === paymentFilter;
         }
@@ -488,13 +492,15 @@ const AppointmentRegistry: React.FC = () => {
                     <div className="filter-group-inline">
                         <label>Forma de Pago</label>
                         <select value={paymentFilter} onChange={e => setPaymentFilter(e.target.value)}>
-                            <option value="ALL">Todos</option>
+                            <option value="ALL">Todos los pagos</option>
                             <option value="PAGADO">Cobrado (Cualquiera)</option>
-                            <option value="PENDIENTE">Pendiente</option>
-                            <option value="Efectivo">Efectivo</option>
-                            <option value="Tarjeta">Tarjeta</option>
-                            <option value="Transferencia">Transferencia</option>
-                            <option value="Fin de mes">Fin de mes</option>
+                            <option value="PENDIENTE">Pendiente de cobro</option>
+                            <option value="PENDIENTE_COTEJO">⏳ Pendientes de cotejo (Tarjeta)</option>
+                            <option value="COTEJADO">🔒 Cotejadas con datáfono</option>
+                            <option value="Efectivo">💵 Solo Efectivo</option>
+                            <option value="Tarjeta">💳 Solo Tarjeta</option>
+                            <option value="Transferencia">🏦 Solo Transferencia</option>
+                            <option value="Fin de mes">📅 Fin de mes</option>
                         </select>
                     </div>
                 </div>

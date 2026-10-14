@@ -41,6 +41,7 @@ const BillingView: React.FC = () => {
 
     // Reconciliation Sub-states (Datáfono vs Transferencias)
     const [reconciliationType, setReconciliationType] = useState<'CARD' | 'TRANSFER'>('CARD');
+    const [cardScope, setCardScope] = useState<'MONTH' | 'ALL_PENDING'>('MONTH');
     const [reconciliationMonth, setReconciliationMonth] = useState<string>(format(new Date(), 'yyyy-MM'));
     const [cardSearchChild, setCardSearchChild] = useState<string>('');
     const [cardReconciledFilter, setCardReconciledFilter] = useState<'ALL' | 'PENDING' | 'VERIFIED'>('ALL');
@@ -394,14 +395,26 @@ const BillingView: React.FC = () => {
     const cardMonthPendingTotal = cardMonthPending.reduce((acc, t) => acc + (t.amount || 0), 0);
     const cardMonthPendingCount = cardMonthPending.length;
 
+    // Todas las citas cobradas con tarjeta pendientes de cotejo en todo el histórico
+    const allPendingCardTransactions = transactions.filter(t => t.method === 'Tarjeta' && !t.isReconciled);
+    const allPendingCardTotal = allPendingCardTransactions.reduce((acc, t) => acc + (t.amount || 0), 0);
+    const allPendingCardCount = allPendingCardTransactions.length;
+
+    // Fuente de datos según el ámbito (Mes seleccionado vs Todas las pendientes globales)
+    const sourceTransactions = cardScope === 'ALL_PENDING'
+        ? allPendingCardTransactions
+        : allTransactionsMonth;
+
     // Transacciones filtradas según método seleccionado (Tarjeta por defecto, o Todas para corregir errores)
-    const filteredCardTransactions = allTransactionsMonth
+    const filteredCardTransactions = sourceTransactions
         .filter(t => {
+            if (cardScope === 'ALL_PENDING') return true;
             if (cardMethodFilter === 'CARD_ONLY') return t.method === 'Tarjeta';
             if (cardMethodFilter === 'ALL') return true;
             return t.method === cardMethodFilter;
         })
         .filter(t => {
+            if (cardScope === 'ALL_PENDING') return true;
             if (cardReconciledFilter === 'PENDING') return !t.isReconciled;
             if (cardReconciledFilter === 'VERIFIED') return t.isReconciled;
             return true;
@@ -754,7 +767,11 @@ const BillingView: React.FC = () => {
                         <div className="card-reconciliation-view">
                             {/* Resumen del mes */}
                             <div className="reconcile-stats-grid">
-                                <div className="reconcile-stat-card">
+                                <div
+                                    className={`reconcile-stat-card clickable ${cardScope === 'MONTH' && cardReconciledFilter === 'ALL' ? 'active-filter' : ''}`}
+                                    onClick={() => { setCardScope('MONTH'); setCardReconciledFilter('ALL'); }}
+                                    title="Clic para ver todos los cobros con tarjeta de este mes"
+                                >
                                     <div className="reconcile-stat-icon card-total">
                                         <CreditCard size={22} />
                                     </div>
@@ -763,53 +780,87 @@ const BillingView: React.FC = () => {
                                             Total Tarjeta ({format(parse(reconciliationMonth, 'yyyy-MM', new Date()), "MMMM yyyy", { locale: es })})
                                         </div>
                                         <div className="value">{cardMonthTotal.toFixed(2)}€</div>
-                                        <div className="sub">{cardMonthCount} cobros registrados</div>
+                                        <div className="sub">{cardMonthCount} cobros (clic para ver todos)</div>
                                     </div>
                                 </div>
 
-                                <div className="reconcile-stat-card">
+                                <div
+                                    className={`reconcile-stat-card clickable ${cardScope === 'MONTH' && cardReconciledFilter === 'VERIFIED' ? 'active-filter verified' : ''}`}
+                                    onClick={() => { setCardScope('MONTH'); setCardReconciledFilter('VERIFIED'); }}
+                                    title="Clic para ver los tickets ya cotejados de este mes"
+                                >
                                     <div className="reconcile-stat-icon card-verified">
                                         <CheckCircle size={22} />
                                     </div>
                                     <div className="reconcile-stat-info">
                                         <div className="label">Tickets Cotejados</div>
                                         <div className="value" style={{ color: '#059669' }}>{cardMonthVerifiedTotal.toFixed(2)}€</div>
-                                        <div className="sub">{cardMonthVerifiedCount} tickets verificados</div>
+                                        <div className="sub">{cardMonthVerifiedCount} tickets verificados (clic para ver)</div>
                                     </div>
                                 </div>
 
-                                <div className="reconcile-stat-card">
+                                <div
+                                    className={`reconcile-stat-card clickable ${cardScope === 'MONTH' && cardReconciledFilter === 'PENDING' ? 'active-filter pending' : ''}`}
+                                    onClick={() => { setCardScope('MONTH'); setCardReconciledFilter('PENDING'); }}
+                                    title="Clic para ver el listado de tickets pendientes de cotejo de este mes"
+                                >
                                     <div className="reconcile-stat-icon card-pending">
                                         <Clock size={22} />
                                     </div>
                                     <div className="reconcile-stat-info">
-                                        <div className="label">Pendientes de Cotejo</div>
+                                        <div className="label flex items-center justify-between">
+                                            <span>Pendientes de Cotejo</span>
+                                            {cardMonthPendingCount > 0 && <span className="text-[10px] bg-amber-100 text-amber-800 font-bold px-1.5 py-0.5 rounded-full">¡Revisar!</span>}
+                                        </div>
                                         <div className="value" style={{ color: '#d97706' }}>{cardMonthPendingTotal.toFixed(2)}€</div>
-                                        <div className="sub">{cardMonthPendingCount} tickets por revisar</div>
+                                        <div className="sub font-semibold" style={{ color: '#b45309' }}>
+                                            {cardMonthPendingCount} pendientes (👉 Clic para listar)
+                                        </div>
                                     </div>
                                 </div>
                             </div>
 
                             {/* Barra de Filtros */}
                             <div className="reconcile-filter-bar">
-                                {/* Selector de Mes */}
-                                <div className="flex items-center gap-2">
-                                    <span className="text-xs font-bold uppercase text-secondary">Mes:</span>
-                                    <div className="month-navigator">
-                                        <button className="month-nav-btn" onClick={handlePrevMonth} title="Mes anterior">
-                                            <ChevronLeft size={16} />
-                                        </button>
-                                        <input
-                                            type="month"
-                                            className="month-input-clean"
-                                            value={reconciliationMonth}
-                                            onChange={(e) => setReconciliationMonth(e.target.value)}
-                                        />
-                                        <button className="month-nav-btn" onClick={handleNextMonth} title="Mes siguiente">
-                                            <ChevronRight size={16} />
-                                        </button>
-                                    </div>
+                                {/* Selector de Ámbito */}
+                                <div className="scope-toggle-pills">
+                                    <button
+                                        type="button"
+                                        className={`scope-pill-btn ${cardScope === 'MONTH' ? 'active' : ''}`}
+                                        onClick={() => setCardScope('MONTH')}
+                                        title="Ver cobros del mes seleccionado"
+                                    >
+                                        📅 Por Mes
+                                    </button>
+                                    <button
+                                        type="button"
+                                        className={`scope-pill-btn ${cardScope === 'ALL_PENDING' ? 'active' : ''}`}
+                                        onClick={() => setCardScope('ALL_PENDING')}
+                                        title="Ver todas las citas con tarjeta pendientes de cotejar de todo el centro"
+                                    >
+                                        ⚡ Todas las Pendientes ({allPendingCardCount})
+                                    </button>
                                 </div>
+
+                                {cardScope === 'MONTH' && (
+                                    <div className="flex items-center gap-2">
+                                        <span className="text-xs font-bold uppercase text-secondary">Mes:</span>
+                                        <div className="month-navigator">
+                                            <button className="month-nav-btn" onClick={handlePrevMonth} title="Mes anterior">
+                                                <ChevronLeft size={16} />
+                                            </button>
+                                            <input
+                                                type="month"
+                                                className="month-input-clean"
+                                                value={reconciliationMonth}
+                                                onChange={(e) => setReconciliationMonth(e.target.value)}
+                                            />
+                                            <button className="month-nav-btn" onClick={handleNextMonth} title="Mes siguiente">
+                                                <ChevronRight size={16} />
+                                            </button>
+                                        </div>
+                                    </div>
+                                )}
 
                                 {/* Buscador Rápido por Niño */}
                                 <div className="child-search-box">
@@ -827,36 +878,64 @@ const BillingView: React.FC = () => {
                                     )}
                                 </div>
 
-                                {/* Filtro de Forma de Pago (Para ver Tarjetas o Todos los métodos por si hubo error en admin) */}
-                                <div className="flex items-center gap-2">
-                                    <span className="text-xs font-bold uppercase text-secondary">Ver:</span>
-                                    <select
-                                        className="date-input-clean"
-                                        value={cardMethodFilter}
-                                        onChange={(e) => setCardMethodFilter(e.target.value as any)}
-                                        style={{ background: '#f8fafc', padding: '0.45rem 0.8rem', borderRadius: '10px', border: '1px solid #e2e8f0', fontWeight: 600 }}
-                                    >
-                                        <option value="CARD_ONLY">💳 Solo Tarjetas ({cardMonthCount})</option>
-                                        <option value="ALL">🔍 Todas las formas ({allTransactionsMonth.length})</option>
-                                        <option value="Efectivo">💵 Solo Efectivo ({allTransactionsMonth.filter(t => t.method === 'Efectivo').length})</option>
-                                        <option value="Transferencia">🏦 Solo Transferencia ({allTransactionsMonth.filter(t => t.method === 'Transferencia').length})</option>
-                                    </select>
-                                </div>
+                                {cardScope === 'MONTH' && (
+                                    <>
+                                        {/* Filtro de Forma de Pago */}
+                                        <div className="flex items-center gap-2">
+                                            <span className="text-xs font-bold uppercase text-secondary">Ver:</span>
+                                            <select
+                                                className="date-input-clean"
+                                                value={cardMethodFilter}
+                                                onChange={(e) => setCardMethodFilter(e.target.value as any)}
+                                                style={{ background: '#f8fafc', padding: '0.45rem 0.8rem', borderRadius: '10px', border: '1px solid #e2e8f0', fontWeight: 600 }}
+                                            >
+                                                <option value="CARD_ONLY">💳 Solo Tarjetas ({cardMonthCount})</option>
+                                                <option value="ALL">🔍 Todas las formas ({allTransactionsMonth.length})</option>
+                                                <option value="Efectivo">💵 Solo Efectivo ({allTransactionsMonth.filter(t => t.method === 'Efectivo').length})</option>
+                                                <option value="Transferencia">🏦 Solo Transferencia ({allTransactionsMonth.filter(t => t.method === 'Transferencia').length})</option>
+                                            </select>
+                                        </div>
 
-                                {/* Filtro de Estado de Cotejo */}
-                                <div className="flex items-center gap-2">
-                                    <select
-                                        className="date-input-clean"
-                                        value={cardReconciledFilter}
-                                        onChange={(e) => setCardReconciledFilter(e.target.value as any)}
-                                        style={{ background: '#f8fafc', padding: '0.45rem 0.8rem', borderRadius: '10px', border: '1px solid #e2e8f0' }}
-                                    >
-                                        <option value="ALL">Todos los estados</option>
-                                        <option value="PENDING">⚠️ Pendientes ({cardMonthPendingCount})</option>
-                                        <option value="VERIFIED">✅ Cotejados ({cardMonthVerifiedCount})</option>
-                                    </select>
-                                </div>
+                                        {/* Filtro de Estado de Cotejo */}
+                                        <div className="flex items-center gap-2">
+                                            <select
+                                                className="date-input-clean"
+                                                value={cardReconciledFilter}
+                                                onChange={(e) => setCardReconciledFilter(e.target.value as any)}
+                                                style={{ background: '#f8fafc', padding: '0.45rem 0.8rem', borderRadius: '10px', border: '1px solid #e2e8f0' }}
+                                            >
+                                                <option value="ALL">Todos los estados</option>
+                                                <option value="PENDING">⚠️ Pendientes ({cardMonthPendingCount})</option>
+                                                <option value="VERIFIED">✅ Cotejados ({cardMonthVerifiedCount})</option>
+                                            </select>
+                                        </div>
+                                    </>
+                                )}
                             </div>
+
+                            {/* Banner cuando se visualizan Todas las pendientes globales */}
+                            {cardScope === 'ALL_PENDING' && (
+                                <div className="scope-all-pending-banner">
+                                    <div className="flex items-center gap-2">
+                                        <Clock size={18} className="text-amber-600 flex-shrink-0" />
+                                        <div>
+                                            <span className="font-bold text-amber-900 text-sm">
+                                                Listado Global de Citas Pendientes de Cotejar:
+                                            </span>
+                                            <span className="text-amber-800 text-sm ml-2">
+                                                {allPendingCardCount} tickets de datáfono sin verificar en todo el centro ({allPendingCardTotal.toFixed(2)}€).
+                                            </span>
+                                        </div>
+                                    </div>
+                                    <button
+                                        type="button"
+                                        className="btn-secondary micro"
+                                        onClick={() => setCardScope('MONTH')}
+                                    >
+                                        Volver a vista por mes
+                                    </button>
+                                </div>
+                            )}
 
                             {/* Banner cuando se filtra por un niño */}
                             {cardSearchChild.trim() && (

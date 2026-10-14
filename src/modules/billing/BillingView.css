@@ -754,12 +754,19 @@
     color: #2563eb;
 }
 
-.reconcile-stat-icon.card-verified {
+.reconcile-stat-icon.transfer-total {
+    background: #eef2ff;
+    color: #4f46e5;
+}
+
+.reconcile-stat-icon.card-verified,
+.reconcile-stat-icon.transfer-verified {
     background: #ecfdf5;
     color: #059669;
 }
 
-.reconcile-stat-icon.card-pending {
+.reconcile-stat-icon.card-pending,
+.reconcile-stat-icon.transfer-pending {
     background: #fffbeb;
     color: #d97706;
 }
@@ -965,30 +972,37 @@
     box-shadow: 0 0 0 2px rgba(26, 95, 122, 0.15);
 }
 
-/* Card Reconciliation Table Fine-Tuning */
-.card-reconciliation-view .billing-table {
+/* Card & Transfer Reconciliation Table Fine-Tuning */
+.card-reconciliation-view .billing-table,
+.transfer-reconciliation-view .billing-table {
     min-width: 960px;
 }
 
-.card-reconciliation-view .billing-table th {
+.card-reconciliation-view .billing-table th,
+.transfer-reconciliation-view .billing-table th {
     padding: 0.9rem 0.85rem;
     font-size: 0.72rem;
     letter-spacing: 0.06em;
     white-space: nowrap;
 }
 
-.card-reconciliation-view .billing-table td {
+.card-reconciliation-view .billing-table td,
+.transfer-reconciliation-view .billing-table td {
     padding: 0.85rem 0.85rem;
     font-size: 0.875rem;
 }
 
 .card-reconciliation-view .billing-table th:first-child,
-.card-reconciliation-view .billing-table td:first-child {
+.card-reconciliation-view .billing-table td:first-child,
+.transfer-reconciliation-view .billing-table th:first-child,
+.transfer-reconciliation-view .billing-table td:first-child {
     padding-left: 1.5rem;
 }
 
 .card-reconciliation-view .billing-table th:last-child,
-.card-reconciliation-view .billing-table td:last-child {
+.card-reconciliation-view .billing-table td:last-child,
+.transfer-reconciliation-view .billing-table th:last-child,
+.transfer-reconciliation-view .billing-table td:last-child {
     padding-right: 1.5rem;
     text-align: right;
     white-space: nowrap;
@@ -1072,7 +1086,8 @@
 }
 
 /* ── Table Header Sorting & Integrated Filters ── */
-.card-reconciliation-view .tr-header-sort th {
+.card-reconciliation-view .tr-header-sort th,
+.transfer-reconciliation-view .tr-header-sort th {
     padding: 0.75rem 0.75rem 0.4rem 0.75rem;
     font-size: 0.72rem;
     letter-spacing: 0.05em;
@@ -1119,7 +1134,8 @@
 }
 
 /* Row 2: Filter Controls in Table Header */
-.card-reconciliation-view .tr-filter-header th {
+.card-reconciliation-view .tr-filter-header th,
+.transfer-reconciliation-view .tr-filter-header th {
     padding: 0.35rem 0.75rem 0.65rem 0.75rem;
     background-color: #f8fafc;
     border-bottom: 2px solid #cbd5e1;

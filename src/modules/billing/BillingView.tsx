@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { getTransactions, recordPayment, updateTransaction, createTransaction, toggleReconciliation } from './service';
 import { type Transaction, type PaymentMethod } from './types';
 import Card from '../../components/ui/Card';
-import { DollarSign, Clock, CheckCircle, CreditCard, Wallet, Send, Download, Calendar as CalendarIcon, Edit2, X, FileText, Receipt, Filter, TrendingUp, AlertTriangle, Banknote, User, CalendarClock, Search, ChevronLeft, ChevronRight, CheckCheck, ArrowUpDown, ArrowUp, ArrowDown, RotateCcw } from 'lucide-react';
+import { DollarSign, Clock, CheckCircle, CreditCard, Wallet, Send, Download, Calendar as CalendarIcon, Edit2, X, FileText, Receipt, Filter, TrendingUp, AlertTriangle, Banknote, User, CalendarClock, Search, ChevronLeft, ChevronRight, CheckCheck, ArrowUpDown, ArrowUp, ArrowDown, RotateCcw, Landmark } from 'lucide-react';
 import { format, parseISO, startOfDay, endOfDay, isValid, isSameMonth, parse } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { getPatients } from '../patients/service';
@@ -40,7 +40,6 @@ const BillingView: React.FC = () => {
     const [selectedDate, setSelectedDate] = useState<string>(format(new Date(), 'yyyy-MM-dd'));
     const [statusFilter, setStatusFilter] = useState<'ALL' | 'Pendiente' | 'Pagado'>('ALL');
     const [methodFilter, setMethodFilter] = useState<'ALL' | 'Efectivo' | 'Tarjeta' | 'Transferencia' | 'Fin de mes'>('ALL');
-    const [reconciledFilter, setReconciledFilter] = useState<'ALL' | 'VERIFIED' | 'PENDING'>('ALL');
 
     // Reconciliation Sub-states (Datáfono vs Transferencias)
     const [reconciliationType, setReconciliationType] = useState<'CARD' | 'TRANSFER'>('CARD');
@@ -53,6 +52,16 @@ const BillingView: React.FC = () => {
     const [cardStatusFilter, setCardStatusFilter] = useState<'ALL' | 'Pagado' | 'Pendiente'>('ALL');
     const [cardSortField, setCardSortField] = useState<CardSortField>('date');
     const [cardSortOrder, setCardSortOrder] = useState<CardSortOrder>('desc');
+
+    // Transfer Reconciliation States
+    const [transferScope, setTransferScope] = useState<'MONTH' | 'ALL_PENDING'>('MONTH');
+    const [transferSearchChild, setTransferSearchChild] = useState<string>('');
+    const [transferReconciledFilter, setTransferReconciledFilter] = useState<'ALL' | 'PENDING' | 'VERIFIED'>('ALL');
+    const [transferMethodFilter, setTransferMethodFilter] = useState<'TRANSFER_ONLY' | 'ALL' | 'Tarjeta' | 'Efectivo'>('TRANSFER_ONLY');
+    const [transferTherapistFilter, setTransferTherapistFilter] = useState<string>('ALL');
+    const [transferStatusFilter, setTransferStatusFilter] = useState<'ALL' | 'Pagado' | 'Pendiente'>('ALL');
+    const [transferSortField, setTransferSortField] = useState<CardSortField>('date');
+    const [transferSortOrder, setTransferSortOrder] = useState<CardSortOrder>('desc');
 
     // Transaction Modals
     const [isEditModalOpen, setIsEditModalOpen] = useState(false);
@@ -79,7 +88,7 @@ const BillingView: React.FC = () => {
 
     useEffect(() => {
         fetchData();
-    }, [selectedDate, statusFilter, methodFilter, reconciledFilter, activeTab]);
+    }, [selectedDate, statusFilter, methodFilter, activeTab]);
 
     // Manage body class for printing
     useEffect(() => {
@@ -516,14 +525,142 @@ const BillingView: React.FC = () => {
             return cardSortOrder === 'asc' ? comp : -comp;
         });
 
+    // Cobros por transferencia bancaria del mes para las métricas de cuadre
+    const transferTransactionsMonth = allTransactionsMonth.filter(t => t.method === 'Transferencia');
+
+    const transferMonthTotal = transferTransactionsMonth.reduce((acc, t) => acc + (t.amount || 0), 0);
+    const transferMonthCount = transferTransactionsMonth.length;
+
+    const transferMonthVerified = transferTransactionsMonth.filter(t => t.isReconciled);
+    const transferMonthVerifiedTotal = transferMonthVerified.reduce((acc, t) => acc + (t.amount || 0), 0);
+    const transferMonthVerifiedCount = transferMonthVerified.length;
+
+    const transferMonthPending = transferTransactionsMonth.filter(t => !t.isReconciled);
+    const transferMonthPendingTotal = transferMonthPending.reduce((acc, t) => acc + (t.amount || 0), 0);
+    const transferMonthPendingCount = transferMonthPending.length;
+
+    // Todas las transferencias bancarias pendientes de cotejo en todo el histórico
+    const allPendingTransferTransactions = transactions.filter(t => t.method === 'Transferencia' && !t.isReconciled);
+    const allPendingTransferTotal = allPendingTransferTransactions.reduce((acc, t) => acc + (t.amount || 0), 0);
+    const allPendingTransferCount = allPendingTransferTransactions.length;
+
+    // Fuente de datos según el ámbito para transferencias
+    const transferSourceTransactions = transferScope === 'ALL_PENDING'
+        ? allPendingTransferTransactions
+        : allTransactionsMonth;
+
+    // Lista de terapeutas únicos para la tabla de transferencias
+    const uniqueTransferTherapists = Array.from(
+        new Set(transferSourceTransactions.map(t => t.therapistName).filter(Boolean))
+    ).sort((a, b) => (a as string).localeCompare(b as string, 'es', { sensitivity: 'base' })) as string[];
+
+    const hasActiveTransferFilters = Boolean(
+        transferSearchChild.trim() !== '' ||
+        transferTherapistFilter !== 'ALL' ||
+        transferStatusFilter !== 'ALL' ||
+        (transferScope === 'MONTH' && transferMethodFilter !== 'TRANSFER_ONLY') ||
+        (transferScope === 'MONTH' && transferReconciledFilter !== 'ALL')
+    );
+
+    const handleResetTransferFilters = () => {
+        setTransferSearchChild('');
+        setTransferTherapistFilter('ALL');
+        setTransferStatusFilter('ALL');
+        setTransferMethodFilter('TRANSFER_ONLY');
+        setTransferReconciledFilter('ALL');
+    };
+
+    const handleToggleTransferSort = (field: CardSortField) => {
+        if (transferSortField === field) {
+            setTransferSortOrder(prev => prev === 'asc' ? 'desc' : 'asc');
+        } else {
+            setTransferSortField(field);
+            if (field === 'patient' || field === 'therapist' || field === 'status' || field === 'method') {
+                setTransferSortOrder('asc');
+            } else {
+                setTransferSortOrder('desc');
+            }
+        }
+    };
+
+    const renderTransferSortIcon = (field: CardSortField) => {
+        if (transferSortField !== field) {
+            return <ArrowUpDown size={13} className="sort-icon-inactive" />;
+        }
+        return transferSortOrder === 'asc' 
+            ? <ArrowUp size={13} className="sort-icon-active" /> 
+            : <ArrowDown size={13} className="sort-icon-active" />;
+    };
+
+    // Transacciones filtradas para el cotejo de transferencias
+    const filteredTransferTransactions = transferSourceTransactions
+        .filter(t => {
+            if (transferScope === 'ALL_PENDING') return true;
+            if (transferMethodFilter === 'TRANSFER_ONLY') return t.method === 'Transferencia';
+            if (transferMethodFilter === 'ALL') return true;
+            return t.method === transferMethodFilter;
+        })
+        .filter(t => {
+            if (transferScope === 'ALL_PENDING') return true;
+            if (transferReconciledFilter === 'PENDING') return !t.isReconciled;
+            if (transferReconciledFilter === 'VERIFIED') return t.isReconciled;
+            return true;
+        })
+        .filter(t => {
+            if (transferTherapistFilter === 'ALL') return true;
+            return t.therapistName === transferTherapistFilter;
+        })
+        .filter(t => {
+            if (transferStatusFilter === 'ALL') return true;
+            return t.status === transferStatusFilter;
+        })
+        .filter(t => {
+            if (!transferSearchChild.trim()) return true;
+            const searchTokens = normalizeSearch(transferSearchChild).split(' ').filter(Boolean);
+            const pNorm = normalizeSearch(t.patientName);
+            return searchTokens.every(token => pNorm.includes(token));
+        })
+        .sort((a, b) => {
+            let comp = 0;
+            switch (transferSortField) {
+                case 'date':
+                    comp = (a.date || '').localeCompare(b.date || '');
+                    break;
+                case 'patient':
+                    comp = (a.patientName || '').localeCompare(b.patientName || '', 'es', { sensitivity: 'base' });
+                    break;
+                case 'therapist':
+                    comp = (a.therapistName || '').localeCompare(b.therapistName || '', 'es', { sensitivity: 'base' });
+                    break;
+                case 'amount':
+                    comp = (a.amount || 0) - (b.amount || 0);
+                    break;
+                case 'status':
+                    comp = (a.status || '').localeCompare(b.status || '');
+                    break;
+                case 'method':
+                    comp = (a.method || '').localeCompare(b.method || '');
+                    break;
+                case 'reconciled': {
+                    const recA = a.isReconciled ? 1 : 0;
+                    const recB = b.isReconciled ? 1 : 0;
+                    comp = recA - recB;
+                    break;
+                }
+                default:
+                    comp = (a.date || '').localeCompare(b.date || '');
+            }
+            return transferSortOrder === 'asc' ? comp : -comp;
+        });
+
     const handleQuickChangeMethod = async (t: Transaction, newMethod: PaymentMethod) => {
         if (t.method === newMethod) return;
 
         const updatedTx: Transaction = {
             ...t,
             method: newMethod,
-            // Si deja de ser tarjeta, desmarcar cotejo si estaba marcado
-            isReconciled: newMethod === 'Tarjeta' ? t.isReconciled : false
+            // Si cambia la forma de pago, desmarcar el cotejo previo para que se coteje en su canal correspondiente
+            isReconciled: false
         };
 
         // Actualización optimista inmediata
@@ -842,13 +979,23 @@ const BillingView: React.FC = () => {
                         >
                             <CreditCard size={18} />
                             Cotejo de Datáfono / Tarjetas
+                            {cardMonthPendingCount > 0 && (
+                                <span style={{ fontSize: '0.72rem', background: '#fef3c7', color: '#b45309', padding: '1px 6px', borderRadius: '10px', fontWeight: 700 }}>
+                                    {cardMonthPendingCount}
+                                </span>
+                            )}
                         </button>
                         <button
                             className={`reconcile-subtab-btn ${reconciliationType === 'TRANSFER' ? 'active' : ''}`}
                             onClick={() => setReconciliationType('TRANSFER')}
                         >
-                            <CheckCircle size={18} />
+                            <Landmark size={18} />
                             Cotejo de Transferencias
+                            {transferMonthPendingCount > 0 && (
+                                <span style={{ fontSize: '0.72rem', background: '#fef3c7', color: '#b45309', padding: '1px 6px', borderRadius: '10px', fontWeight: 700 }}>
+                                    {transferMonthPendingCount}
+                                </span>
+                            )}
                         </button>
                     </div>
 
@@ -1324,75 +1471,470 @@ const BillingView: React.FC = () => {
                         </div>
                     ) : (
                         <div className="transfer-reconciliation-view">
-                            <div className="flex justify-between items-center mb-6 px-2">
-                                <div>
-                                    <h3 className="text-lg font-bold text-primary">Cotejo de Transferencias</h3>
-                                    <p className="text-sm text-secondary">Verifica que las transferencias del banco coinciden con el registro</p>
+                            {/* Resumen del mes */}
+                            <div className="reconcile-stats-grid">
+                                <div
+                                    className={`reconcile-stat-card clickable ${transferScope === 'MONTH' && transferReconciledFilter === 'ALL' ? 'active-filter' : ''}`}
+                                    onClick={() => { setTransferScope('MONTH'); setTransferReconciledFilter('ALL'); }}
+                                    title="Clic para ver todos los cobros por transferencia de este mes"
+                                >
+                                    <div className="reconcile-stat-icon transfer-total">
+                                        <Landmark size={22} />
+                                    </div>
+                                    <div className="reconcile-stat-info">
+                                        <div className="label">
+                                            Total Transferencias ({format(parse(reconciliationMonth, 'yyyy-MM', new Date()), "MMMM yyyy", { locale: es })})
+                                        </div>
+                                        <div className="value">{transferMonthTotal.toFixed(2)}€</div>
+                                        <div className="sub">{transferMonthCount} cobros (clic para ver todos)</div>
+                                    </div>
                                 </div>
-                                <div className="flex gap-2">
-                                    <select
-                                        className="date-input-clean"
-                                        value={reconciledFilter}
-                                        onChange={(e) => setReconciledFilter(e.target.value as any)}
-                                    >
-                                        <option value="ALL">Todos los estados</option>
-                                        <option value="PENDING">Pendientes de cotejo</option>
-                                        <option value="VERIFIED">Verificadas</option>
-                                    </select>
+
+                                <div
+                                    className={`reconcile-stat-card clickable ${transferScope === 'MONTH' && transferReconciledFilter === 'VERIFIED' ? 'active-filter verified' : ''}`}
+                                    onClick={() => { setTransferScope('MONTH'); setTransferReconciledFilter('VERIFIED'); }}
+                                    title="Clic para ver las transferencias ya cotejadas con el banco"
+                                >
+                                    <div className="reconcile-stat-icon transfer-verified">
+                                        <CheckCircle size={22} />
+                                    </div>
+                                    <div className="reconcile-stat-info">
+                                        <div className="label">Transferencias Cotejadas</div>
+                                        <div className="value" style={{ color: '#059669' }}>{transferMonthVerifiedTotal.toFixed(2)}€</div>
+                                        <div className="sub">{transferMonthVerifiedCount} verificadas en banco (clic para ver)</div>
+                                    </div>
+                                </div>
+
+                                <div
+                                    className={`reconcile-stat-card clickable ${transferScope === 'MONTH' && transferReconciledFilter === 'PENDING' ? 'active-filter pending' : ''}`}
+                                    onClick={() => { setTransferScope('MONTH'); setTransferReconciledFilter('PENDING'); }}
+                                    title="Clic para ver las transferencias pendientes de cotejar en banco"
+                                >
+                                    <div className="reconcile-stat-icon transfer-pending">
+                                        <Clock size={22} />
+                                    </div>
+                                    <div className="reconcile-stat-info">
+                                        <div className="label flex items-center justify-between">
+                                            <span>Pendientes de Cotejo</span>
+                                            {transferMonthPendingCount > 0 && <span className="text-[10px] bg-amber-100 text-amber-800 font-bold px-1.5 py-0.5 rounded-full">¡Revisar!</span>}
+                                        </div>
+                                        <div className="value" style={{ color: '#d97706' }}>{transferMonthPendingTotal.toFixed(2)}€</div>
+                                        <div className="sub font-semibold" style={{ color: '#b45309' }}>
+                                            {transferMonthPendingCount} pendientes (👉 Clic para listar)
+                                        </div>
+                                    </div>
                                 </div>
                             </div>
 
+                            {/* Barra Superior de Periodo y Ámbito */}
+                            <div className="reconcile-filter-bar">
+                                {/* Selector de Ámbito */}
+                                <div className="scope-toggle-pills">
+                                    <button
+                                        type="button"
+                                        className={`scope-pill-btn ${transferScope === 'MONTH' ? 'active' : ''}`}
+                                        onClick={() => setTransferScope('MONTH')}
+                                        title="Ver transferencias del mes seleccionado"
+                                    >
+                                        📅 Por Mes
+                                    </button>
+                                    <button
+                                        type="button"
+                                        className={`scope-pill-btn ${transferScope === 'ALL_PENDING' ? 'active' : ''}`}
+                                        onClick={() => setTransferScope('ALL_PENDING')}
+                                        title="Ver todas las transferencias pendientes de cotejar de todo el centro"
+                                    >
+                                        ⚡ Todas las Pendientes ({allPendingTransferCount})
+                                    </button>
+                                </div>
+
+                                {transferScope === 'MONTH' && (
+                                    <div className="flex items-center gap-2">
+                                        <span className="text-xs font-bold uppercase text-secondary">Mes:</span>
+                                        <div className="month-navigator">
+                                            <button className="month-nav-btn" onClick={handlePrevMonth} title="Mes anterior">
+                                                <ChevronLeft size={16} />
+                                            </button>
+                                            <input
+                                                type="month"
+                                                className="month-input-clean"
+                                                value={reconciliationMonth}
+                                                onChange={(e) => setReconciliationMonth(e.target.value)}
+                                            />
+                                            <button className="month-nav-btn" onClick={handleNextMonth} title="Mes siguiente">
+                                                <ChevronRight size={16} />
+                                            </button>
+                                        </div>
+                                    </div>
+                                )}
+
+                                {/* Resumen y Limpieza Rápida */}
+                                <div className="reconcile-counter-badge ml-auto flex items-center gap-2">
+                                    <span className="text-xs text-secondary font-medium">
+                                        Mostrando <strong>{filteredTransferTransactions.length}</strong> de {transferSourceTransactions.length} cobros
+                                    </span>
+                                    {hasActiveTransferFilters && (
+                                        <button
+                                            type="button"
+                                            className="th-clear-filters-btn active"
+                                            onClick={handleResetTransferFilters}
+                                            title="Restablecer todos los filtros de la tabla"
+                                        >
+                                            <RotateCcw size={12} /> Limpiar filtros
+                                        </button>
+                                    )}
+                                </div>
+                            </div>
+
+                            {/* Banner cuando se visualizan Todas las transferencias pendientes globales */}
+                            {transferScope === 'ALL_PENDING' && (
+                                <div className="scope-all-pending-banner">
+                                    <div className="flex items-center gap-2">
+                                        <Clock size={18} className="text-amber-600 flex-shrink-0" />
+                                        <div>
+                                            <span className="font-bold text-amber-900 text-sm">
+                                                Listado Global de Transferencias Pendientes de Cotejar:
+                                            </span>
+                                            <span className="text-amber-800 text-sm ml-2">
+                                                {allPendingTransferCount} transferencias bancarias sin verificar en todo el centro ({allPendingTransferTotal.toFixed(2)}€).
+                                            </span>
+                                        </div>
+                                    </div>
+                                    <button
+                                        type="button"
+                                        className="btn-secondary micro"
+                                        onClick={() => setTransferScope('MONTH')}
+                                    >
+                                        Volver a vista por mes
+                                    </button>
+                                </div>
+                            )}
+
+                            {/* Banner cuando se filtra por un niño */}
+                            {transferSearchChild.trim() && (
+                                <div className="child-banner-info">
+                                    <div className="text-sm">
+                                        <span>Resultados para <strong>"{transferSearchChild}"</strong>: </span>
+                                        <span className="font-bold text-primary">{filteredTransferTransactions.length} pagos encontrados ({filteredTransferTransactions.reduce((acc, t) => acc + t.amount, 0).toFixed(2)}€)</span>
+                                        <span className="text-secondary ml-2">
+                                            ({filteredTransferTransactions.filter(t => t.method === 'Transferencia' && t.isReconciled).length} cotejadas, {filteredTransferTransactions.filter(t => t.method === 'Transferencia' && !t.isReconciled).length} pendientes de transferencia
+                                            {filteredTransferTransactions.some(t => t.method !== 'Transferencia') && `, ${filteredTransferTransactions.filter(t => t.method !== 'Transferencia').length} con otro método`}
+                                            )
+                                        </span>
+                                    </div>
+                                    <div className="flex items-center gap-2">
+                                        {transferMethodFilter === 'TRANSFER_ONLY' && allTransactionsMonth.some(t => t.method !== 'Transferencia' && normalizeSearch(t.patientName).includes(normalizeSearch(transferSearchChild))) && (
+                                            <button
+                                                className="btn-secondary micro"
+                                                onClick={() => setTransferMethodFilter('ALL')}
+                                            >
+                                                🔍 Ver otros métodos de este niño
+                                            </button>
+                                        )}
+                                        {filteredTransferTransactions.some(t => t.method === 'Transferencia' && !t.isReconciled) && (
+                                            <button
+                                                className="btn-primary micro flex items-center gap-1"
+                                                onClick={() => handleBatchReconcileShown(filteredTransferTransactions.filter(t => t.method === 'Transferencia'))}
+                                            >
+                                                <CheckCheck size={14} />
+                                                Cotejar transferencias de este niño
+                                            </button>
+                                        )}
+                                    </div>
+                                </div>
+                            )}
+
+                            {/* Tabla de cobros por transferencia */}
                             <div className="billing-table-wrapper">
                                 <table className="billing-table">
                                     <thead>
-                                        <tr>
-                                            <th>Fecha</th>
-                                            <th>Paciente</th>
-                                            <th>Importe</th>
-                                            <th>Estado Pago</th>
-                                            <th>Cotejo Bancario</th>
-                                            <th>Acciones</th>
+                                        {/* Fila 1: Cabeceras Ordenables con Clic */}
+                                        <tr className="tr-header-sort">
+                                            <th style={{ width: '125px' }} className="th-sortable" onClick={() => handleToggleTransferSort('date')} title="Clic para ordenar por Fecha y Hora">
+                                                <div className="th-sort-btn">
+                                                    <span>Fecha y Hora</span>
+                                                    {renderTransferSortIcon('date')}
+                                                </div>
+                                            </th>
+                                            <th className="th-sortable" onClick={() => handleToggleTransferSort('patient')} title="Clic para ordenar alfabéticamente por Niño">
+                                                <div className="th-sort-btn">
+                                                    <span>Niño / Paciente</span>
+                                                    {renderTransferSortIcon('patient')}
+                                                </div>
+                                            </th>
+                                            <th style={{ width: '150px' }} className="th-sortable" onClick={() => handleToggleTransferSort('therapist')} title="Clic para ordenar por Terapeuta">
+                                                <div className="th-sort-btn">
+                                                    <span>Terapeuta</span>
+                                                    {renderTransferSortIcon('therapist')}
+                                                </div>
+                                            </th>
+                                            <th style={{ width: '90px' }} className="th-sortable" onClick={() => handleToggleTransferSort('amount')} title="Clic para ordenar por Importe">
+                                                <div className="th-sort-btn">
+                                                    <span>Importe</span>
+                                                    {renderTransferSortIcon('amount')}
+                                                </div>
+                                            </th>
+                                            <th style={{ width: '105px' }} className="th-sortable" onClick={() => handleToggleTransferSort('status')} title="Clic para ordenar por Estado">
+                                                <div className="th-sort-btn">
+                                                    <span>Estado</span>
+                                                    {renderTransferSortIcon('status')}
+                                                </div>
+                                            </th>
+                                            <th style={{ width: '150px' }} className="th-sortable" onClick={() => handleToggleTransferSort('method')} title="Clic para ordenar por Forma de Pago">
+                                                <div className="th-sort-btn">
+                                                    <span>Forma de Pago</span>
+                                                    {renderTransferSortIcon('method')}
+                                                </div>
+                                            </th>
+                                            <th style={{ width: '160px' }} className="th-sortable" onClick={() => handleToggleTransferSort('reconciled')} title="Clic para ordenar por Estado de Cotejo">
+                                                <div className="th-sort-btn">
+                                                    <span>Cotejo Bancario</span>
+                                                    {renderTransferSortIcon('reconciled')}
+                                                </div>
+                                            </th>
+                                            <th style={{ width: '125px', textAlign: 'right' }}>
+                                                <span>Acción</span>
+                                            </th>
+                                        </tr>
+
+                                        {/* Fila 2: Cabeceras con Filtros Integrados */}
+                                        <tr className="tr-filter-header">
+                                            {/* Filtro Fecha y Hora */}
+                                            <th>
+                                                <span className="th-filter-hint">Ordenar ↕</span>
+                                            </th>
+
+                                            {/* Filtro Niño / Paciente */}
+                                            <th>
+                                                <div className="th-filter-input-wrapper">
+                                                    <Search size={13} className="th-filter-icon" />
+                                                    <input
+                                                        type="text"
+                                                        className="th-filter-input"
+                                                        placeholder="Filtrar por niño..."
+                                                        value={transferSearchChild}
+                                                        onChange={(e) => setTransferSearchChild(e.target.value)}
+                                                        title="Filtrar por nombre o apellido de niño"
+                                                    />
+                                                    {transferSearchChild && (
+                                                        <button
+                                                            type="button"
+                                                            className="th-filter-clear-btn"
+                                                            onClick={() => setTransferSearchChild('')}
+                                                            title="Borrar filtro de niño"
+                                                        >
+                                                            <X size={12} />
+                                                        </button>
+                                                    )}
+                                                </div>
+                                            </th>
+
+                                            {/* Filtro Terapeuta */}
+                                            <th>
+                                                <select
+                                                    className="th-filter-select"
+                                                    value={transferTherapistFilter}
+                                                    onChange={(e) => setTransferTherapistFilter(e.target.value)}
+                                                    title="Filtrar por terapeuta"
+                                                >
+                                                    <option value="ALL">Todos ({uniqueTransferTherapists.length})</option>
+                                                    {uniqueTransferTherapists.map(name => (
+                                                        <option key={name} value={name}>{name}</option>
+                                                    ))}
+                                                </select>
+                                            </th>
+
+                                            {/* Filtro Importe */}
+                                            <th>
+                                                <span className="th-filter-hint">—</span>
+                                            </th>
+
+                                            {/* Filtro Estado */}
+                                            <th>
+                                                <select
+                                                    className="th-filter-select"
+                                                    value={transferStatusFilter}
+                                                    onChange={(e) => setTransferStatusFilter(e.target.value as any)}
+                                                    title="Filtrar por estado del cobro"
+                                                >
+                                                    <option value="ALL">Todos</option>
+                                                    <option value="Pagado">Pagado</option>
+                                                    <option value="Pendiente">Pendiente</option>
+                                                </select>
+                                            </th>
+
+                                            {/* Filtro Forma de Pago */}
+                                            <th>
+                                                {transferScope === 'ALL_PENDING' ? (
+                                                    <span className="th-filter-locked" title="En ámbito global solo se cotejan cobros por Transferencia">
+                                                        🏦 Transferencia
+                                                    </span>
+                                                ) : (
+                                                    <select
+                                                        className="th-filter-select"
+                                                        value={transferMethodFilter}
+                                                        onChange={(e) => setTransferMethodFilter(e.target.value as any)}
+                                                        title="Filtrar por forma de pago"
+                                                    >
+                                                        <option value="TRANSFER_ONLY">🏦 Solo Transferencias</option>
+                                                        <option value="ALL">🔍 Todas</option>
+                                                        <option value="Tarjeta">💳 Tarjeta</option>
+                                                        <option value="Efectivo">💵 Efectivo</option>
+                                                    </select>
+                                                )}
+                                            </th>
+
+                                            {/* Filtro Cotejo Bancario */}
+                                            <th>
+                                                {transferScope === 'ALL_PENDING' ? (
+                                                    <span className="th-filter-locked" title="En ámbito global todas las citas mostradas están pendientes de cotejar">
+                                                        ⚠️ Pendientes
+                                                    </span>
+                                                ) : (
+                                                    <select
+                                                        className="th-filter-select"
+                                                        value={transferReconciledFilter}
+                                                        onChange={(e) => setTransferReconciledFilter(e.target.value as any)}
+                                                        title="Filtrar por estado de cotejo"
+                                                    >
+                                                        <option value="ALL">Todos</option>
+                                                        <option value="PENDING">⚠️ Pendientes</option>
+                                                        <option value="VERIFIED">✅ Cotejadas</option>
+                                                    </select>
+                                                )}
+                                            </th>
+
+                                            {/* Acción: Botón Limpiar filtros si hay alguno activo */}
+                                            <th style={{ textAlign: 'right' }}>
+                                                {hasActiveTransferFilters ? (
+                                                    <button
+                                                        type="button"
+                                                        className="th-clear-filters-btn active"
+                                                        onClick={handleResetTransferFilters}
+                                                        title="Limpiar todos los filtros"
+                                                    >
+                                                        <RotateCcw size={12} /> Limpiar
+                                                    </button>
+                                                ) : (
+                                                    <span className="th-filter-hint">Filtros</span>
+                                                )}
+                                            </th>
                                         </tr>
                                     </thead>
                                     <tbody>
-                                        {transactions
-                                            .filter(t => t.method === 'Transferencia')
-                                            .filter(t => {
-                                                if (reconciledFilter === 'PENDING') return !t.isReconciled;
-                                                if (reconciledFilter === 'VERIFIED') return t.isReconciled;
-                                                return true;
-                                            })
-                                            .map(t => (
-                                                <tr key={t.id} style={{ opacity: t.isReconciled ? 0.7 : 1 }}>
-                                                    <td>{format(parseISO(t.date), 'dd/MM/yyyy')}</td>
-                                                    <td style={{ fontWeight: 600 }}>{t.patientName}</td>
-                                                    <td className="amount-text">{t.amount.toFixed(2)}€</td>
+                                        {filteredTransferTransactions.length === 0 ? (
+                                            <tr>
+                                                <td colSpan={8} className="text-center py-8 text-secondary">
+                                                    {transferSearchChild
+                                                        ? `No se encontraron transferencias para "${transferSearchChild}" con los filtros seleccionados.`
+                                                        : `No hay transferencias registradas con los filtros seleccionados en este periodo.`}
+                                                </td>
+                                            </tr>
+                                        ) : (
+                                            filteredTransferTransactions.map(t => (
+                                                <tr key={t.id} style={{ opacity: t.isReconciled ? 0.75 : 1 }}>
                                                     <td>
-                                                        <span className={`badge ${t.status === 'Pagado' ? 'badge-success' : 'badge-warning'}`}>
+                                                        <div style={{ fontWeight: 600, color: '#1e293b', fontSize: '0.85rem' }}>
+                                                            {(() => {
+                                                                try {
+                                                                    const d = parseISO(t.date);
+                                                                    return isValid(d) ? format(d, 'dd/MM/yyyy') : t.date;
+                                                                } catch {
+                                                                    return t.date;
+                                                                }
+                                                            })()}
+                                                        </div>
+                                                        {t.date && t.date.includes('T') && !t.date.includes('T00:00:00') && (
+                                                            <div style={{ fontSize: '0.75rem', color: '#64748b' }}>
+                                                                {(() => {
+                                                                    try {
+                                                                        const d = parseISO(t.date);
+                                                                        return isValid(d) ? format(d, 'HH:mm') : '';
+                                                                    } catch {
+                                                                        return '';
+                                                                    }
+                                                                })()}
+                                                            </div>
+                                                        )}
+                                                    </td>
+                                                    <td style={{ fontWeight: 600 }}>{t.patientName}</td>
+                                                    <td className="text-secondary text-sm">{t.therapistName || '—'}</td>
+                                                    <td className="amount-text">
+                                                        <div className="flex items-center gap-1">
+                                                            <input
+                                                                key={`amt-${t.id}-${t.amount}`}
+                                                                type="number"
+                                                                className="reconcile-amount-input"
+                                                                defaultValue={t.amount}
+                                                                onBlur={(e) => handleQuickChangeAmount(t, Number(e.target.value))}
+                                                                style={{ width: '56px', padding: '0.2rem 0.35rem', borderRadius: '6px', border: '1px solid #cbd5e1', fontWeight: 700, fontSize: '0.85rem' }}
+                                                                title="Modificar importe de la cita / cobro"
+                                                            />
+                                                            <span className="text-secondary text-xs">€</span>
+                                                        </div>
+                                                    </td>
+                                                    <td>
+                                                        <span className={`badge ${t.status === 'Pagado' ? 'badge-success' : 'badge-warning'}`} style={{ whiteSpace: 'nowrap' }}>
                                                             {t.status}
                                                         </span>
                                                     </td>
                                                     <td>
-                                                        {t.isReconciled ? (
-                                                            <span className="flex items-center gap-1 text-success font-medium">
-                                                                <CheckCircle size={14} /> Verificada
-                                                            </span>
+                                                        <select
+                                                            className="reconcile-method-select"
+                                                            value={t.method || 'Transferencia'}
+                                                            onChange={(e) => handleQuickChangeMethod(t, e.target.value as PaymentMethod)}
+                                                            title="Cambiar forma de pago si hubo un error en admin"
+                                                        >
+                                                            <option value="Transferencia">🏦 Transferencia</option>
+                                                            <option value="Tarjeta">💳 Tarjeta</option>
+                                                            <option value="Efectivo">💵 Efectivo</option>
+                                                            <option value="Fin de mes">📅 Fin de mes</option>
+                                                        </select>
+                                                    </td>
+                                                    <td>
+                                                        {t.method === 'Transferencia' ? (
+                                                            t.isReconciled ? (
+                                                                <span className="flex items-center gap-1 text-success font-semibold text-xs bg-emerald-50 px-2 py-1 rounded-md border border-emerald-100" style={{ width: 'fit-content', whiteSpace: 'nowrap' }}>
+                                                                    <CheckCircle size={14} /> Cotejado
+                                                                </span>
+                                                            ) : (
+                                                                <span className="flex items-center gap-1 text-amber-600 font-semibold text-xs bg-amber-50 px-2 py-1 rounded-md border border-amber-100" style={{ width: 'fit-content', whiteSpace: 'nowrap' }}>
+                                                                    <Clock size={14} /> Pendiente banco
+                                                                </span>
+                                                            )
                                                         ) : (
-                                                            <span className="flex items-center gap-1 text-secondary">
-                                                                <Clock size={14} /> Pendiente
+                                                            <span className="text-secondary text-xs italic opacity-75" style={{ whiteSpace: 'nowrap' }}>
+                                                                No aplica ({t.method})
                                                             </span>
                                                         )}
                                                     </td>
-                                                    <td>
-                                                        <button
-                                                            className={`btn-${t.isReconciled ? 'secondary' : 'primary'} micro flex items-center gap-1`}
-                                                            onClick={() => handleToggleReconciliation(t.id, t.isReconciled ?? false)}
-                                                        >
-                                                            {t.isReconciled ? 'Desmarcar' : 'Verificar Pago'}
-                                                        </button>
+                                                    <td style={{ textAlign: 'right', whiteSpace: 'nowrap' }}>
+                                                        {t.method === 'Transferencia' ? (
+                                                            <button
+                                                                className={`btn-reconcile-action ${t.isReconciled ? 'action-unverify' : 'action-verify'}`}
+                                                                onClick={() => handleToggleReconciliation(t.id, t.isReconciled ?? false)}
+                                                                style={{ whiteSpace: 'nowrap' }}
+                                                            >
+                                                                {t.isReconciled ? (
+                                                                    <>Desmarcar</>
+                                                                ) : (
+                                                                    <><CheckCircle size={14} /> Cotejar</>
+                                                                )}
+                                                            </button>
+                                                        ) : (
+                                                            <button
+                                                                className="btn-secondary micro"
+                                                                onClick={() => handleQuickChangeMethod(t, 'Transferencia')}
+                                                                title="Cambiar a Transferencia para poder cotejarla en banco"
+                                                                style={{ whiteSpace: 'nowrap' }}
+                                                            >
+                                                                Pasar a Transferencia
+                                                            </button>
+                                                        )}
                                                     </td>
                                                 </tr>
-                                            ))}
+                                            ))
+                                        )}
                                     </tbody>
                                 </table>
                             </div>

@@ -374,17 +374,6 @@ const BillingView: React.FC = () => {
             .trim();
     };
 
-    const formatTxDateTime = (dateStr: string) => {
-        try {
-            const d = parseISO(dateStr);
-            if (!isValid(d)) return dateStr;
-            const hasTime = dateStr.includes('T') && !dateStr.includes('T00:00:00');
-            return hasTime ? format(d, "dd/MM/yyyy HH:mm") : format(d, 'dd/MM/yyyy');
-        } catch {
-            return dateStr;
-        }
-    };
-
     // Todas las transacciones del mes seleccionado
     const allTransactionsMonth = transactions.filter(t => {
         const txDate = t.date || '';
@@ -848,7 +837,7 @@ const BillingView: React.FC = () => {
                                         style={{ background: '#f8fafc', padding: '0.45rem 0.8rem', borderRadius: '10px', border: '1px solid #e2e8f0', fontWeight: 600 }}
                                     >
                                         <option value="CARD_ONLY">💳 Solo Tarjetas ({cardMonthCount})</option>
-                                        <option value="ALL">🔍 Todas las formas de pago ({allTransactionsMonth.length})</option>
+                                        <option value="ALL">🔍 Todas las formas ({allTransactionsMonth.length})</option>
                                         <option value="Efectivo">💵 Solo Efectivo ({allTransactionsMonth.filter(t => t.method === 'Efectivo').length})</option>
                                         <option value="Transferencia">🏦 Solo Transferencia ({allTransactionsMonth.filter(t => t.method === 'Transferencia').length})</option>
                                     </select>
@@ -908,14 +897,14 @@ const BillingView: React.FC = () => {
                                 <table className="billing-table">
                                     <thead>
                                         <tr>
-                                            <th>Fecha y Hora</th>
+                                            <th style={{ width: '120px' }}>Fecha y Hora</th>
                                             <th>Niño / Paciente</th>
                                             <th>Terapeuta</th>
-                                            <th>Importe</th>
-                                            <th>Estado de Pago</th>
-                                            <th>Forma de Pago</th>
-                                            <th>Cotejo Datáfono</th>
-                                            <th style={{ textAlign: 'right' }}>Acción</th>
+                                            <th style={{ width: '90px' }}>Importe</th>
+                                            <th style={{ width: '105px' }}>Estado</th>
+                                            <th style={{ width: '150px' }}>Forma de Pago</th>
+                                            <th style={{ width: '160px' }}>Cotejo Datáfono</th>
+                                            <th style={{ width: '125px', textAlign: 'right' }}>Acción</th>
                                         </tr>
                                     </thead>
                                     <tbody>
@@ -930,7 +919,30 @@ const BillingView: React.FC = () => {
                                         ) : (
                                             filteredCardTransactions.map(t => (
                                                 <tr key={t.id} style={{ opacity: t.isReconciled ? 0.75 : 1 }}>
-                                                    <td>{formatTxDateTime(t.date)}</td>
+                                                    <td>
+                                                        <div style={{ fontWeight: 600, color: '#1e293b', fontSize: '0.85rem' }}>
+                                                            {(() => {
+                                                                try {
+                                                                    const d = parseISO(t.date);
+                                                                    return isValid(d) ? format(d, 'dd/MM/yyyy') : t.date;
+                                                                } catch {
+                                                                    return t.date;
+                                                                }
+                                                            })()}
+                                                        </div>
+                                                        {t.date && t.date.includes('T') && !t.date.includes('T00:00:00') && (
+                                                            <div style={{ fontSize: '0.75rem', color: '#64748b' }}>
+                                                                {(() => {
+                                                                    try {
+                                                                        const d = parseISO(t.date);
+                                                                        return isValid(d) ? format(d, 'HH:mm') : '';
+                                                                    } catch {
+                                                                        return '';
+                                                                    }
+                                                                })()}
+                                                            </div>
+                                                        )}
+                                                    </td>
                                                     <td style={{ fontWeight: 600 }}>{t.patientName}</td>
                                                     <td className="text-secondary text-sm">{t.therapistName || '—'}</td>
                                                     <td className="amount-text">
@@ -941,14 +953,14 @@ const BillingView: React.FC = () => {
                                                                 className="reconcile-amount-input"
                                                                 defaultValue={t.amount}
                                                                 onBlur={(e) => handleQuickChangeAmount(t, Number(e.target.value))}
-                                                                style={{ width: '65px', padding: '0.2rem 0.4rem', borderRadius: '6px', border: '1px solid #cbd5e1', fontWeight: 700, fontSize: '0.85rem' }}
+                                                                style={{ width: '56px', padding: '0.2rem 0.35rem', borderRadius: '6px', border: '1px solid #cbd5e1', fontWeight: 700, fontSize: '0.85rem' }}
                                                                 title="Modificar importe de la cita / cobro"
                                                             />
                                                             <span className="text-secondary text-xs">€</span>
                                                         </div>
                                                     </td>
                                                     <td>
-                                                        <span className={`badge ${t.status === 'Pagado' ? 'badge-success' : 'badge-warning'}`}>
+                                                        <span className={`badge ${t.status === 'Pagado' ? 'badge-success' : 'badge-warning'}`} style={{ whiteSpace: 'nowrap' }}>
                                                             {t.status}
                                                         </span>
                                                     </td>
@@ -968,25 +980,26 @@ const BillingView: React.FC = () => {
                                                     <td>
                                                         {t.method === 'Tarjeta' ? (
                                                             t.isReconciled ? (
-                                                                <span className="flex items-center gap-1 text-success font-semibold text-xs bg-emerald-50 px-2 py-1 rounded-md border border-emerald-100" style={{ width: 'fit-content' }}>
+                                                                <span className="flex items-center gap-1 text-success font-semibold text-xs bg-emerald-50 px-2 py-1 rounded-md border border-emerald-100" style={{ width: 'fit-content', whiteSpace: 'nowrap' }}>
                                                                     <CheckCircle size={14} /> Cotejado
                                                                 </span>
                                                             ) : (
-                                                                <span className="flex items-center gap-1 text-amber-600 font-semibold text-xs bg-amber-50 px-2 py-1 rounded-md border border-amber-100" style={{ width: 'fit-content' }}>
-                                                                    <Clock size={14} /> Pendiente de ticket
+                                                                <span className="flex items-center gap-1 text-amber-600 font-semibold text-xs bg-amber-50 px-2 py-1 rounded-md border border-amber-100" style={{ width: 'fit-content', whiteSpace: 'nowrap' }}>
+                                                                    <Clock size={14} /> Pendiente ticket
                                                                 </span>
                                                             )
                                                         ) : (
-                                                            <span className="text-secondary text-xs italic opacity-75">
+                                                            <span className="text-secondary text-xs italic opacity-75" style={{ whiteSpace: 'nowrap' }}>
                                                                 No aplica ({t.method})
                                                             </span>
                                                         )}
                                                     </td>
-                                                    <td style={{ textAlign: 'right' }}>
+                                                    <td style={{ textAlign: 'right', whiteSpace: 'nowrap' }}>
                                                         {t.method === 'Tarjeta' ? (
                                                             <button
                                                                 className={`btn-reconcile-action ${t.isReconciled ? 'action-unverify' : 'action-verify'}`}
                                                                 onClick={() => handleToggleReconciliation(t.id, t.isReconciled ?? false)}
+                                                                style={{ whiteSpace: 'nowrap' }}
                                                             >
                                                                 {t.isReconciled ? (
                                                                     <>Desmarcar</>
@@ -999,6 +1012,7 @@ const BillingView: React.FC = () => {
                                                                 className="btn-secondary micro"
                                                                 onClick={() => handleQuickChangeMethod(t, 'Tarjeta')}
                                                                 title="Cambiar a Tarjeta para poder cotejar el ticket de datáfono"
+                                                                style={{ whiteSpace: 'nowrap' }}
                                                             >
                                                                 Pasar a Tarjeta
                                                             </button>

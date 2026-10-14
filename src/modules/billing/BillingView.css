@@ -4,8 +4,8 @@
 
 .billing-container {
     animation: billingFadeIn 0.4s ease-out;
-    padding: 1.5rem 1.5rem 0; /* Reduced from 2rem */
-    max-width: 1200px;
+    padding: 1.5rem 1.5rem 0;
+    max-width: 1440px;
     margin: 0 auto;
     min-height: 100vh;
     display: flex;
@@ -14,7 +14,7 @@
 
 @media (min-width: 768px) {
     .billing-container {
-        padding: 3rem 4rem 0;
+        padding: 2rem 2.5rem 0;
     }
 }
 
@@ -255,7 +255,9 @@
 
 /* ── Billing Table ── */
 .billing-table-wrapper {
-    display: flow-root !important;
+    display: block !important;
+    width: 100%;
+    overflow-x: auto;
     height: auto !important;
     background: #ffffff !important;
     border-radius: 20px;
@@ -264,7 +266,7 @@
         0 1px 3px rgba(0, 0, 0, 0.02);
     border: 1px solid #eef2f6;
     margin-bottom: 2rem;
-    padding: 0 0 100px 0 !important;
+    padding: 0 0 60px 0 !important;
 }
 
 /* Custom scrollbar for table */
@@ -786,13 +788,13 @@
 
 .reconcile-filter-bar {
     background: white;
-    padding: 0.85rem 1.25rem;
+    padding: 0.75rem 1.25rem;
     border-radius: 14px;
     border: 1px solid #e2e8f0;
     display: flex;
     align-items: center;
-    justify-content: space-between;
-    gap: 1rem;
+    justify-content: flex-start;
+    gap: 0.85rem;
     flex-wrap: wrap;
     margin-bottom: 1.5rem;
     box-shadow: 0 1px 3px rgba(0, 0, 0, 0.03);
@@ -842,8 +844,8 @@
 .child-search-box {
     position: relative;
     flex: 1;
-    min-width: 240px;
-    max-width: 400px;
+    min-width: 200px;
+    max-width: 320px;
 }
 
 .child-search-box input {
@@ -904,14 +906,17 @@
 .btn-reconcile-action {
     display: inline-flex;
     align-items: center;
+    justify-content: center;
     gap: 0.4rem;
-    padding: 0.45rem 0.9rem;
+    padding: 0.45rem 0.85rem;
     border-radius: 8px;
     font-size: 0.8rem;
     font-weight: 700;
     cursor: pointer;
     transition: all 0.15s ease;
     border: none;
+    white-space: nowrap;
+    min-width: 85px;
 }
 
 .btn-reconcile-action.action-verify {
@@ -958,4 +963,33 @@
     border-color: #1A5F7A;
     background-color: white;
     box-shadow: 0 0 0 2px rgba(26, 95, 122, 0.15);
+}
+
+/* Card Reconciliation Table Fine-Tuning */
+.card-reconciliation-view .billing-table {
+    min-width: 960px;
+}
+
+.card-reconciliation-view .billing-table th {
+    padding: 0.9rem 0.85rem;
+    font-size: 0.72rem;
+    letter-spacing: 0.06em;
+    white-space: nowrap;
+}
+
+.card-reconciliation-view .billing-table td {
+    padding: 0.85rem 0.85rem;
+    font-size: 0.875rem;
+}
+
+.card-reconciliation-view .billing-table th:first-child,
+.card-reconciliation-view .billing-table td:first-child {
+    padding-left: 1.5rem;
+}
+
+.card-reconciliation-view .billing-table th:last-child,
+.card-reconciliation-view .billing-table td:last-child {
+    padding-right: 1.5rem;
+    text-align: right;
+    white-space: nowrap;
 }

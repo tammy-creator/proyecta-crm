@@ -1070,3 +1070,173 @@
     flex-wrap: wrap;
     box-shadow: 0 1px 3px rgba(217, 119, 6, 0.08);
 }
+
+/* ── Table Header Sorting & Integrated Filters ── */
+.card-reconciliation-view .tr-header-sort th {
+    padding: 0.75rem 0.75rem 0.4rem 0.75rem;
+    font-size: 0.72rem;
+    letter-spacing: 0.05em;
+    user-select: none;
+    border-bottom: 1px solid #e2e8f0;
+    vertical-align: middle;
+}
+
+.th-sortable {
+    cursor: pointer;
+    transition: background-color 0.15s ease;
+}
+
+.th-sortable:hover {
+    background-color: #f1f5f9;
+}
+
+.th-sort-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    font-weight: 700;
+    color: #475569;
+}
+
+.th-sortable:hover .th-sort-btn {
+    color: #0f172a;
+}
+
+.sort-icon-inactive {
+    color: #94a3b8;
+    opacity: 0.5;
+    transition: all 0.15s ease;
+}
+
+.th-sortable:hover .sort-icon-inactive {
+    opacity: 1;
+    color: #475569;
+}
+
+.sort-icon-active {
+    color: #1A5F7A;
+    font-weight: 800;
+}
+
+/* Row 2: Filter Controls in Table Header */
+.card-reconciliation-view .tr-filter-header th {
+    padding: 0.35rem 0.75rem 0.65rem 0.75rem;
+    background-color: #f8fafc;
+    border-bottom: 2px solid #cbd5e1;
+    font-weight: normal;
+    text-transform: none;
+    vertical-align: middle;
+}
+
+.th-filter-input-wrapper {
+    position: relative;
+    display: flex;
+    align-items: center;
+    width: 100%;
+    min-width: 130px;
+}
+
+.th-filter-icon {
+    position: absolute;
+    left: 8px;
+    color: #94a3b8;
+    pointer-events: none;
+}
+
+.th-filter-input {
+    width: 100%;
+    padding: 0.3rem 1.6rem 0.3rem 1.6rem;
+    border: 1px solid #cbd5e1;
+    border-radius: 6px;
+    font-size: 0.78rem;
+    background-color: white;
+    color: #1e293b;
+    outline: none;
+    transition: all 0.15s ease;
+}
+
+.th-filter-input:focus {
+    border-color: #1A5F7A;
+    box-shadow: 0 0 0 2px rgba(26, 95, 122, 0.15);
+}
+
+.th-filter-clear-btn {
+    position: absolute;
+    right: 4px;
+    background: transparent;
+    border: none;
+    color: #94a3b8;
+    cursor: pointer;
+    padding: 2px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.th-filter-clear-btn:hover {
+    color: #334155;
+}
+
+.th-filter-select {
+    width: 100%;
+    padding: 0.3rem 0.4rem;
+    border: 1px solid #cbd5e1;
+    border-radius: 6px;
+    font-size: 0.78rem;
+    font-weight: 500;
+    background-color: white;
+    color: #1e293b;
+    outline: none;
+    cursor: pointer;
+    transition: all 0.15s ease;
+}
+
+.th-filter-select:focus {
+    border-color: #1A5F7A;
+    box-shadow: 0 0 0 2px rgba(26, 95, 122, 0.15);
+}
+
+.th-filter-hint {
+    font-size: 0.72rem;
+    color: #94a3b8;
+    font-style: italic;
+    display: block;
+}
+
+.th-filter-locked {
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: #64748b;
+    background: #e2e8f0;
+    padding: 0.2rem 0.5rem;
+    border-radius: 6px;
+    display: inline-block;
+    white-space: nowrap;
+}
+
+.th-clear-filters-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.3rem;
+    background: #fee2e2;
+    color: #b91c1c;
+    border: 1px solid #fca5a5;
+    padding: 0.25rem 0.55rem;
+    border-radius: 6px;
+    font-size: 0.72rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.15s ease;
+    white-space: nowrap;
+}
+
+.th-clear-filters-btn:hover {
+    background: #fecaca;
+    color: #991b1b;
+}
+
+.reconcile-counter-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.75rem;
+}

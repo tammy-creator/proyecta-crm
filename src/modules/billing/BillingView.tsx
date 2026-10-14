@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { getTransactions, recordPayment, updateTransaction, createTransaction, toggleReconciliation } from './service';
 import { type Transaction, type PaymentMethod } from './types';
 import Card from '../../components/ui/Card';
-import { DollarSign, Clock, CheckCircle, CreditCard, Wallet, Send, Download, Calendar as CalendarIcon, Edit2, X, FileText, Receipt, Filter, TrendingUp, AlertTriangle, Banknote, User, CalendarClock, Search, ChevronLeft, ChevronRight, CheckCheck } from 'lucide-react';
+import { DollarSign, Clock, CheckCircle, CreditCard, Wallet, Send, Download, Calendar as CalendarIcon, Edit2, X, FileText, Receipt, Filter, TrendingUp, AlertTriangle, Banknote, User, CalendarClock, Search, ChevronLeft, ChevronRight, CheckCheck, ArrowUpDown, ArrowUp, ArrowDown, RotateCcw } from 'lucide-react';
 import { format, parseISO, startOfDay, endOfDay, isValid, isSameMonth, parse } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { getPatients } from '../patients/service';
@@ -21,6 +21,9 @@ import PrintPortal from '../../components/ui/PrintPortal';
 
 import { useAuth } from '../../context/AuthContext';
 
+
+type CardSortField = 'date' | 'patient' | 'therapist' | 'amount' | 'status' | 'method' | 'reconciled';
+type CardSortOrder = 'asc' | 'desc';
 
 const BillingView: React.FC = () => {
     const { user } = useAuth();
@@ -46,6 +49,10 @@ const BillingView: React.FC = () => {
     const [cardSearchChild, setCardSearchChild] = useState<string>('');
     const [cardReconciledFilter, setCardReconciledFilter] = useState<'ALL' | 'PENDING' | 'VERIFIED'>('ALL');
     const [cardMethodFilter, setCardMethodFilter] = useState<'CARD_ONLY' | 'ALL' | 'Efectivo' | 'Transferencia'>('CARD_ONLY');
+    const [cardTherapistFilter, setCardTherapistFilter] = useState<string>('ALL');
+    const [cardStatusFilter, setCardStatusFilter] = useState<'ALL' | 'Pagado' | 'Pendiente'>('ALL');
+    const [cardSortField, setCardSortField] = useState<CardSortField>('date');
+    const [cardSortOrder, setCardSortOrder] = useState<CardSortOrder>('desc');
 
     // Transaction Modals
     const [isEditModalOpen, setIsEditModalOpen] = useState(false);
@@ -405,7 +412,50 @@ const BillingView: React.FC = () => {
         ? allPendingCardTransactions
         : allTransactionsMonth;
 
-    // Transacciones filtradas según método seleccionado (Tarjeta por defecto, o Todas para corregir errores)
+    // Lista de terapeutas únicos para el filtro de cabecera
+    const uniqueTherapists = Array.from(
+        new Set(sourceTransactions.map(t => t.therapistName).filter(Boolean))
+    ).sort((a, b) => (a as string).localeCompare(b as string, 'es', { sensitivity: 'base' })) as string[];
+
+    const hasActiveCardFilters = Boolean(
+        cardSearchChild.trim() !== '' ||
+        cardTherapistFilter !== 'ALL' ||
+        cardStatusFilter !== 'ALL' ||
+        (cardScope === 'MONTH' && cardMethodFilter !== 'CARD_ONLY') ||
+        (cardScope === 'MONTH' && cardReconciledFilter !== 'ALL')
+    );
+
+    const handleResetCardFilters = () => {
+        setCardSearchChild('');
+        setCardTherapistFilter('ALL');
+        setCardStatusFilter('ALL');
+        setCardMethodFilter('CARD_ONLY');
+        setCardReconciledFilter('ALL');
+    };
+
+    const handleToggleCardSort = (field: CardSortField) => {
+        if (cardSortField === field) {
+            setCardSortOrder(prev => prev === 'asc' ? 'desc' : 'asc');
+        } else {
+            setCardSortField(field);
+            if (field === 'patient' || field === 'therapist' || field === 'status' || field === 'method') {
+                setCardSortOrder('asc');
+            } else {
+                setCardSortOrder('desc');
+            }
+        }
+    };
+
+    const renderSortIcon = (field: CardSortField) => {
+        if (cardSortField !== field) {
+            return <ArrowUpDown size={13} className="sort-icon-inactive" />;
+        }
+        return cardSortOrder === 'asc' 
+            ? <ArrowUp size={13} className="sort-icon-active" /> 
+            : <ArrowDown size={13} className="sort-icon-active" />;
+    };
+
+    // Transacciones filtradas según filtros integrados de cabecera y ordenadas según columna seleccionada
     const filteredCardTransactions = sourceTransactions
         .filter(t => {
             if (cardScope === 'ALL_PENDING') return true;
@@ -420,12 +470,51 @@ const BillingView: React.FC = () => {
             return true;
         })
         .filter(t => {
+            if (cardTherapistFilter === 'ALL') return true;
+            return t.therapistName === cardTherapistFilter;
+        })
+        .filter(t => {
+            if (cardStatusFilter === 'ALL') return true;
+            return t.status === cardStatusFilter;
+        })
+        .filter(t => {
             if (!cardSearchChild.trim()) return true;
             const searchTokens = normalizeSearch(cardSearchChild).split(' ').filter(Boolean);
             const pNorm = normalizeSearch(t.patientName);
             return searchTokens.every(token => pNorm.includes(token));
         })
-        .sort((a, b) => b.date.localeCompare(a.date));
+        .sort((a, b) => {
+            let comp = 0;
+            switch (cardSortField) {
+                case 'date':
+                    comp = (a.date || '').localeCompare(b.date || '');
+                    break;
+                case 'patient':
+                    comp = (a.patientName || '').localeCompare(b.patientName || '', 'es', { sensitivity: 'base' });
+                    break;
+                case 'therapist':
+                    comp = (a.therapistName || '').localeCompare(b.therapistName || '', 'es', { sensitivity: 'base' });
+                    break;
+                case 'amount':
+                    comp = (a.amount || 0) - (b.amount || 0);
+                    break;
+                case 'status':
+                    comp = (a.status || '').localeCompare(b.status || '');
+                    break;
+                case 'method':
+                    comp = (a.method || '').localeCompare(b.method || '');
+                    break;
+                case 'reconciled': {
+                    const recA = a.isReconciled ? 1 : 0;
+                    const recB = b.isReconciled ? 1 : 0;
+                    comp = recA - recB;
+                    break;
+                }
+                default:
+                    comp = (a.date || '').localeCompare(b.date || '');
+            }
+            return cardSortOrder === 'asc' ? comp : -comp;
+        });
 
     const handleQuickChangeMethod = async (t: Transaction, newMethod: PaymentMethod) => {
         if (t.method === newMethod) return;
@@ -820,7 +909,7 @@ const BillingView: React.FC = () => {
                                 </div>
                             </div>
 
-                            {/* Barra de Filtros */}
+                            {/* Barra Superior de Periodo y Ámbito */}
                             <div className="reconcile-filter-bar">
                                 {/* Selector de Ámbito */}
                                 <div className="scope-toggle-pills">
@@ -862,55 +951,22 @@ const BillingView: React.FC = () => {
                                     </div>
                                 )}
 
-                                {/* Buscador Rápido por Niño */}
-                                <div className="child-search-box">
-                                    <Search size={16} className="search-icon-left" />
-                                    <input
-                                        type="text"
-                                        placeholder="Buscar por niño (ej. Izan, Adrián...)"
-                                        value={cardSearchChild}
-                                        onChange={(e) => setCardSearchChild(e.target.value)}
-                                    />
-                                    {cardSearchChild && (
-                                        <button className="clear-search-btn" onClick={() => setCardSearchChild('')} title="Limpiar búsqueda">
-                                            <X size={14} />
+                                {/* Resumen y Limpieza Rápida */}
+                                <div className="reconcile-counter-badge ml-auto flex items-center gap-2">
+                                    <span className="text-xs text-secondary font-medium">
+                                        Mostrando <strong>{filteredCardTransactions.length}</strong> de {sourceTransactions.length} cobros
+                                    </span>
+                                    {hasActiveCardFilters && (
+                                        <button
+                                            type="button"
+                                            className="th-clear-filters-btn active"
+                                            onClick={handleResetCardFilters}
+                                            title="Restablecer todos los filtros de la tabla"
+                                        >
+                                            <RotateCcw size={12} /> Limpiar filtros
                                         </button>
                                     )}
                                 </div>
-
-                                {cardScope === 'MONTH' && (
-                                    <>
-                                        {/* Filtro de Forma de Pago */}
-                                        <div className="flex items-center gap-2">
-                                            <span className="text-xs font-bold uppercase text-secondary">Ver:</span>
-                                            <select
-                                                className="date-input-clean"
-                                                value={cardMethodFilter}
-                                                onChange={(e) => setCardMethodFilter(e.target.value as any)}
-                                                style={{ background: '#f8fafc', padding: '0.45rem 0.8rem', borderRadius: '10px', border: '1px solid #e2e8f0', fontWeight: 600 }}
-                                            >
-                                                <option value="CARD_ONLY">💳 Solo Tarjetas ({cardMonthCount})</option>
-                                                <option value="ALL">🔍 Todas las formas ({allTransactionsMonth.length})</option>
-                                                <option value="Efectivo">💵 Solo Efectivo ({allTransactionsMonth.filter(t => t.method === 'Efectivo').length})</option>
-                                                <option value="Transferencia">🏦 Solo Transferencia ({allTransactionsMonth.filter(t => t.method === 'Transferencia').length})</option>
-                                            </select>
-                                        </div>
-
-                                        {/* Filtro de Estado de Cotejo */}
-                                        <div className="flex items-center gap-2">
-                                            <select
-                                                className="date-input-clean"
-                                                value={cardReconciledFilter}
-                                                onChange={(e) => setCardReconciledFilter(e.target.value as any)}
-                                                style={{ background: '#f8fafc', padding: '0.45rem 0.8rem', borderRadius: '10px', border: '1px solid #e2e8f0' }}
-                                            >
-                                                <option value="ALL">Todos los estados</option>
-                                                <option value="PENDING">⚠️ Pendientes ({cardMonthPendingCount})</option>
-                                                <option value="VERIFIED">✅ Cotejados ({cardMonthVerifiedCount})</option>
-                                            </select>
-                                        </div>
-                                    </>
-                                )}
                             </div>
 
                             {/* Banner cuando se visualizan Todas las pendientes globales */}
@@ -975,15 +1031,177 @@ const BillingView: React.FC = () => {
                             <div className="billing-table-wrapper">
                                 <table className="billing-table">
                                     <thead>
-                                        <tr>
-                                            <th style={{ width: '120px' }}>Fecha y Hora</th>
-                                            <th>Niño / Paciente</th>
-                                            <th>Terapeuta</th>
-                                            <th style={{ width: '90px' }}>Importe</th>
-                                            <th style={{ width: '105px' }}>Estado</th>
-                                            <th style={{ width: '150px' }}>Forma de Pago</th>
-                                            <th style={{ width: '160px' }}>Cotejo Datáfono</th>
-                                            <th style={{ width: '125px', textAlign: 'right' }}>Acción</th>
+                                        {/* Fila 1: Cabeceras Ordenables con Clic */}
+                                        <tr className="tr-header-sort">
+                                            <th style={{ width: '125px' }} className="th-sortable" onClick={() => handleToggleCardSort('date')} title="Clic para ordenar por Fecha y Hora">
+                                                <div className="th-sort-btn">
+                                                    <span>Fecha y Hora</span>
+                                                    {renderSortIcon('date')}
+                                                </div>
+                                            </th>
+                                            <th className="th-sortable" onClick={() => handleToggleCardSort('patient')} title="Clic para ordenar alfabéticamente por Niño">
+                                                <div className="th-sort-btn">
+                                                    <span>Niño / Paciente</span>
+                                                    {renderSortIcon('patient')}
+                                                </div>
+                                            </th>
+                                            <th style={{ width: '150px' }} className="th-sortable" onClick={() => handleToggleCardSort('therapist')} title="Clic para ordenar por Terapeuta">
+                                                <div className="th-sort-btn">
+                                                    <span>Terapeuta</span>
+                                                    {renderSortIcon('therapist')}
+                                                </div>
+                                            </th>
+                                            <th style={{ width: '90px' }} className="th-sortable" onClick={() => handleToggleCardSort('amount')} title="Clic para ordenar por Importe">
+                                                <div className="th-sort-btn">
+                                                    <span>Importe</span>
+                                                    {renderSortIcon('amount')}
+                                                </div>
+                                            </th>
+                                            <th style={{ width: '105px' }} className="th-sortable" onClick={() => handleToggleCardSort('status')} title="Clic para ordenar por Estado">
+                                                <div className="th-sort-btn">
+                                                    <span>Estado</span>
+                                                    {renderSortIcon('status')}
+                                                </div>
+                                            </th>
+                                            <th style={{ width: '150px' }} className="th-sortable" onClick={() => handleToggleCardSort('method')} title="Clic para ordenar por Forma de Pago">
+                                                <div className="th-sort-btn">
+                                                    <span>Forma de Pago</span>
+                                                    {renderSortIcon('method')}
+                                                </div>
+                                            </th>
+                                            <th style={{ width: '160px' }} className="th-sortable" onClick={() => handleToggleCardSort('reconciled')} title="Clic para ordenar por Estado de Cotejo">
+                                                <div className="th-sort-btn">
+                                                    <span>Cotejo Datáfono</span>
+                                                    {renderSortIcon('reconciled')}
+                                                </div>
+                                            </th>
+                                            <th style={{ width: '125px', textAlign: 'right' }}>
+                                                <span>Acción</span>
+                                            </th>
+                                        </tr>
+
+                                        {/* Fila 2: Cabeceras con Filtros Integrados */}
+                                        <tr className="tr-filter-header">
+                                            {/* Filtro Fecha y Hora */}
+                                            <th>
+                                                <span className="th-filter-hint">Ordenar ↕</span>
+                                            </th>
+
+                                            {/* Filtro Niño / Paciente */}
+                                            <th>
+                                                <div className="th-filter-input-wrapper">
+                                                    <Search size={13} className="th-filter-icon" />
+                                                    <input
+                                                        type="text"
+                                                        className="th-filter-input"
+                                                        placeholder="Filtrar por niño..."
+                                                        value={cardSearchChild}
+                                                        onChange={(e) => setCardSearchChild(e.target.value)}
+                                                        title="Filtrar por nombre o apellido de niño"
+                                                    />
+                                                    {cardSearchChild && (
+                                                        <button
+                                                            type="button"
+                                                            className="th-filter-clear-btn"
+                                                            onClick={() => setCardSearchChild('')}
+                                                            title="Borrar filtro de niño"
+                                                        >
+                                                            <X size={12} />
+                                                        </button>
+                                                    )}
+                                                </div>
+                                            </th>
+
+                                            {/* Filtro Terapeuta */}
+                                            <th>
+                                                <select
+                                                    className="th-filter-select"
+                                                    value={cardTherapistFilter}
+                                                    onChange={(e) => setCardTherapistFilter(e.target.value)}
+                                                    title="Filtrar por terapeuta"
+                                                >
+                                                    <option value="ALL">Todos ({uniqueTherapists.length})</option>
+                                                    {uniqueTherapists.map(name => (
+                                                        <option key={name} value={name}>{name}</option>
+                                                    ))}
+                                                </select>
+                                            </th>
+
+                                            {/* Filtro Importe */}
+                                            <th>
+                                                <span className="th-filter-hint">—</span>
+                                            </th>
+
+                                            {/* Filtro Estado */}
+                                            <th>
+                                                <select
+                                                    className="th-filter-select"
+                                                    value={cardStatusFilter}
+                                                    onChange={(e) => setCardStatusFilter(e.target.value as any)}
+                                                    title="Filtrar por estado del cobro"
+                                                >
+                                                    <option value="ALL">Todos</option>
+                                                    <option value="Pagado">Pagado</option>
+                                                    <option value="Pendiente">Pendiente</option>
+                                                </select>
+                                            </th>
+
+                                            {/* Filtro Forma de Pago */}
+                                            <th>
+                                                {cardScope === 'ALL_PENDING' ? (
+                                                    <span className="th-filter-locked" title="En ámbito global solo se cotejan cobros por Tarjeta">
+                                                        💳 Tarjeta
+                                                    </span>
+                                                ) : (
+                                                    <select
+                                                        className="th-filter-select"
+                                                        value={cardMethodFilter}
+                                                        onChange={(e) => setCardMethodFilter(e.target.value as any)}
+                                                        title="Filtrar por forma de pago"
+                                                    >
+                                                        <option value="CARD_ONLY">💳 Solo Tarjetas</option>
+                                                        <option value="ALL">🔍 Todas</option>
+                                                        <option value="Efectivo">💵 Efectivo</option>
+                                                        <option value="Transferencia">🏦 Transferencia</option>
+                                                    </select>
+                                                )}
+                                            </th>
+
+                                            {/* Filtro Cotejo Datáfono */}
+                                            <th>
+                                                {cardScope === 'ALL_PENDING' ? (
+                                                    <span className="th-filter-locked" title="En ámbito global todas las citas mostradas están pendientes de cotejar">
+                                                        ⚠️ Pendientes
+                                                    </span>
+                                                ) : (
+                                                    <select
+                                                        className="th-filter-select"
+                                                        value={cardReconciledFilter}
+                                                        onChange={(e) => setCardReconciledFilter(e.target.value as any)}
+                                                        title="Filtrar por estado de cotejo"
+                                                    >
+                                                        <option value="ALL">Todos</option>
+                                                        <option value="PENDING">⚠️ Pendientes</option>
+                                                        <option value="VERIFIED">✅ Cotejados</option>
+                                                    </select>
+                                                )}
+                                            </th>
+
+                                            {/* Acción: Botón Limpiar filtros si hay alguno activo */}
+                                            <th style={{ textAlign: 'right' }}>
+                                                {hasActiveCardFilters ? (
+                                                    <button
+                                                        type="button"
+                                                        className="th-clear-filters-btn active"
+                                                        onClick={handleResetCardFilters}
+                                                        title="Limpiar todos los filtros"
+                                                    >
+                                                        <RotateCcw size={12} /> Limpiar
+                                                    </button>
+                                                ) : (
+                                                    <span className="th-filter-hint">Filtros</span>
+                                                )}
+                                            </th>
                                         </tr>
                                     </thead>
                                     <tbody>

@@ -9,7 +9,9 @@ import {
     isWeekend, 
     startOfDay, 
     endOfDay,
-    set
+    set,
+    subMonths,
+    addMonths
 } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { useAuth } from '../../context/AuthContext';
@@ -31,13 +33,18 @@ import {
     Printer,
     Sun,
     X,
+    ChevronLeft,
+    ChevronRight,
+    LayoutGrid,
+    List,
+    FileText,
+    Users
 } from 'lucide-react';
 import { 
     getAllAttendance, 
     addAttendance, 
     deleteAttendance, 
     getAllSignatures, 
-    getActiveTherapistsForMonth,
     getTherapistVacations,
     checkScheduleAdherence
 } from './service';
@@ -66,8 +73,6 @@ const WorkforceReport: React.FC = () => {
     const [loading, setLoading] = useState(false);
     const [centerSettings, setCenterSettings] = useState<CenterSettings | null>(null);
     const [signedReports, setSignedReports] = useState<(MonthlyReportSignature & { therapistName?: string })[]>([]);
-    const [activeTherapistsForMonth, setActiveTherapistsForMonth] = useState<string[]>([]);
-    const [activeTherapistsCurrentMonth, setActiveTherapistsCurrentMonth] = useState<string[]>([]);
     
     // Modal state
     const [activeTab, setActiveTab] = useState<'daily' | 'absences' | 'signatures'>('daily');
@@ -90,6 +95,9 @@ const WorkforceReport: React.FC = () => {
     const [allVacations, setAllVacations] = useState<Attendance[]>([]);
     const [vacationLoading, setVacationLoading] = useState(false);
     const [selectedDayAbsences, setSelectedDayAbsences] = useState<{ day: Date, absences: (Attendance & { therapistName?: string })[] } | null>(null);
+    const [sigViewMode, setSigViewMode] = useState<'cards' | 'table'>('cards');
+    const [sigStatusFilter, setSigStatusFilter] = useState<'all' | 'signed' | 'pending'>('all');
+    const [showAllHistory, setShowAllHistory] = useState(false);
     const { user: currentUser } = useAuth();
 
     useEffect(() => {
@@ -119,14 +127,6 @@ const WorkforceReport: React.FC = () => {
     useEffect(() => {
         fetchData();
     }, [month, selectedTherapistId]);
-
-    useEffect(() => {
-        if (currentUser?.role === 'ADMIN') {
-            const currentMonth = format(new Date(), 'yyyy-MM');
-            getActiveTherapistsForMonth(currentMonth).then(setActiveTherapistsCurrentMonth).catch(console.error);
-            getActiveTherapistsForMonth(month).then(setActiveTherapistsForMonth).catch(console.error);
-        }
-    }, [month, currentUser]);
 
     const fetchData = async () => {
         setLoading(true);
@@ -552,85 +552,177 @@ const WorkforceReport: React.FC = () => {
 
 
     const currentMonthStr = format(new Date(), 'yyyy-MM');
-    // For signatures tab, we always care about the actual current month
-    const effectiveMonth = activeTab === 'signatures' ? currentMonthStr : month;
+    const previousMonthStr = format(subMonths(new Date(), 1), 'yyyy-MM');
+    const effectiveMonth = month;
     const isViewingCurrentMonth = effectiveMonth === currentMonthStr;
+    const isViewingPastMonth = effectiveMonth < currentMonthStr;
 
-    // Derive active therapist sets directly from loaded data
-    const activeTherapistIdsFromAttendances = new Set(
-        attendances
-            .filter(a => a.therapistId)
-            .map(a => a.therapistId as string)
-    );
+    const handlePrevMonth = () => {
+        setShowAllHistory(false);
+        const d = parseISO(`${month}-01`);
+        setMonth(format(subMonths(d, 1), 'yyyy-MM'));
+    };
 
-    // PERSISTENCE: If attendances are empty (likely due to lock), 
-    // we fallback to therapists who ARE in signedReports or just all therapists if viewing current month
-    const fallbackActiveIds = activeTherapistIdsFromAttendances.size > 0 
-        ? activeTherapistIdsFromAttendances 
-        : new Set(therapists.map(t => t.id));
+    const handleNextMonth = () => {
+        setShowAllHistory(false);
+        const d = parseISO(`${month}-01`);
+        setMonth(format(addMonths(d, 1), 'yyyy-MM'));
+    };
 
-    const currentPendingSignatures = therapists.filter(t =>
-        fallbackActiveIds.has(t.id) &&
-        !signedReports.some(r => r.therapistId === t.id && r.month === effectiveMonth)
-    );
+    const handleSelectMonth = (targetMonth: string) => {
+        setShowAllHistory(false);
+        setMonth(targetMonth);
+    };
 
-    const filteredSignedReports: (MonthlyReportSignature & { therapistName?: string; isPending?: boolean; isInProgress?: boolean })[] = 
-        selectedTherapistId === 'all' 
-            ? [...signedReports]
-            : [...signedReports.filter(r => r.therapistId === selectedTherapistId)];
+    // Calculate pending count for previous closed month (for badge on tab)
+    const prevMonthSignatures = signedReports.filter(r => r.month === previousMonthStr);
+    const prevMonthPendingCount = therapists.filter(t =>
+        t.isActive !== false &&
+        !prevMonthSignatures.some(r => r.therapistId === t.id)
+    ).length;
 
-    if (selectedTherapistId === 'all') {
-        // Inject all pending signatures for the effective month
-        currentPendingSignatures.forEach(t => {
-            const therapistHours = attendances
-                .filter(a => a.type === 'work' && a.startTime && a.endTime && a.therapistId === t.id)
-                .reduce((acc, curr) => {
-                    const s = parseISO(curr.startTime).getTime();
-                    const e = parseISO(curr.endTime!).getTime();
-                    return acc + Math.max(0, (e - s) / (1000 * 60 * 60));
-                }, 0);
-            filteredSignedReports.unshift({
-                id: 'pending-' + t.id + '-' + effectiveMonth,
+    // Build complete report list for the selected month (effectiveMonth)
+    const relevantTherapistsForMonth = therapists.filter(t => {
+        if (selectedTherapistId !== 'all' && t.id !== selectedTherapistId) return false;
+        const hasSig = signedReports.some(r => r.therapistId === t.id && r.month === effectiveMonth);
+        if (hasSig) return true;
+        const hasAtt = attendances.some(a => a.therapistId === t.id);
+        const hasAppt = appointments.some(a => a.therapistId === t.id && a.status !== 'Cancelada');
+        if (hasAtt || hasAppt) return true;
+        return t.isActive !== false;
+    });
+
+    // Map each therapist to a unified MonthlyReport item for the selected month
+    const monthGeneratedReports: (MonthlyReportSignature & {
+        therapistName?: string;
+        specialty?: string;
+        activeDays?: number;
+        apptsCount?: number;
+        isPending?: boolean;
+        isInProgress?: boolean;
+        status?: 'signed' | 'pending' | 'in_progress';
+    })[] = relevantTherapistsForMonth.map(t => {
+        const existingSig = signedReports.find(r => r.therapistId === t.id && r.month === effectiveMonth);
+
+        const therapistAtts = attendances.filter(a => a.type === 'work' && a.startTime && a.therapistId === t.id);
+        const calculatedHours = therapistAtts.reduce((acc, curr) => {
+            const s = parseISO(curr.startTime).getTime();
+            const e = curr.endTime ? parseISO(curr.endTime).getTime() : Date.now();
+            return acc + Math.max(0, (e - s) / (1000 * 60 * 60));
+        }, 0);
+
+        const activeDaysCount = new Set(therapistAtts.map(a => format(parseISO(a.startTime), 'yyyy-MM-dd'))).size;
+        const apptsCount = appointments.filter(a => a.therapistId === t.id && a.status !== 'Cancelada').length;
+
+        if (existingSig) {
+            return {
+                id: existingSig.id,
                 therapistId: t.id,
                 month: effectiveMonth,
+                totalHours: existingSig.totalHours,
+                signedAt: existingSig.signedAt,
+                declaration: existingSig.declaration,
+                signatureImage: existingSig.signatureImage,
+                therapistName: t.fullName,
+                specialty: t.specialty,
+                activeDays: activeDaysCount,
+                apptsCount,
+                status: 'signed',
+                isPending: false,
+                isInProgress: false
+            };
+        } else {
+            return {
+                id: `pending-${t.id}-${effectiveMonth}`,
+                therapistId: t.id,
+                month: effectiveMonth,
+                totalHours: Number(calculatedHours.toFixed(1)),
                 signedAt: '',
-                totalHours: Number(therapistHours.toFixed(1)),
+                declaration: '',
                 signatureImage: '',
                 therapistName: t.fullName,
+                specialty: t.specialty,
+                activeDays: activeDaysCount,
+                apptsCount,
+                status: isViewingCurrentMonth ? 'in_progress' : 'pending',
                 isPending: !isViewingCurrentMonth,
                 isInProgress: isViewingCurrentMonth
-            } as any);
-        });
-    } else {
-        const isSelectedTherapistPending = therapists.some(t => 
-            t.id === selectedTherapistId && 
-            (activeTab === 'signatures' ? activeTherapistsCurrentMonth : activeTherapistsForMonth).includes(t.id) && 
-            !signedReports.some(r => r.therapistId === t.id && r.month === effectiveMonth)
-        );
-
-        if (isSelectedTherapistPending) {
-            const therapistHours = attendances
-                .filter(a => a.type === 'work' && a.startTime && a.endTime && a.therapistId === selectedTherapistId)
-                .reduce((acc, curr) => {
-                    const s = parseISO(curr.startTime).getTime();
-                    const e = parseISO(curr.endTime!).getTime();
-                    return acc + Math.max(0, (e - s) / (1000 * 60 * 60));
-                }, 0);
-            filteredSignedReports.unshift({
-                id: 'pending-' + effectiveMonth,
-                therapistId: selectedTherapistId,
-                month: effectiveMonth,
-                signedAt: '',
-                totalHours: Number(therapistHours.toFixed(1)),
-                signatureImage: '',
-                therapistName: therapists.find(t => t.id === selectedTherapistId)?.fullName,
-                isPending: !isViewingCurrentMonth,
-                isInProgress: isViewingCurrentMonth
-            } as any);
+            };
         }
-    }
+    });
 
-    filteredSignedReports.sort((a, b) => b.month.localeCompare(a.month));
+    // Also include any signed report for this month from therapists who might not be in relevantTherapistsForMonth
+    signedReports
+        .filter(r => r.month === effectiveMonth && (selectedTherapistId === 'all' || r.therapistId === selectedTherapistId))
+        .forEach(r => {
+            if (!monthGeneratedReports.some(item => item.therapistId === r.therapistId)) {
+                monthGeneratedReports.push({
+                    id: r.id,
+                    therapistId: r.therapistId,
+                    month: r.month,
+                    totalHours: r.totalHours,
+                    signedAt: r.signedAt,
+                    declaration: r.declaration,
+                    signatureImage: r.signatureImage,
+                    therapistName: r.therapistName || 'Terapeuta',
+                    specialty: therapists.find(t => t.id === r.therapistId)?.specialty || '',
+                    activeDays: 0,
+                    apptsCount: 0,
+                    status: 'signed',
+                    isPending: false,
+                    isInProgress: false
+                });
+            }
+        });
+
+    // Historical reports (all time)
+    const historicalSignedReports: (MonthlyReportSignature & {
+        therapistName?: string;
+        specialty?: string;
+        activeDays?: number;
+        apptsCount?: number;
+        isPending?: boolean;
+        isInProgress?: boolean;
+        status?: 'signed' | 'pending' | 'in_progress';
+    })[] = signedReports
+        .filter(r => selectedTherapistId === 'all' || r.therapistId === selectedTherapistId)
+        .map(r => ({
+            ...r,
+            specialty: therapists.find(t => t.id === r.therapistId)?.specialty,
+            activeDays: 0,
+            apptsCount: 0,
+            status: 'signed',
+            isPending: false,
+            isInProgress: false
+        }));
+
+    const activeReportList = showAllHistory ? historicalSignedReports : monthGeneratedReports;
+
+    // KPI Metrics for the selected month
+    const sigTotalReports = monthGeneratedReports.length;
+    const sigSignedCount = monthGeneratedReports.filter(r => r.status === 'signed').length;
+    const sigPendingCount = monthGeneratedReports.filter(r => r.status === 'pending').length;
+    const sigInProgressCount = monthGeneratedReports.filter(r => r.status === 'in_progress').length;
+    const sigTotalHours = Number(monthGeneratedReports.reduce((acc, r) => acc + (r.totalHours || 0), 0).toFixed(1));
+    const sigCompliancePercent = sigTotalReports > 0 ? Math.round((sigSignedCount / sigTotalReports) * 100) : 0;
+
+    // Filter by sigStatusFilter
+    const filteredSignedReports = activeReportList.filter(r => {
+        if (sigStatusFilter === 'all') return true;
+        if (sigStatusFilter === 'signed') return r.status === 'signed';
+        if (sigStatusFilter === 'pending') return r.status === 'pending' || r.status === 'in_progress';
+        return true;
+    });
+
+    // Sorting: Pending first, then signed descending by date, or alphabetical
+    filteredSignedReports.sort((a, b) => {
+        if (showAllHistory) {
+            return b.month.localeCompare(a.month) || (b.signedAt || '').localeCompare(a.signedAt || '');
+        }
+        if (a.isPending && !b.isPending) return -1;
+        if (!a.isPending && b.isPending) return 1;
+        return (a.therapistName || '').localeCompare(b.therapistName || '');
+    });
 
     return (
         <>
@@ -653,11 +745,14 @@ const WorkforceReport: React.FC = () => {
                             />
                         </div>
                     )}
-                    {activeTab !== 'signatures' && !(activeTab === 'daily' && selectedTherapistId === 'all') && (
+                    {!(activeTab === 'daily' && selectedTherapistId === 'all') && (
                         <input
                             type="month"
                             value={month}
-                            onChange={e => setMonth(e.target.value)}
+                            onChange={e => {
+                                setShowAllHistory(false);
+                                setMonth(e.target.value);
+                            }}
                         />
                     )}
                     <select
@@ -688,6 +783,11 @@ const WorkforceReport: React.FC = () => {
                             onClick={() => setActiveTab('signatures')}
                         >
                             <ShieldCheck size={18} /> Firmas
+                            {prevMonthPendingCount > 0 && (
+                                <span className="tab-pending-badge" title={`${prevMonthPendingCount} firmas pendientes de meses cerrados`}>
+                                    {prevMonthPendingCount}
+                                </span>
+                            )}
                         </button>
                     )}
                 </div>
@@ -1087,123 +1187,412 @@ const WorkforceReport: React.FC = () => {
 
                 {activeTab === 'signatures' && currentUser?.role === 'ADMIN' && (
                     <div className="animate-in">
-                        {/* ── Pending Signatures Alert ── */}
-                        {currentPendingSignatures.length > 0 && (
-                            <div className={`mb-6 p-4 rounded-lg border ${isViewingCurrentMonth ? 'bg-sky-50 border-sky-200' : 'bg-amber-50 border-amber-200'}`}>
-                                <div className={`flex items-center gap-2 font-semibold mb-2 ${isViewingCurrentMonth ? 'text-sky-800' : 'text-amber-800'}`}>
-                                    {isViewingCurrentMonth ? <Clock size={20} /> : <AlertCircle size={20} />}
-                                    {isViewingCurrentMonth ? 'Reportes en curso' : 'Pendientes de Firma'} ({effectiveMonth})
+                        {/* ── Period Selector Bar ── */}
+                        <div className="wf-period-bar">
+                            <div className="wf-period-left">
+                                <div className="wf-month-nav-group">
+                                    <button 
+                                        type="button" 
+                                        className="wf-nav-arrow-btn" 
+                                        onClick={handlePrevMonth} 
+                                        title="Mes anterior"
+                                    >
+                                        <ChevronLeft size={16} />
+                                    </button>
+                                    <input
+                                        type="month"
+                                        value={month}
+                                        onChange={e => handleSelectMonth(e.target.value)}
+                                        className="wf-month-input-direct"
+                                    />
+                                    <button 
+                                        type="button" 
+                                        className="wf-nav-arrow-btn" 
+                                        onClick={handleNextMonth} 
+                                        title="Mes siguiente"
+                                    >
+                                        <ChevronRight size={16} />
+                                    </button>
                                 </div>
-                                <p className={`text-sm mb-3 ${isViewingCurrentMonth ? 'text-sky-700' : 'text-amber-700'}`}>
-                                    {isViewingCurrentMonth 
-                                        ? 'Los siguientes terapeutas tienen actividad registrada este mes y su reporte se generará al finalizar el periodo:'
-                                        : 'Los siguientes terapeutas tienen actividad registrada en este mes pero no han firmado su reporte:'}
+
+                                <div className="wf-period-pills">
+                                    <button
+                                        type="button"
+                                        className={`wf-period-pill ${!showAllHistory && month === previousMonthStr ? 'active' : ''}`}
+                                        onClick={() => handleSelectMonth(previousMonthStr)}
+                                    >
+                                        <Calendar size={13} />
+                                        <span>{format(parseISO(`${previousMonthStr}-01`), "MMMM yyyy", { locale: es })}</span>
+                                        <span className="pill-tag">Mes cerrado</span>
+                                    </button>
+                                    <button
+                                        type="button"
+                                        className={`wf-period-pill ${!showAllHistory && month === currentMonthStr ? 'active' : ''}`}
+                                        onClick={() => handleSelectMonth(currentMonthStr)}
+                                    >
+                                        <Clock size={13} />
+                                        <span>{format(parseISO(`${currentMonthStr}-01`), "MMMM yyyy", { locale: es })}</span>
+                                        <span className="pill-tag">En curso</span>
+                                    </button>
+                                    <button
+                                        type="button"
+                                        className={`wf-period-pill ${showAllHistory ? 'active' : ''}`}
+                                        onClick={() => setShowAllHistory(true)}
+                                    >
+                                        <FileText size={13} />
+                                        <span>Histórico General</span>
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* ── KPI Summary Cards ── */}
+                        {!showAllHistory && (
+                            <div className="wf-sig-kpis">
+                                <div className="wf-sig-kpi-card wf-sig-kpi-blue">
+                                    <div className="wf-sig-kpi-icon">
+                                        <Users size={22} />
+                                    </div>
+                                    <div className="wf-sig-kpi-content">
+                                        <span className="wf-sig-kpi-label">Plantilla / Informes</span>
+                                        <span className="wf-sig-kpi-value">{sigTotalReports}</span>
+                                        <span className="wf-sig-kpi-sub">Terapeutas en {format(parseISO(`${effectiveMonth}-01`), "MMMM", { locale: es })}</span>
+                                    </div>
+                                </div>
+
+                                <div className="wf-sig-kpi-card wf-sig-kpi-green">
+                                    <div className="wf-sig-kpi-icon">
+                                        <CheckCircle2 size={22} />
+                                    </div>
+                                    <div className="wf-sig-kpi-content">
+                                        <span className="wf-sig-kpi-label">Firmados</span>
+                                        <span className="wf-sig-kpi-value">{sigSignedCount}</span>
+                                        <span className="wf-sig-kpi-sub">{sigCompliancePercent}% completado</span>
+                                    </div>
+                                </div>
+
+                                <div className="wf-sig-kpi-card wf-sig-kpi-amber">
+                                    <div className="wf-sig-kpi-icon">
+                                        <AlertCircle size={22} />
+                                    </div>
+                                    <div className="wf-sig-kpi-content">
+                                        <span className="wf-sig-kpi-label">
+                                            {isViewingCurrentMonth ? 'En Progreso' : 'Pendientes de Firma'}
+                                        </span>
+                                        <span className="wf-sig-kpi-value">
+                                            {isViewingCurrentMonth ? sigInProgressCount : sigPendingCount}
+                                        </span>
+                                        <span className="wf-sig-kpi-sub">
+                                            {isViewingCurrentMonth ? 'Cierre a fin de mes' : 'Requieren firma'}
+                                        </span>
+                                    </div>
+                                </div>
+
+                                <div className="wf-sig-kpi-card wf-sig-kpi-purple">
+                                    <div className="wf-sig-kpi-icon">
+                                        <Clock size={22} />
+                                    </div>
+                                    <div className="wf-sig-kpi-content">
+                                        <span className="wf-sig-kpi-label">Horas Totales</span>
+                                        <span className="wf-sig-kpi-value">{sigTotalHours}h</span>
+                                        <span className="wf-sig-kpi-sub">Actividad registrada</span>
+                                    </div>
+                                </div>
+                            </div>
+                        )}
+
+                        {/* ── Pending Signatures Alert Banner (if past month with pending) ── */}
+                        {isViewingPastMonth && sigPendingCount > 0 && !showAllHistory && (
+                            <div className="mb-6 p-4 rounded-xl border bg-amber-50 border-amber-200">
+                                <div className="flex items-center gap-2 font-semibold mb-2 text-amber-800">
+                                    <AlertCircle size={20} />
+                                    <span>Pendientes de Firma en {format(parseISO(`${effectiveMonth}-01`), "MMMM yyyy", { locale: es })} ({sigPendingCount})</span>
+                                </div>
+                                <p className="text-sm mb-3 text-amber-700">
+                                    El mes ya ha finalizado. Los siguientes profesionales tienen jornada laboral computada pero aún no han firmado su reporte mensual:
                                 </p>
                                 <div className="flex flex-wrap gap-2">
-                                    {currentPendingSignatures.map(t => (
+                                    {monthGeneratedReports.filter(r => r.status === 'pending').map(t => (
                                         <span 
                                             key={t.id} 
-                                            className={`px-3 py-1 bg-white border text-xs rounded-full font-medium shadow-sm ${isViewingCurrentMonth ? 'border-sky-300 text-sky-800' : 'border-amber-300 text-amber-800'}`}
+                                            className="px-3 py-1 bg-white border border-amber-300 text-amber-800 text-xs rounded-full font-medium shadow-sm flex items-center gap-1.5"
                                         >
-                                            {t.fullName}
+                                            <AlertCircle size={11} className="text-amber-500" />
+                                            {t.therapistName} ({t.totalHours}h)
                                         </span>
                                     ))}
                                 </div>
                             </div>
                         )}
 
-                        {/* ── Signed Reports Section ── */}
-                        <div className="wf-table-wrapper">
-                            <div className="p-4 border-b bg-gray-50">
-                                <h3 style={{ fontWeight: 600, color: '#1A5F7A' }}>Reportes Recibidos</h3>
+                        {/* ── Toolbar: Filters & View Mode ── */}
+                        <div className="wf-sig-toolbar">
+                            <div className="wf-sig-filters">
+                                <button
+                                    type="button"
+                                    className={`wf-sig-filter-btn ${sigStatusFilter === 'all' ? 'active' : ''}`}
+                                    onClick={() => setSigStatusFilter('all')}
+                                >
+                                    <span>Todos</span>
+                                    <span className="wf-sig-filter-count">{activeReportList.length}</span>
+                                </button>
+                                <button
+                                    type="button"
+                                    className={`wf-sig-filter-btn ${sigStatusFilter === 'signed' ? 'active' : ''}`}
+                                    onClick={() => setSigStatusFilter('signed')}
+                                >
+                                    <span>Firmados</span>
+                                    <span className="wf-sig-filter-count">
+                                        {activeReportList.filter(r => r.status === 'signed').length}
+                                    </span>
+                                </button>
+                                {!showAllHistory && (
+                                    <button
+                                        type="button"
+                                        className={`wf-sig-filter-btn ${sigStatusFilter === 'pending' ? 'active' : ''}`}
+                                        onClick={() => setSigStatusFilter('pending')}
+                                    >
+                                        <span>{isViewingCurrentMonth ? 'En Curso' : 'Pendientes'}</span>
+                                        <span className="wf-sig-filter-count">
+                                            {activeReportList.filter(r => r.status === 'pending' || r.status === 'in_progress').length}
+                                        </span>
+                                    </button>
+                                )}
                             </div>
-                            <table className="wf-table">
-                                <thead>
-                                    <tr>
-                                        <th>Terapeuta</th>
-                                        <th>Periodo</th>
-                                        <th>Horas</th>
-                                        <th>Fecha Firma</th>
-                                        <th>Firma</th>
-                                        <th>Estado / Acciones</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    {filteredSignedReports.length === 0 ? (
+
+                            <div className="wf-view-toggle">
+                                <button
+                                    type="button"
+                                    className={`wf-view-btn ${sigViewMode === 'cards' ? 'active' : ''}`}
+                                    onClick={() => setSigViewMode('cards')}
+                                    title="Vista Fichas Visuales"
+                                >
+                                    <LayoutGrid size={15} />
+                                    <span>Fichas</span>
+                                </button>
+                                <button
+                                    type="button"
+                                    className={`wf-view-btn ${sigViewMode === 'table' ? 'active' : ''}`}
+                                    onClick={() => setSigViewMode('table')}
+                                    title="Vista Tabla"
+                                >
+                                    <List size={15} />
+                                    <span>Tabla</span>
+                                </button>
+                            </div>
+                        </div>
+
+                        {/* ── Content View ── */}
+                        {filteredSignedReports.length === 0 ? (
+                            <div className="wf-sig-empty-state">
+                                <div className="wf-sig-empty-icon">
+                                    <FileText size={28} />
+                                </div>
+                                <h4 className="wf-sig-empty-title">No hay reportes para este criterio</h4>
+                                <p className="wf-sig-empty-desc">
+                                    {showAllHistory 
+                                        ? 'No se encontraron reportes firmados en el historial general con los filtros seleccionados.'
+                                        : `No hay actividad ni reportes registrados en ${format(parseISO(`${effectiveMonth}-01`), "MMMM 'de' yyyy", { locale: es })} para el filtro aplicado.`}
+                                </p>
+                            </div>
+                        ) : sigViewMode === 'cards' ? (
+                            /* ── Document Cards Grid ── */
+                            <div className="wf-doc-grid">
+                                {filteredSignedReports.map(report => (
+                                    <div key={`${report.id}-${report.month}-${report.therapistId}`} className={`wf-doc-card ${report.status || (report.isPending ? 'pending' : report.isInProgress ? 'in_progress' : 'signed')}`}>
+                                        {/* Card Header */}
+                                        <div className="wf-doc-card-header">
+                                            <div className="wf-doc-period">
+                                                <Calendar size={14} />
+                                                <span>{format(parseISO(`${report.month}-01`), "MMMM yyyy", { locale: es }).toUpperCase()}</span>
+                                            </div>
+                                            <div className="wf-doc-status-badge">
+                                                {report.status === 'signed' || (!report.isPending && !report.isInProgress && report.signedAt) ? (
+                                                    <span className="wf-badge wf-badge-ok">
+                                                        <CheckCircle2 size={11} /> Firmado
+                                                    </span>
+                                                ) : report.status === 'pending' || report.isPending ? (
+                                                    <span className="wf-badge wf-badge-missing" style={{ animation: 'none' }}>
+                                                        <AlertCircle size={11} /> Pendiente
+                                                    </span>
+                                                ) : (
+                                                    <span className="wf-badge wf-badge-in-progress">
+                                                        <Clock size={11} /> En Curso
+                                                    </span>
+                                                )}
+                                            </div>
+                                        </div>
+
+                                        {/* Therapist Profile */}
+                                        <div className="wf-doc-therapist">
+                                            <div className="wf-doc-avatar">
+                                                {(report.therapistName || 'T').substring(0, 2).toUpperCase()}
+                                            </div>
+                                            <div className="wf-doc-info">
+                                                <h4 className="wf-doc-name">{report.therapistName}</h4>
+                                                <span className="wf-doc-role">{report.specialty || 'Profesional'}</span>
+                                            </div>
+                                        </div>
+
+                                        {/* Metrics Strip */}
+                                        <div className="wf-doc-metrics">
+                                            <div className="wf-doc-metric">
+                                                <span className="wf-doc-metric-label">Horas</span>
+                                                <span className="wf-doc-metric-val">{report.totalHours}h</span>
+                                            </div>
+                                            <div className="wf-doc-metric">
+                                                <span className="wf-doc-metric-label">Días</span>
+                                                <span className="wf-doc-metric-val">{report.activeDays || '—'}</span>
+                                            </div>
+                                            <div className="wf-doc-metric">
+                                                <span className="wf-doc-metric-label">Citas</span>
+                                                <span className="wf-doc-metric-val">{report.apptsCount || '—'}</span>
+                                            </div>
+                                        </div>
+
+                                        {/* Signature Box */}
+                                        <div className="wf-doc-signature-box">
+                                            {report.status === 'signed' || (!report.isPending && !report.isInProgress && report.signedAt) ? (
+                                                <div className="wf-doc-signature-content">
+                                                    {report.signatureImage ? (
+                                                        <img
+                                                            src={report.signatureImage}
+                                                            alt="Firma"
+                                                            className="wf-doc-signature-img"
+                                                        />
+                                                    ) : (
+                                                        <span className="wf-doc-signature-placeholder">Firma digital registrada</span>
+                                                    )}
+                                                    <div className="wf-doc-signature-footer">
+                                                        <ShieldCheck size={13} />
+                                                        <span>Firmado el {report.signedAt ? new Date(report.signedAt).toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : '—'}</span>
+                                                    </div>
+                                                </div>
+                                            ) : report.status === 'pending' || report.isPending ? (
+                                                <div className="wf-doc-signature-pending">
+                                                    <AlertCircle size={18} className="text-amber-500 mb-1" />
+                                                    <span className="pending-title">Firma Pendiente</span>
+                                                    <span className="pending-desc">Mes cerrado. Requiere firma del trabajador.</span>
+                                                </div>
+                                            ) : (
+                                                <div className="wf-doc-signature-in-progress">
+                                                    <Clock size={18} className="text-sky-500 mb-1" />
+                                                    <span className="in-progress-title">Periodo en curso</span>
+                                                    <span className="in-progress-desc">La firma se generará al finalizar el mes.</span>
+                                                </div>
+                                            )}
+                                        </div>
+
+                                        {/* Actions */}
+                                        <div className="wf-doc-actions">
+                                            <button
+                                                type="button"
+                                                className="btn-export wf-doc-btn-main"
+                                                onClick={() => handleDownloadSignedReport(report)}
+                                            >
+                                                <Printer size={15} />
+                                                <span>
+                                                    {report.status === 'signed' || (!report.isPending && !report.isInProgress) 
+                                                        ? 'Ver / Imprimir PDF' 
+                                                        : 'Ver Borrador PDF'}
+                                                </span>
+                                            </button>
+                                            {(report.status === 'signed' || (!report.isPending && !report.isInProgress)) && (
+                                                <button
+                                                    type="button"
+                                                    className="wf-doc-btn-sub"
+                                                    onClick={() => handleDownloadSignedReport(report)}
+                                                    title="Descargar documento"
+                                                >
+                                                    <Download size={15} />
+                                                </button>
+                                            )}
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        ) : (
+                            /* ── Detailed Table View ── */
+                            <div className="wf-table-wrapper">
+                                <table className="wf-table">
+                                    <thead>
                                         <tr>
-                                            <td colSpan={6} style={{ textAlign: 'center', padding: '3rem', color: '#94a3b8' }}>
-                                                No hay reportes firmados registrados aún para este terapeuta.
-                                            </td>
+                                            <th>Terapeuta</th>
+                                            <th>Periodo</th>
+                                            <th>Horas</th>
+                                            <th>Fecha Firma</th>
+                                            <th>Firma Digital</th>
+                                            <th>Estado / Acciones</th>
                                         </tr>
-                                    ) : (
-                                        filteredSignedReports.map(report => (
+                                    </thead>
+                                    <tbody>
+                                        {filteredSignedReports.map(report => (
                                             <tr key={`${report.id}-${report.month}-${report.therapistId}`} style={report.isPending || report.isInProgress ? { backgroundColor: report.isInProgress ? '#f0f9ff' : '#fffbeb' } : {}}>
-                                                <td style={{ fontWeight: 600 }}>{report.therapistName}</td>
-                                                <td>{report.month}</td>
-                                                <td>{report.totalHours}h</td>
+                                                <td>
+                                                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
+                                                        <div className="wf-doc-avatar" style={{ width: '32px', height: '32px', fontSize: '0.75rem', borderRadius: '10px' }}>
+                                                            {(report.therapistName || 'T').substring(0, 2).toUpperCase()}
+                                                        </div>
+                                                        <div>
+                                                            <div style={{ fontWeight: 600 }}>{report.therapistName}</div>
+                                                            {report.specialty && <div style={{ fontSize: '0.75rem', color: '#64748b' }}>{report.specialty}</div>}
+                                                        </div>
+                                                    </div>
+                                                </td>
+                                                <td>
+                                                    <span style={{ fontWeight: 600, color: '#334155' }}>
+                                                        {format(parseISO(`${report.month}-01`), "MMMM yyyy", { locale: es })}
+                                                    </span>
+                                                </td>
+                                                <td><strong>{report.totalHours}h</strong></td>
                                                 <td style={{ fontSize: '0.85rem' }}>
                                                     {report.isInProgress ? (
                                                         <span className="text-sky-600 font-medium">En curso...</span>
                                                     ) : report.isPending ? (
                                                         <span className="text-amber-600 font-medium">No firmado</span>
-                                                    ) : (
+                                                    ) : report.signedAt ? (
                                                         new Date(report.signedAt).toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit', year: 'numeric' })
-                                                    )}
+                                                    ) : '—'}
                                                 </td>
                                                 <td>
                                                     {report.isInProgress ? (
-                                                        <span className="wf-badge wf-badge-ok" style={{ backgroundColor: '#e0f2fe', color: '#0369a1' }}>EN CURSO</span>
+                                                        <span className="wf-badge wf-badge-in-progress">EN CURSO</span>
                                                     ) : report.isPending ? (
                                                         <span className="wf-badge wf-badge-missing" style={{ animation: 'none' }}>PENDIENTE</span>
                                                     ) : report.signatureImage ? (
                                                         <img
                                                             src={report.signatureImage}
                                                             alt="Firma"
-                                                            style={{ height: '30px', borderRadius: '4px', border: '1px solid #e5e7eb' }}
+                                                            style={{ height: '30px', borderRadius: '4px', border: '1px solid #e5e7eb', background: '#fff' }}
                                                         />
                                                     ) : (
                                                         <span className="text-gray-400 text-xs">Sin imagen</span>
                                                     )}
                                                 </td>
                                                 <td>
-                                                    {report.isInProgress ? (
-                                                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                                            <span className="wf-badge" style={{ fontSize: '0.7rem', backgroundColor: '#e0f2fe', color: '#0369a1' }}>EN CURSO</span>
-                                                            <button
-                                                                className="btn-export"
-                                                                style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '0.8rem', padding: '4px 10px' }}
-                                                                onClick={() => handleDownloadSignedReport(report)}
-                                                            >
-                                                                <Download size={14} /> Imprimir PDF
-                                                            </button>
-                                                        </div>
-                                                    ) : report.isPending ? (
+                                                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                                        {report.isInProgress ? (
+                                                            <span className="wf-badge wf-badge-in-progress" style={{ fontSize: '0.7rem' }}>EN CURSO</span>
+                                                        ) : report.isPending ? (
+                                                            <span className="wf-badge wf-badge-missing" style={{ fontSize: '0.7rem', animation: 'none' }}>PENDIENTE</span>
+                                                        ) : (
+                                                            <span className="wf-badge wf-badge-ok" style={{ fontSize: '0.7rem' }}>✓ Firmado</span>
+                                                        )}
                                                         <button
                                                             className="btn-export"
                                                             style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '0.8rem', padding: '4px 10px' }}
                                                             onClick={() => handleDownloadSignedReport(report)}
                                                         >
-                                                            <Download size={14} /> Imprimir PDF
+                                                            <Printer size={14} /> Imprimir PDF
                                                         </button>
-                                                    ) : (
-                                                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                                            <span className="wf-badge wf-badge-ok" style={{ fontSize: '0.7rem' }}>✓ Firmado</span>
-                                                            <button
-                                                                className="btn-secondary"
-                                                                style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '0.8rem', padding: '4px 10px' }}
-                                                                onClick={() => handleDownloadSignedReport(report)}
-                                                            >
-                                                                <Download size={14} /> Descargar
-                                                            </button>
-                                                        </div>
-                                                    )}
+                                                    </div>
                                                 </td>
                                             </tr>
-                                        ))
-                                    )}
-                                </tbody>
-                            </table>
-                        </div>
+                                        ))}
+                                    </tbody>
+                                </table>
+                            </div>
+                        )}
                     </div>
                 )}
             </div>

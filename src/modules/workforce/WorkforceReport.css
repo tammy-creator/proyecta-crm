@@ -1210,3 +1210,631 @@
     opacity: 1 !important;
     color: #ef4444;
 }
+
+/* ==============================================
+   Workforce Signatures — Visual Cards & Period Bar
+   ============================================== */
+
+/* Tab Pending Badge */
+.tab-pending-badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 18px;
+    height: 18px;
+    padding: 0 5px;
+    border-radius: 99px;
+    background-color: #ef4444;
+    color: white;
+    font-size: 0.7rem;
+    font-weight: 700;
+    margin-left: 6px;
+    box-shadow: 0 1px 3px rgba(239, 68, 68, 0.4);
+    animation: pulse-badge 2s infinite;
+}
+
+/* ── Month & Period Navigation Bar ── */
+.wf-period-bar {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    background: white;
+    border: 1px solid #e2e8f0;
+    border-radius: 16px;
+    padding: 0.85rem 1.25rem;
+    margin-bottom: 1.5rem;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.03);
+}
+
+.wf-period-left {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.75rem;
+}
+
+.wf-month-nav-group {
+    display: inline-flex;
+    align-items: center;
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+    border-radius: 12px;
+    padding: 3px;
+}
+
+.wf-nav-arrow-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 32px;
+    height: 32px;
+    border: none;
+    background: transparent;
+    border-radius: 8px;
+    color: #475569;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.wf-nav-arrow-btn:hover:not(:disabled) {
+    background: white;
+    color: #1A5F7A;
+    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.08);
+}
+
+.wf-nav-arrow-btn:disabled {
+    opacity: 0.35;
+    cursor: not-allowed;
+}
+
+.wf-month-input-direct {
+    border: none;
+    background: transparent;
+    font-family: inherit;
+    font-size: 0.88rem;
+    font-weight: 600;
+    color: #1e293b;
+    padding: 0.25rem 0.5rem;
+    cursor: pointer;
+    outline: none;
+}
+
+.wf-month-input-direct:focus {
+    color: #1A5F7A;
+}
+
+.wf-period-pills {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    flex-wrap: wrap;
+}
+
+.wf-period-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    padding: 0.4rem 0.85rem;
+    border-radius: 20px;
+    border: 1px solid #e2e8f0;
+    background: #f8fafc;
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: #64748b;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.wf-period-pill:hover {
+    background: #f1f5f9;
+    color: #1A5F7A;
+    border-color: #cbd5e1;
+}
+
+.wf-period-pill.active {
+    background: #1A5F7A;
+    color: white;
+    border-color: #1A5F7A;
+    box-shadow: 0 2px 6px rgba(26, 95, 122, 0.25);
+}
+
+.wf-period-pill .pill-tag {
+    font-size: 0.65rem;
+    padding: 1px 6px;
+    border-radius: 10px;
+    background: rgba(255, 255, 255, 0.2);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+
+.wf-period-pill:not(.active) .pill-tag {
+    background: #e2e8f0;
+    color: #475569;
+}
+
+/* ── KPI Summary Cards in Firmas ── */
+.wf-sig-kpis {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+    gap: 1rem;
+    margin-bottom: 1.75rem;
+}
+
+.wf-sig-kpi-card {
+    background: white;
+    border-radius: 16px;
+    border: 1px solid #eef2f6;
+    padding: 1.1rem 1.25rem;
+    display: flex;
+    align-items: flex-start;
+    gap: 1rem;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.02);
+    transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.wf-sig-kpi-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 16px rgba(0, 0, 0, 0.05);
+}
+
+.wf-sig-kpi-icon {
+    width: 44px;
+    height: 44px;
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+}
+
+.wf-sig-kpi-blue .wf-sig-kpi-icon {
+    background: #e0f2fe;
+    color: #0284c7;
+}
+
+.wf-sig-kpi-green .wf-sig-kpi-icon {
+    background: #dcfce7;
+    color: #16a34a;
+}
+
+.wf-sig-kpi-amber .wf-sig-kpi-icon {
+    background: #fef3c7;
+    color: #d97706;
+}
+
+.wf-sig-kpi-purple .wf-sig-kpi-icon {
+    background: #ede9fe;
+    color: #7c3aed;
+}
+
+.wf-sig-kpi-content {
+    display: flex;
+    flex-direction: column;
+}
+
+.wf-sig-kpi-label {
+    font-size: 0.72rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: #64748b;
+    margin-bottom: 0.2rem;
+}
+
+.wf-sig-kpi-value {
+    font-size: 1.55rem;
+    font-weight: 800;
+    color: #0f172a;
+    line-height: 1.1;
+}
+
+.wf-sig-kpi-sub {
+    font-size: 0.75rem;
+    color: #94a3b8;
+    margin-top: 0.25rem;
+    font-weight: 500;
+}
+
+/* ── Firmas Toolbar & View Toggle ── */
+.wf-sig-toolbar {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    margin-bottom: 1.5rem;
+    padding-bottom: 0.75rem;
+    border-bottom: 1px solid #f1f5f9;
+}
+
+.wf-sig-filters {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+}
+
+.wf-sig-filter-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    padding: 0.45rem 0.9rem;
+    border-radius: 10px;
+    border: 1px solid #e2e8f0;
+    background: white;
+    font-size: 0.82rem;
+    font-weight: 600;
+    color: #64748b;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.wf-sig-filter-btn:hover {
+    background: #f8fafc;
+    color: #1A5F7A;
+}
+
+.wf-sig-filter-btn.active {
+    background: #eef8fb;
+    color: #1A5F7A;
+    border-color: #bce4ea;
+    box-shadow: 0 1px 3px rgba(26, 95, 122, 0.1);
+}
+
+.wf-sig-filter-count {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 1px 6px;
+    border-radius: 99px;
+    font-size: 0.7rem;
+    background: #f1f5f9;
+    color: #475569;
+}
+
+.wf-sig-filter-btn.active .wf-sig-filter-count {
+    background: #1A5F7A;
+    color: white;
+}
+
+.wf-view-toggle {
+    display: inline-flex;
+    align-items: center;
+    background: #f1f5f9;
+    border-radius: 10px;
+    padding: 3px;
+    gap: 2px;
+}
+
+.wf-view-btn {
+    display: flex;
+    align-items: center;
+    gap: 0.35rem;
+    padding: 0.4rem 0.75rem;
+    border-radius: 8px;
+    border: none;
+    background: transparent;
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: #64748b;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.wf-view-btn.active {
+    background: white;
+    color: #1A5F7A;
+    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.08);
+}
+
+/* ── Document Cards Grid ── */
+.wf-doc-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+    gap: 1.5rem;
+}
+
+.wf-doc-card {
+    background: white;
+    border-radius: 18px;
+    border: 1px solid #eef2f6;
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.04);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+    position: relative;
+}
+
+.wf-doc-card:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.08);
+    border-color: #cbd5e1;
+}
+
+.wf-doc-card.signed {
+    border-top: 3px solid #10b981;
+}
+
+.wf-doc-card.pending {
+    border-top: 3px solid #f59e0b;
+    background: linear-gradient(180deg, #fffdfa 0%, #ffffff 100%);
+}
+
+.wf-doc-card.in_progress {
+    border-top: 3px solid #0284c7;
+    background: linear-gradient(180deg, #f8fcff 0%, #ffffff 100%);
+}
+
+.wf-doc-card-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 1rem 1.25rem 0.6rem;
+}
+
+.wf-doc-period {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    font-size: 0.75rem;
+    font-weight: 700;
+    color: #475569;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+}
+
+.wf-doc-period svg {
+    color: #1A5F7A;
+}
+
+.wf-badge-in-progress {
+    background-color: #e0f2fe;
+    color: #0369a1;
+}
+
+.wf-doc-therapist {
+    display: flex;
+    align-items: center;
+    gap: 0.85rem;
+    padding: 0.5rem 1.25rem;
+}
+
+.wf-doc-avatar {
+    width: 44px;
+    height: 44px;
+    border-radius: 14px;
+    background: linear-gradient(135deg, #1A5F7A 0%, #0284c7 100%);
+    color: white;
+    font-weight: 700;
+    font-size: 0.95rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    box-shadow: 0 2px 8px rgba(26, 95, 122, 0.2);
+}
+
+.wf-doc-info {
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+
+.wf-doc-name {
+    margin: 0;
+    font-size: 0.98rem;
+    font-weight: 700;
+    color: #0f172a;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.wf-doc-role {
+    font-size: 0.78rem;
+    color: #64748b;
+    margin-top: 2px;
+}
+
+.wf-doc-metrics {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    background: #f8fafc;
+    border-top: 1px solid #f1f5f9;
+    border-bottom: 1px solid #f1f5f9;
+    padding: 0.65rem 1.25rem;
+    margin-top: 0.6rem;
+    text-align: center;
+}
+
+.wf-doc-metric {
+    display: flex;
+    flex-direction: column;
+}
+
+.wf-doc-metric:not(:last-child) {
+    border-right: 1px solid #e2e8f0;
+}
+
+.wf-doc-metric-label {
+    font-size: 0.68rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    color: #94a3b8;
+    letter-spacing: 0.04em;
+}
+
+.wf-doc-metric-val {
+    font-size: 1.05rem;
+    font-weight: 800;
+    color: #1e293b;
+    margin-top: 2px;
+}
+
+.wf-doc-signature-box {
+    padding: 1rem 1.25rem;
+    min-height: 95px;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+}
+
+.wf-doc-signature-content {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.4rem;
+}
+
+.wf-doc-signature-img {
+    height: 38px;
+    max-width: 160px;
+    object-fit: contain;
+    border-bottom: 1px dashed #cbd5e1;
+    padding-bottom: 2px;
+}
+
+.wf-doc-signature-placeholder {
+    font-size: 0.78rem;
+    color: #64748b;
+    font-style: italic;
+}
+
+.wf-doc-signature-footer {
+    display: flex;
+    align-items: center;
+    gap: 0.35rem;
+    font-size: 0.72rem;
+    font-weight: 600;
+    color: #059669;
+}
+
+.wf-doc-signature-pending {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    padding: 0.5rem;
+    background: #fffbeb;
+    border: 1px dashed #fcd34d;
+    border-radius: 12px;
+}
+
+.wf-doc-signature-pending .pending-title {
+    font-size: 0.8rem;
+    font-weight: 700;
+    color: #b45309;
+}
+
+.wf-doc-signature-pending .pending-desc {
+    font-size: 0.7rem;
+    color: #92400e;
+    margin-top: 2px;
+}
+
+.wf-doc-signature-in-progress {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    padding: 0.5rem;
+    background: #f0f9ff;
+    border: 1px dashed #bae6fd;
+    border-radius: 12px;
+}
+
+.wf-doc-signature-in-progress .in-progress-title {
+    font-size: 0.8rem;
+    font-weight: 700;
+    color: #0369a1;
+}
+
+.wf-doc-signature-in-progress .in-progress-desc {
+    font-size: 0.7rem;
+    color: #075985;
+    margin-top: 2px;
+}
+
+.wf-doc-actions {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.75rem 1.25rem 1.1rem;
+    margin-top: auto;
+    border-top: 1px solid #f8fafc;
+}
+
+.wf-doc-btn-main {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.45rem;
+    padding: 0.55rem 0.9rem;
+    font-size: 0.82rem;
+    border-radius: 12px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.wf-doc-btn-sub {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 36px;
+    height: 36px;
+    border-radius: 12px;
+    border: 1px solid #e2e8f0;
+    background: white;
+    color: #475569;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.wf-doc-btn-sub:hover {
+    background: #f8fafc;
+    color: #1A5F7A;
+    border-color: #cbd5e1;
+}
+
+/* Empty state for signatures */
+.wf-sig-empty-state {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    padding: 3.5rem 1.5rem;
+    background: white;
+    border-radius: 20px;
+    border: 1px dashed #cbd5e1;
+}
+
+.wf-sig-empty-icon {
+    width: 56px;
+    height: 56px;
+    border-radius: 18px;
+    background: #f8fafc;
+    color: #94a3b8;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-bottom: 1rem;
+}
+
+.wf-sig-empty-title {
+    font-size: 1.05rem;
+    font-weight: 700;
+    color: #334155;
+    margin-bottom: 0.25rem;
+}
+
+.wf-sig-empty-desc {
+    font-size: 0.85rem;
+    color: #64748b;
+    max-width: 420px;
+}

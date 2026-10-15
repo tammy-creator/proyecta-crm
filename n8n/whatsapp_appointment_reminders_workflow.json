@@ -435,7 +435,8 @@
         80
       ],
       "notesInFlow": true,
-      "notes": "Actualiza la cita marcando notificacion_recordatorio_enviada = true"
+      "notes": "Actualiza la cita marcando notificacion_recordatorio_enviada = true",
+      "onError": "continueRegularOutput"
     },
     {
       "parameters": {
@@ -460,7 +461,7 @@
         },
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={{ JSON.stringify({\n  type: 'ALERT',\n  title: 'Error Envío WhatsApp Recordatorio',\n  message: 'No se pudo entregar el WhatsApp a ' + $('Loop Over Appointments').item.json.recipient_name + ' (' + $('Loop Over Appointments').item.json.phone + '). Detalle: ' + JSON.stringify($json),\n  is_dismissed: false\n}) }}",
+        "jsonBody": "={{ JSON.stringify({\n  type: 'ALERT',\n  title: 'WhatsApp No Entregado (Sin WhatsApp)',\n  message: 'No se pudo entregar el recordatorio de cita a ' + $('Loop Over Appointments').item.json.recipient_name + ' (' + $('Loop Over Appointments').item.json.phone + '). El número no dispone de cuenta de WhatsApp activa.',\n  is_dismissed: false\n}) }}",
         "options": {}
       },
       "id": "log-send-error",
@@ -472,7 +473,8 @@
         240
       ],
       "notesInFlow": true,
-      "notes": "Alerta de fallo en Evolution API para avisar a recepción"
+      "notes": "Alerta de fallo en Evolution API para avisar a recepción",
+      "onError": "continueRegularOutput"
     },
     {
       "parameters": {
@@ -525,7 +527,8 @@
         340
       ],
       "notesInFlow": true,
-      "notes": "Alerta en el CRM cuando falta el teléfono del paciente"
+      "notes": "Alerta en el CRM cuando falta el teléfono del paciente",
+      "onError": "continueRegularOutput"
     }
   ],
   "connections": {

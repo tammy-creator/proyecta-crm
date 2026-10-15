@@ -48,7 +48,7 @@ import {
     getTherapistVacations,
     checkScheduleAdherence
 } from './service';
-import { getTherapists } from '../therapists/service';
+import { getTherapists, updateTherapistTimeTracking } from '../therapists/service';
 import { getAppointments } from '../calendar/service';
 import { supabase } from '../../lib/supabase';
 import type { Therapist, WorkingHours } from '../therapists/types';
@@ -98,7 +98,14 @@ const WorkforceReport: React.FC = () => {
     const [sigViewMode, setSigViewMode] = useState<'cards' | 'table'>('cards');
     const [sigStatusFilter, setSigStatusFilter] = useState<'all' | 'signed' | 'pending'>('all');
     const [showAllHistory, setShowAllHistory] = useState(false);
+    const [isTimeTrackingModalOpen, setIsTimeTrackingModalOpen] = useState(false);
     const { user: currentUser } = useAuth();
+
+    // Active therapists (excludes deactivated accounts like Laura Chico)
+    const activeTherapists = therapists.filter(t => t.isActive !== false);
+
+    // Therapists subject to daily time tracking and monthly signatures (excludes Ruth, Marta, etc.)
+    const timeTrackingTherapists = activeTherapists.filter(t => t.hasTimeTracking !== false);
 
     useEffect(() => {
         getTherapists().then(data => {
@@ -248,7 +255,7 @@ const WorkforceReport: React.FC = () => {
                 
                 if (uaError) throw uaError;
 
-                const therapistsToRecord = therapists.filter(t => t.id !== 'all');
+                const therapistsToRecord = activeTherapists.filter(t => t.id !== 'all');
                 
                 if (therapistsToRecord.length === 0) {
                     showToast("No se han encontrado terapeutas en la lista para asignar el festivo.", "info");
@@ -467,12 +474,15 @@ const WorkforceReport: React.FC = () => {
             return dDate >= sDate && dDate <= eDate;
         });
 
+        const targetTherapist = therapists.find(t => t.id === targetId);
+        const isSubjectToTimeTracking = targetTherapist ? targetTherapist.hasTimeTracking !== false && targetTherapist.isActive !== false : true;
+
         return {
             attendances: dayAtts,
             workAtts,
             absenceAtt,
             apptsCount: dayAppts.length,
-            hasMissingClockIn: dayAppts.length > 0 && workAtts.length === 0 && !absenceAtt && !isWeekend(day)
+            hasMissingClockIn: isSubjectToTimeTracking && dayAppts.length > 0 && workAtts.length === 0 && !absenceAtt && !isWeekend(day)
         };
     };
 
@@ -576,8 +586,7 @@ const WorkforceReport: React.FC = () => {
 
     // Calculate pending count for previous closed month (for badge on tab)
     const prevMonthSignatures = signedReports.filter(r => r.month === previousMonthStr);
-    const prevMonthPendingCount = therapists.filter(t =>
-        t.isActive !== false &&
+    const prevMonthPendingCount = timeTrackingTherapists.filter(t =>
         !prevMonthSignatures.some(r => r.therapistId === t.id)
     ).length;
 
@@ -586,10 +595,9 @@ const WorkforceReport: React.FC = () => {
         if (selectedTherapistId !== 'all' && t.id !== selectedTherapistId) return false;
         const hasSig = signedReports.some(r => r.therapistId === t.id && r.month === effectiveMonth);
         if (hasSig) return true;
-        const hasAtt = attendances.some(a => a.therapistId === t.id);
-        const hasAppt = appointments.some(a => a.therapistId === t.id && a.status !== 'Cancelada');
-        if (hasAtt || hasAppt) return true;
-        return t.isActive !== false;
+        // Exclude inactive therapists or therapists not subject to time tracking
+        if (t.isActive === false || t.hasTimeTracking === false) return false;
+        return true;
     });
 
     // Map each therapist to a unified MonthlyReport item for the selected month
@@ -727,80 +735,159 @@ const WorkforceReport: React.FC = () => {
     return (
         <>
         <div className="workforce-report">
-            {/* ── Header ── */}
-            {/* ── Sub-Header for Controls ── */}
-            <div className="workforce-header">
-                <div className="workforce-header-controls">
-                    {selectedTherapistId === 'all' && activeTab === 'daily' && (
-                        <div className="wf-filter-date">
-                            <Calendar size={16} />
-                            <input
-                                type="date"
-                                value={filterDate}
-                                onChange={e => {
-                                    setFilterDate(e.target.value);
-                                    setMonth(format(parseISO(e.target.value), 'yyyy-MM'));
-                                }}
-                                className="wf-date-input"
-                            />
-                        </div>
-                    )}
-                    {!(activeTab === 'daily' && selectedTherapistId === 'all') && (
-                        <input
-                            type="month"
-                            value={month}
-                            onChange={e => {
-                                setShowAllHistory(false);
-                                setMonth(e.target.value);
-                            }}
-                        />
-                    )}
-                    <select
-                        value={selectedTherapistId}
-                        onChange={e => setSelectedTherapistId(e.target.value)}
-                    >
-                        <option value="all">Todos los terapeutas</option>
-                        {therapists.map(t => <option key={t.id} value={t.id}>{t.fullName}</option>)}
-                    </select>
-                </div>
-                
-                <div className="admin-tabs">
-                    <button
-                        className={`tab-btn ${activeTab === 'daily' ? 'active' : ''}`}
-                        onClick={() => setActiveTab('daily')}
-                    >
-                        <Clock size={18} /> Presencia
-                    </button>
-                    <button
-                        className={`tab-btn ${activeTab === 'absences' ? 'active' : ''}`}
-                        onClick={() => setActiveTab('absences')}
-                    >
-                        <Calendar size={18} /> Ausencias
-                    </button>
-                    {currentUser?.role === 'ADMIN' && (
+            {/* ── Modern 2-Tier Header ── */}
+            <div className="workforce-header-container">
+                {/* Tier 1: Primary Navigation Tabs & Actions */}
+                <div className="wf-tier1-bar">
+                    <div className="wf-primary-tabs">
                         <button
-                            className={`tab-btn ${activeTab === 'signatures' ? 'active' : ''}`}
-                            onClick={() => setActiveTab('signatures')}
+                            type="button"
+                            className={`wf-tab-btn ${activeTab === 'daily' ? 'active' : ''}`}
+                            onClick={() => setActiveTab('daily')}
                         >
-                            <ShieldCheck size={18} /> Firmas
-                            {prevMonthPendingCount > 0 && (
-                                <span className="tab-pending-badge" title={`${prevMonthPendingCount} firmas pendientes de meses cerrados`}>
-                                    {prevMonthPendingCount}
-                                </span>
-                            )}
+                            <Clock size={18} />
+                            <span>Presencia</span>
                         </button>
-                    )}
+                        <button
+                            type="button"
+                            className={`wf-tab-btn ${activeTab === 'absences' ? 'active' : ''}`}
+                            onClick={() => setActiveTab('absences')}
+                        >
+                            <Calendar size={18} />
+                            <span>Ausencias</span>
+                        </button>
+                        {currentUser?.role === 'ADMIN' && (
+                            <button
+                                type="button"
+                                className={`wf-tab-btn ${activeTab === 'signatures' ? 'active' : ''}`}
+                                onClick={() => setActiveTab('signatures')}
+                            >
+                                <ShieldCheck size={18} />
+                                <span>Firmas</span>
+                                {prevMonthPendingCount > 0 && (
+                                    <span className="tab-pending-badge" title={`${prevMonthPendingCount} firmas pendientes de meses cerrados`}>
+                                        {prevMonthPendingCount}
+                                    </span>
+                                )}
+                            </button>
+                        )}
+                    </div>
+
+                    <div className="wf-tier1-actions">
+                        {currentUser?.role === 'ADMIN' && (
+                            <button
+                                type="button"
+                                className="btn-time-tracking-config"
+                                onClick={() => setIsTimeTrackingModalOpen(true)}
+                                title="Configurar qué terapeutas están sujetas a registro horario obligatorio"
+                            >
+                                <Users size={16} />
+                                <span>Configurar Registro Horario</span>
+                            </button>
+                        )}
+                        <button
+                            type="button"
+                            className="btn-absence"
+                            onClick={() => {
+                                setEditingRecord({ type: 'vacation', startTime: startOfDay(new Date()).toISOString(), endTime: endOfDay(new Date()).toISOString() });
+                                setIsAbsenceModalOpen(true);
+                            }}
+                        >
+                            <CalendarDays size={16} />
+                            <span>Registrar Ausencia</span>
+                        </button>
+                    </div>
                 </div>
 
-                <div className="workforce-header-actions">
-                    <button className="btn-absence"
-                        onClick={() => {
-                            setEditingRecord({ type: 'vacation', startTime: startOfDay(new Date()).toISOString(), endTime: endOfDay(new Date()).toISOString() });
-                            setIsAbsenceModalOpen(true);
-                        }}
-                    >
-                        <CalendarDays size={16} /> Registrar Ausencia
-                    </button>
+                {/* Tier 2: Contextual Controls Bar */}
+                <div className="wf-context-controls">
+                    {activeTab === 'daily' && (
+                        <>
+                            {selectedTherapistId === 'all' ? (
+                                <div className="wf-filter-date">
+                                    <Calendar size={16} />
+                                    <input
+                                        type="date"
+                                        value={filterDate}
+                                        onChange={e => {
+                                            setFilterDate(e.target.value);
+                                            setMonth(format(parseISO(e.target.value), 'yyyy-MM'));
+                                        }}
+                                        className="wf-date-input"
+                                    />
+                                </div>
+                            ) : (
+                                <div className="wf-filter-date">
+                                    <Calendar size={16} />
+                                    <input
+                                        type="month"
+                                        value={month}
+                                        onChange={e => {
+                                            setShowAllHistory(false);
+                                            setMonth(e.target.value);
+                                        }}
+                                        className="wf-date-input"
+                                    />
+                                </div>
+                            )}
+                            <select
+                                className="wf-select-therapist"
+                                value={selectedTherapistId}
+                                onChange={e => setSelectedTherapistId(e.target.value)}
+                            >
+                                <option value="all">Todas las terapeutas con registro ({timeTrackingTherapists.length})</option>
+                                {timeTrackingTherapists.map(t => <option key={t.id} value={t.id}>{t.fullName}</option>)}
+                            </select>
+                        </>
+                    )}
+
+                    {activeTab === 'absences' && (
+                        <>
+                            <div className="wf-filter-date">
+                                <Calendar size={16} />
+                                <input
+                                    type="month"
+                                    value={month}
+                                    onChange={e => {
+                                        setShowAllHistory(false);
+                                        setMonth(e.target.value);
+                                    }}
+                                    className="wf-date-input"
+                                />
+                            </div>
+                            <select
+                                className="wf-select-therapist"
+                                value={selectedTherapistId}
+                                onChange={e => setSelectedTherapistId(e.target.value)}
+                            >
+                                <option value="all">Todas las terapeutas activas ({activeTherapists.length})</option>
+                                {activeTherapists.map(t => <option key={t.id} value={t.id}>{t.fullName}</option>)}
+                            </select>
+                            <button
+                                type="button"
+                                className="btn-absence"
+                                style={{ background: '#f8fafc', color: '#475569', border: '1px solid #e2e8f0' }}
+                                onClick={handleShowVacations}
+                            >
+                                <History size={16} />
+                                <span>Ver Historial Completo</span>
+                            </button>
+                        </>
+                    )}
+
+                    {activeTab === 'signatures' && (
+                        <div className="wf-sig-filter-bar">
+                            <span className="wf-filter-label">Filtrar terapeuta:</span>
+                            <select
+                                className="wf-select-therapist"
+                                value={selectedTherapistId}
+                                onChange={e => setSelectedTherapistId(e.target.value)}
+                            >
+                                <option value="all">Todas las terapeutas con registro ({timeTrackingTherapists.length})</option>
+                                {timeTrackingTherapists.map(t => <option key={t.id} value={t.id}>{t.fullName}</option>)}
+                            </select>
+                        </div>
+                    )}
                 </div>
             </div>
 
@@ -852,7 +939,7 @@ const WorkforceReport: React.FC = () => {
                                             </td>
                                         </tr>
                                     ) : (
-                                        (selectedTherapistId === 'all' ? therapists : daysInMonth).map(item => {
+                                        (selectedTherapistId === 'all' ? timeTrackingTherapists : daysInMonth).map(item => {
                                             const isAll = selectedTherapistId === 'all';
                                             const day = isAll ? parseISO(filterDate) : (item as Date);
                                             const therapist = isAll ? (item as Therapist) : therapists.find(t => t.id === selectedTherapistId);
@@ -1734,7 +1821,7 @@ const WorkforceReport: React.FC = () => {
                                 required
                             >
                                 <option value="">Seleccionar terapeuta...</option>
-                                {therapists.map(t => (
+                                {activeTherapists.map(t => (
                                     <option key={t.id} value={t.id}>{t.fullName}</option>
                                 ))}
                             </select>
@@ -1949,6 +2036,79 @@ const WorkforceReport: React.FC = () => {
                     </div>
                 </div>
             </div>
+        )}
+
+        {/* Modal Configurar Registro Horario */}
+        {isTimeTrackingModalOpen && (
+            <Modal
+                isOpen={isTimeTrackingModalOpen}
+                onClose={() => setIsTimeTrackingModalOpen(false)}
+                title="Configurar Personal con Registro Horario"
+            >
+                <div className="time-tracking-modal">
+                    <div className="time-tracking-help-banner">
+                        <Info size={20} style={{ flexShrink: 0, marginTop: '2px' }} />
+                        <div>
+                            <strong style={{ display: 'block', marginBottom: '2px', color: '#1e3a8a' }}>Registro Horario Obligatorio</strong>
+                            <p style={{ margin: 0, opacity: 0.9 }}>
+                                Marca qué profesionales deben fichar su jornada diaria y firmar los informes mensuales.
+                                Las terapeutas desmarcadas (p. ej. Ruth Torres Vega y Marta Vigil Vázquez) no figurarán en la lista diaria de presencia ni generarán informes mensuales pendientes de firma.
+                            </p>
+                        </div>
+                    </div>
+
+                    <div className="time-tracking-list">
+                        {activeTherapists.map(therapist => {
+                            const isTracking = therapist.hasTimeTracking !== false;
+                            return (
+                                <div key={therapist.id} className={`time-tracking-item ${isTracking ? 'is-active' : 'is-inactive'}`}>
+                                    <div className="time-tracking-therapist-info">
+                                        <div className="time-tracking-avatar">
+                                            {therapist.fullName.charAt(0).toUpperCase()}
+                                        </div>
+                                        <div>
+                                            <div className="time-tracking-name">{therapist.fullName}</div>
+                                            <div className="time-tracking-specialty">{therapist.specialty || 'Terapeuta'}</div>
+                                        </div>
+                                    </div>
+
+                                    <label className="time-tracking-toggle-label">
+                                        <span className={`time-tracking-status-badge ${isTracking ? 'badge-on' : 'badge-off'}`}>
+                                            {isTracking ? 'Registro Activo' : 'Sin Registro'}
+                                        </span>
+                                        <input
+                                            type="checkbox"
+                                            className="time-tracking-checkbox"
+                                            checked={isTracking}
+                                            onChange={async (e) => {
+                                                const newVal = e.target.checked;
+                                                try {
+                                                    await updateTherapistTimeTracking(therapist.id, newVal);
+                                                    setTherapists(prev => prev.map(t => t.id === therapist.id ? { ...t, hasTimeTracking: newVal } : t));
+                                                    showToast(`${newVal ? 'Activado' : 'Desactivado'} registro horario para ${therapist.fullName}`, 'success');
+                                                } catch (err: any) {
+                                                    console.error(err);
+                                                    showToast('Error al actualizar el registro horario', 'error');
+                                                }
+                                            }}
+                                        />
+                                    </label>
+                                </div>
+                            );
+                        })}
+                    </div>
+
+                    <div style={{ marginTop: '1.5rem', display: 'flex', justifyContent: 'flex-end' }}>
+                        <button
+                            type="button"
+                            className="btn-export"
+                            onClick={() => setIsTimeTrackingModalOpen(false)}
+                        >
+                            Guardar y Cerrar
+                        </button>
+                    </div>
+                </div>
+            </Modal>
         )}
 
         </>

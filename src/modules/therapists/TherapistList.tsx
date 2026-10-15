@@ -101,7 +101,8 @@ const TherapistList: React.FC = () => {
             color: '#BCE4EA',
             avatarUrl: DEFAULT_AVATAR,
             schedule: [],
-            isActive: true
+            isActive: true,
+            hasTimeTracking: true
         });
         setActiveScheduleDay(0);
         setAvatarFile(null);
@@ -279,6 +280,11 @@ const TherapistList: React.FC = () => {
                                             <span className={`therapist-status-pill ${isInactive ? 'status-pill-inactive' : 'status-pill-active'}`}>
                                                 {isInactive ? 'Inactiva' : 'Activa'}
                                             </span>
+                                            {therapist.hasTimeTracking === false && (
+                                                <span className="therapist-status-pill" style={{ background: '#f8fafc', color: '#64748b', border: '1px solid #cbd5e1' }}>
+                                                    Sin registro horario
+                                                </span>
+                                            )}
                                         </div>
                                         <span className="therapist-specialty">{therapist.specialty}</span>
                                         {therapist.licenseNumber && <span className="therapist-license">Col. {therapist.licenseNumber}</span>}
@@ -341,6 +347,18 @@ const TherapistList: React.FC = () => {
                                     />
                                     <label htmlFor="therapist-is-active" style={{ cursor: 'pointer', margin: 0, fontWeight: 600, fontSize: '0.9rem', color: selectedTherapist.isActive !== false ? '#065f46' : '#64748b' }}>
                                         {selectedTherapist.isActive !== false ? '● Terapeuta Activa (visible en el calendario)' : '○ Terapeuta Inactiva (oculta en el calendario)'}
+                                    </label>
+                                </div>
+                                <div className="form-group" style={{ gridColumn: 'span 2', display: 'flex', alignItems: 'center', gap: '0.75rem', background: selectedTherapist.hasTimeTracking !== false ? '#eff6ff' : '#f8fafc', padding: '0.75rem 1rem', borderRadius: '10px', border: `1px solid ${selectedTherapist.hasTimeTracking !== false ? '#bfdbfe' : '#e2e8f0'}` }}>
+                                    <input
+                                        type="checkbox"
+                                        id="therapist-has-time-tracking"
+                                        checked={selectedTherapist.hasTimeTracking !== false}
+                                        onChange={e => setSelectedTherapist({ ...selectedTherapist, hasTimeTracking: e.target.checked })}
+                                        style={{ width: '18px', height: '18px', cursor: 'pointer', accentColor: '#3b82f6' }}
+                                    />
+                                    <label htmlFor="therapist-has-time-tracking" style={{ cursor: 'pointer', margin: 0, fontWeight: 600, fontSize: '0.9rem', color: selectedTherapist.hasTimeTracking !== false ? '#1e40af' : '#64748b' }}>
+                                        {selectedTherapist.hasTimeTracking !== false ? '⏱️ Sujeta a Registro Horario (fichajes diarios y firma mensual obligatorios)' : '🚫 Sin Registro Horario (excluida de fichajes y firmas mensuales)'}
                                     </label>
                                 </div>
                                 <div className="form-group">

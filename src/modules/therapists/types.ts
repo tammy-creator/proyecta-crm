@@ -22,6 +22,7 @@ export interface Therapist {
     avatarUrl?: string; // Optional
     sessionStartOffset?: number; // Minutes from the hour (e.g. 0, 10, 50/-10)
     isActive?: boolean; // Estado activo/inactivo (oculta del calendario si es false)
+    hasTimeTracking?: boolean; // Sujeto a registro horario obligatorio (fichajes y firmas)
 }
 
 export const SPECIALTIES = [

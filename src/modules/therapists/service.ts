@@ -10,8 +10,10 @@ const mapTherapist = (row: any): Therapist => {
 
     const rawSchedule = Array.isArray(row.schedule) ? row.schedule : [];
     const isInactiveMeta = rawSchedule.some((s: any) => s.day === '__status__' && s.isActive === false);
-    const cleanSchedule = rawSchedule.filter((s: any) => s.day !== '__status__');
+    const isNoTimeTrackingMeta = rawSchedule.some((s: any) => s.day === '__time_tracking__' && s.hasTimeTracking === false);
+    const cleanSchedule = rawSchedule.filter((s: any) => !s.day?.startsWith('__'));
     const isActive = row.is_active !== undefined ? Boolean(row.is_active) : !isInactiveMeta;
+    const hasTimeTracking = !isNoTimeTrackingMeta;
 
     return {
         id: row.id,
@@ -26,6 +28,7 @@ const mapTherapist = (row: any): Therapist => {
         sessionStartOffset: row.session_start_offset ?? 0,
         schedule: cleanSchedule,
         isActive: isActive,
+        hasTimeTracking: hasTimeTracking,
     };
 };
 
@@ -39,9 +42,12 @@ export const getTherapists = async (): Promise<Therapist[]> => {
 };
 
 export const createTherapist = async (therapist: Omit<Therapist, 'id'>): Promise<Therapist> => {
-    let scheduleToSave = [...(therapist.schedule ?? [])].filter((s: any) => s.day !== '__status__');
+    let scheduleToSave = [...(therapist.schedule ?? [])].filter((s: any) => !s.day?.startsWith('__'));
     if (therapist.isActive === false) {
         scheduleToSave.push({ day: '__status__', enabled: false, isActive: false } as any);
+    }
+    if (therapist.hasTimeTracking === false) {
+        scheduleToSave.push({ day: '__time_tracking__', enabled: false, hasTimeTracking: false } as any);
     }
 
     const basePayload: any = {
@@ -77,9 +83,12 @@ export const createTherapist = async (therapist: Omit<Therapist, 'id'>): Promise
 };
 
 export const updateTherapist = async (therapist: Therapist): Promise<Therapist> => {
-    let scheduleToSave = [...(therapist.schedule ?? [])].filter((s: any) => s.day !== '__status__');
+    let scheduleToSave = [...(therapist.schedule ?? [])].filter((s: any) => !s.day?.startsWith('__'));
     if (therapist.isActive === false) {
         scheduleToSave.push({ day: '__status__', enabled: false, isActive: false } as any);
+    }
+    if (therapist.hasTimeTracking === false) {
+        scheduleToSave.push({ day: '__time_tracking__', enabled: false, hasTimeTracking: false } as any);
     }
 
     const basePayload: any = {
@@ -114,6 +123,27 @@ export const updateTherapist = async (therapist: Therapist): Promise<Therapist> 
         .single();
     if (error) throw error;
     return mapTherapist(data);
+};
+
+export const updateTherapistTimeTracking = async (therapistId: string, hasTimeTracking: boolean): Promise<void> => {
+    const { data: row, error: fetchErr } = await supabase
+        .from('therapists')
+        .select('schedule')
+        .eq('id', therapistId)
+        .single();
+    if (fetchErr) throw fetchErr;
+
+    const rawSchedule = Array.isArray(row?.schedule) ? row.schedule : [];
+    const newSchedule = rawSchedule.filter((s: any) => s.day !== '__time_tracking__');
+    if (!hasTimeTracking) {
+        newSchedule.push({ day: '__time_tracking__', enabled: false, hasTimeTracking: false });
+    }
+
+    const { error: updateErr } = await supabase
+        .from('therapists')
+        .update({ schedule: newSchedule, updated_at: new Date().toISOString() })
+        .eq('id', therapistId);
+    if (updateErr) throw updateErr;
 };
 
 export const countTherapistAppointments = async (therapistId: string): Promise<number> => {

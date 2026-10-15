@@ -38,7 +38,8 @@ import {
     LayoutGrid,
     List,
     FileText,
-    Users
+    Users,
+    PenTool
 } from 'lucide-react';
 import { 
     getAllAttendance, 
@@ -59,6 +60,7 @@ import { getCenterSettings } from '../admin/service';
 import Modal from '../../components/ui/Modal';
 import PrintPortal from '../../components/ui/PrintPortal';
 import WorkforcePrintDocument from './WorkforcePrintDocument';
+import SigningModal from './SigningModal';
 import { useToast } from '../../hooks/useToast';
 import './WorkforceReport.css';
 
@@ -99,6 +101,7 @@ const WorkforceReport: React.FC = () => {
     const [sigStatusFilter, setSigStatusFilter] = useState<'all' | 'signed' | 'pending'>('all');
     const [showAllHistory, setShowAllHistory] = useState(false);
     const [isTimeTrackingModalOpen, setIsTimeTrackingModalOpen] = useState(false);
+    const [previewSigningTherapistId, setPreviewSigningTherapistId] = useState<string | null>(null);
     const { user: currentUser } = useAuth();
 
     // Active therapists (excludes deactivated accounts like Laura Chico)
@@ -1584,6 +1587,16 @@ const WorkforceReport: React.FC = () => {
                                                         : 'Ver Borrador PDF'}
                                                 </span>
                                             </button>
+                                            <button
+                                                type="button"
+                                                className="btn-absence"
+                                                style={{ padding: '0.45rem 0.75rem', fontSize: '0.78rem', background: '#eff6ff', color: '#1d4ed8', border: '1px solid #bfdbfe' }}
+                                                onClick={() => setPreviewSigningTherapistId(report.therapistId)}
+                                                title="Ver cómo le aparece la pantalla de firma a esta terapeuta"
+                                            >
+                                                <PenTool size={14} />
+                                                <span>Pantalla de firma</span>
+                                            </button>
                                             {(report.status === 'signed' || (!report.isPending && !report.isInProgress)) && (
                                                 <button
                                                     type="button"
@@ -1671,6 +1684,14 @@ const WorkforceReport: React.FC = () => {
                                                             onClick={() => handleDownloadSignedReport(report)}
                                                         >
                                                             <Printer size={14} /> Imprimir PDF
+                                                        </button>
+                                                        <button
+                                                            className="btn-absence"
+                                                            style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '0.8rem', padding: '4px 10px', background: '#eff6ff', color: '#1d4ed8', border: '1px solid #bfdbfe' }}
+                                                            onClick={() => setPreviewSigningTherapistId(report.therapistId)}
+                                                            title="Ver cómo le aparece la pantalla de firma a esta terapeuta"
+                                                        >
+                                                            <PenTool size={14} /> Pantalla Firma
                                                         </button>
                                                     </div>
                                                 </td>
@@ -2109,6 +2130,15 @@ const WorkforceReport: React.FC = () => {
                     </div>
                 </div>
             </Modal>
+        )}
+
+        {/* Modal Simulación / Vista de Firma como Terapeuta */}
+        {previewSigningTherapistId && (
+            <SigningModal
+                onClose={() => setPreviewSigningTherapistId(null)}
+                therapistId={previewSigningTherapistId}
+                initialMonth={effectiveMonth}
+            />
         )}
 
         </>

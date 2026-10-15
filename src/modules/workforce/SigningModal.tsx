@@ -1,8 +1,9 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { X, CheckCircle, AlertCircle, PenTool, Eraser, Send, Download, Printer, Clock, Calendar } from 'lucide-react';
+import { X, CheckCircle, AlertCircle, PenTool, Eraser, Send, Download, Printer, Clock, Calendar, Users } from 'lucide-react';
 import { format, subMonths, isSameDay, parseISO, eachDayOfInterval, startOfMonth, endOfMonth } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { getMonthlyReport, signMonthlyReport, getSignature, sendSignedReport, getAllAttendance } from './service';
+import { getTherapists } from '../therapists/service';
 import { getAppointments } from '../calendar/service';
 import { getCenterSettings } from '../admin/service';
 import type { MonthlyReportSignature } from './types';
@@ -15,11 +16,15 @@ import PrintPortal from '../../components/ui/PrintPortal';
 
 interface SigningModalProps {
     onClose: () => void;
+    therapistId?: string;
+    initialMonth?: string;
 }
 
-const SigningModal: React.FC<SigningModalProps> = ({ onClose }) => {
+const SigningModal: React.FC<SigningModalProps> = ({ onClose, therapistId, initialMonth }) => {
     const { user } = useAuth();
-    const [selectedMonth, setSelectedMonth] = useState(format(subMonths(new Date(), 1), 'yyyy-MM'));
+    const [selectedMonth, setSelectedMonth] = useState(initialMonth || format(subMonths(new Date(), 1), 'yyyy-MM'));
+    const [activeTherapistId, setActiveTherapistId] = useState<string>(therapistId || user?.therapistId || '');
+    const [therapistsList, setTherapistsList] = useState<Therapist[]>([]);
     const [loading, setLoading] = useState(false);
     const [sending, setSending] = useState(false);
     const [report, setReport] = useState<{ date: string; totalMinutes: number }[]>([]);
@@ -48,15 +53,30 @@ const SigningModal: React.FC<SigningModalProps> = ({ onClose }) => {
 
     useEffect(() => {
         getCenterSettings().then(setCenterSettings).catch(console.error);
-    }, []);
+        if (user?.role === 'ADMIN') {
+            getTherapists().then(list => {
+                const validTherapists = list.filter(t => t.isActive !== false && t.hasTimeTracking !== false);
+                setTherapistsList(validTherapists);
+                if (!activeTherapistId && validTherapists.length > 0) {
+                    setActiveTherapistId(validTherapists[0].id);
+                }
+            }).catch(console.error);
+        }
+    }, [user?.role]);
 
     useEffect(() => {
-        if (user && selectedMonth) {
+        if (therapistId) {
+            setActiveTherapistId(therapistId);
+        }
+    }, [therapistId]);
+
+    useEffect(() => {
+        if (activeTherapistId && selectedMonth) {
             loadData();
             setStep('summary');
             setSuccess(null);
         }
-    }, [user, selectedMonth]);
+    }, [activeTherapistId, selectedMonth]);
 
     // Initialize signature pad when step changes to 'sign'
     useEffect(() => {
@@ -85,24 +105,25 @@ const SigningModal: React.FC<SigningModalProps> = ({ onClose }) => {
     }, [step]);
 
     const loadData = async () => {
-        if (!user || !user.therapistId) return;
+        const tId = activeTherapistId || user?.therapistId;
+        if (!tId) return;
         setLoading(true);
         setError(null);
         try {
-            const reportData = await getMonthlyReport(user.therapistId, selectedMonth);
+            const reportData = await getMonthlyReport(tId, selectedMonth);
             setReport(reportData);
 
             const totalMinutes = reportData.reduce((acc, r) => acc + r.totalMinutes, 0);
             setTotalHours(Number((totalMinutes / 60).toFixed(2)));
 
-            const sig = await getSignature(user.therapistId, selectedMonth);
+            const sig = await getSignature(tId, selectedMonth);
             setSignature(sig);
 
-            const attData = await getAllAttendance(selectedMonth, user.therapistId);
+            const attData = await getAllAttendance(selectedMonth, tId);
             const startDay = parseISO(`${selectedMonth}-01`);
             const endDay = endOfMonth(startDay);
             const appts = await getAppointments(startDay, endDay);
-            const filteredAppts = appts.filter(a => a.therapistId === user.therapistId && a.status !== 'Cancelada');
+            const filteredAppts = appts.filter(a => a.therapistId === tId && a.status !== 'Cancelada');
             setAttendances(attData);
             setAppointments(filteredAppts);
         } catch (err) {
@@ -123,8 +144,17 @@ const SigningModal: React.FC<SigningModalProps> = ({ onClose }) => {
         reader.readAsDataURL(blob);
     });
 
+    const tId = activeTherapistId || user?.therapistId;
+    const currentTherapist = therapistsList.find(t => t.id === tId) || ({
+        id: tId || '',
+        fullName: user?.name || 'Terapeuta',
+        email: user?.email || '',
+        phone: '',
+        specialty: ''
+    } as Therapist);
+
     const generateLocalPDF = async (sig?: MonthlyReportSignature): Promise<Blob> => {
-        if (!user || !user.therapistId) throw new Error("No user");
+        if (!tId) throw new Error("No therapist");
         
         const daysInMonthToPrint = eachDayOfInterval({
             start: startOfMonth(parseISO(selectedMonth + '-01')),
@@ -139,11 +169,9 @@ const SigningModal: React.FC<SigningModalProps> = ({ onClose }) => {
             return { workAtts, absenceAtt, apptsCount: dayAppts.length };
         };
 
-        const therapistObject = { id: user.therapistId, fullName: user.name || 'Terapeuta', email: '', phone: '', specialty: '' } as Therapist;
-
         const doc = await generateDetailedReportPDF({
             month: selectedMonth,
-            therapist: therapistObject,
+            therapist: currentTherapist,
             daysInMonth: daysInMonthToPrint,
             getDailyData: getReportDailyData,
             centerSettings,
@@ -153,7 +181,7 @@ const SigningModal: React.FC<SigningModalProps> = ({ onClose }) => {
     };
 
     const handleSign = async () => {
-        if (!user || !user.therapistId) return;
+        if (!tId) return;
 
         // Validate signature
         if (sigPadRef.current?.isEmpty()) {
@@ -171,7 +199,7 @@ const SigningModal: React.FC<SigningModalProps> = ({ onClose }) => {
 
             // 1. Save signature to DB
             const newSig = await signMonthlyReport(
-                user.therapistId,
+                tId,
                 selectedMonth,
                 totalHours,
                 signatureImage
@@ -184,7 +212,7 @@ const SigningModal: React.FC<SigningModalProps> = ({ onClose }) => {
                 const pdfBase64 = await BlobToJSON(pdfBlob);
 
                 await sendSignedReport({
-                    therapistName: user.name || 'Terapeuta',
+                    therapistName: currentTherapist.fullName,
                     month: selectedMonth,
                     totalHours,
                     signatureImage,
@@ -207,9 +235,8 @@ const SigningModal: React.FC<SigningModalProps> = ({ onClose }) => {
     };
 
     const handleDownloadPDF = async () => {
-        if (!user || !user.therapistId) return;
+        if (!tId) return;
         try {
-            const therapistObject = { id: user.therapistId, fullName: user.name || 'Terapeuta', email: '', phone: '', specialty: '' } as Therapist;
             const daysInMonthToPrint = eachDayOfInterval({
                 start: startOfMonth(parseISO(selectedMonth + '-01')),
                 end: endOfMonth(parseISO(selectedMonth + '-01'))
@@ -225,7 +252,7 @@ const SigningModal: React.FC<SigningModalProps> = ({ onClose }) => {
 
             setPrintData({
                 month: selectedMonth,
-                therapist: therapistObject,
+                therapist: currentTherapist,
                 daysInMonth: daysInMonthToPrint,
                 getDailyData: getReportDailyData,
                 signature: signature
@@ -249,6 +276,49 @@ const SigningModal: React.FC<SigningModalProps> = ({ onClose }) => {
                 </div>
 
                 <div className="p-4 space-y-4">
+                    {/* Admin Therapist Selector */}
+                    {user?.role === 'ADMIN' && therapistsList.length > 0 && (
+                        <div style={{
+                            background: '#f0fdf4',
+                            border: '1px solid #bbf7d0',
+                            borderRadius: '12px',
+                            padding: '0.65rem 0.9rem',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'space-between',
+                            gap: '0.75rem',
+                            marginBottom: '0.75rem'
+                        }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                                <Users size={16} style={{ color: '#166534', flexShrink: 0 }} />
+                                <span style={{ fontSize: '0.8rem', fontWeight: 600, color: '#166534' }}>
+                                    Vista previa de:
+                                </span>
+                            </div>
+                            <select
+                                value={activeTherapistId}
+                                onChange={e => {
+                                    setActiveTherapistId(e.target.value);
+                                    setStep('summary');
+                                }}
+                                style={{
+                                    fontSize: '0.85rem',
+                                    fontWeight: 600,
+                                    padding: '0.35rem 0.65rem',
+                                    borderRadius: '8px',
+                                    border: '1px solid #86efac',
+                                    background: '#ffffff',
+                                    color: '#166534',
+                                    outline: 'none',
+                                    cursor: 'pointer'
+                                }}
+                            >
+                                {therapistsList.map(t => (
+                                    <option key={t.id} value={t.id}>{t.fullName}</option>
+                                ))}
+                            </select>
+                        </div>
+                    )}
                     {/* Month selector */}
                     <div className="form-group">
                         <label className="text-sm font-medium">Seleccionar Mes</label>

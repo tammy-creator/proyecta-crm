@@ -826,4 +826,52 @@
     color: #0f172a;
     border-color: #94a3b8;
 }
+
+/* ── Appointments Tab in Patient Profile ── */
+.appt-tab-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 1rem;
+    padding-bottom: 0.75rem;
+    border-bottom: 1px solid #f1f5f9;
+}
+
+.appt-tab-header-left {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    flex-wrap: wrap;
+}
+
+.appt-view-pills {
+    display: inline-flex;
+    background-color: #f1f5f9;
+    padding: 3px;
+    border-radius: 10px;
+    gap: 3px;
+}
+
+.appt-pill-btn {
+    padding: 4px 10px;
+    border: none;
+    background: transparent;
+    border-radius: 7px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: #64748b;
+    cursor: pointer;
+    transition: all 0.15s ease;
+}
+
+.appt-pill-btn:hover {
+    color: #1e293b;
+}
+
+.appt-pill-btn.active {
+    background-color: white;
+    color: #1A5F7A;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+}
 

@@ -1,14 +1,16 @@
-import React, { useEffect, useState, useRef } from 'react';
+import React, { useEffect, useState, useRef, useMemo } from 'react';
 import { getPatients, getPatientById, createPatient, updatePatient, deletePatient, deletePatientFile, uploadPatientFileContent, getPatientFileUrl } from './service';
 import { supabase } from '../../lib/supabase';
 import { generateConsentSheetPDF, generateClinicalHistoryPDF } from '../../utils/consentPdfGenerator';
-import { getAppointmentsByPatient } from '../calendar/service';
+import { getAppointmentsByPatient, deleteAppointmentsBatch } from '../calendar/service';
 import { type Patient, type PatientFile } from './types';
 import { type Appointment } from '../calendar/types';
 import { getTherapists } from '../therapists/service';
 import { type Therapist } from '../therapists/types';
 import Card from '../../components/ui/Card';
-import { User, Users, Phone, Mail, Search, UserPlus, X, Calendar, ClipboardList, FileText, Upload, Activity, Download, Send, ShieldCheck, ShieldAlert, Star, Trash2, Heart, ChevronDown, ChevronUp, AlertCircle, MessageSquare } from 'lucide-react';
+import { User, Users, Phone, Mail, Search, UserPlus, X, Calendar, ClipboardList, FileText, Upload, Activity, Download, Send, ShieldCheck, ShieldAlert, Star, Trash2, Heart, ChevronDown, ChevronUp, AlertCircle, MessageSquare, Repeat, CheckCheck } from 'lucide-react';
+import { format, parseISO, isValid, isAfter } from 'date-fns';
+import { es } from 'date-fns/locale';
 import { useToast } from '../../hooks/useToast';
 import PrintPortal from '../../components/ui/PrintPortal';
 import ConsentDocument from './ConsentDocument';
@@ -37,6 +39,171 @@ const PatientList: React.FC = () => {
     const [processingStep, setProcessingStep] = useState<string>('');
     const [patientDeleteConfirm, setPatientDeleteConfirm] = useState<{ isOpen: boolean; patient: Patient | null }>({ isOpen: false, patient: null });
 
+    // Appointment management states
+    const [selectedApptIds, setSelectedApptIds] = useState<Set<string>>(new Set());
+    const [apptFilter, setApptFilter] = useState<'all' | 'future' | 'past'>('all');
+    const [confirmDeleteApptsModal, setConfirmDeleteApptsModal] = useState<{ isOpen: boolean; appts: Appointment[] }>({ isOpen: false, appts: [] });
+    const [isDeletingAppts, setIsDeletingAppts] = useState(false);
+
+    const isFutureAppointment = (appt: Appointment) => {
+        try {
+            const d = parseISO(appt.start);
+            return isValid(d) && isAfter(d, new Date());
+        } catch {
+            return false;
+        }
+    };
+
+    const formatApptDate = (isoStr: string) => {
+        try {
+            const d = parseISO(isoStr);
+            if (!isValid(d)) return isoStr;
+            return format(d, 'dd/MM/yyyy', { locale: es });
+        } catch {
+            return isoStr;
+        }
+    };
+
+    const formatApptTime = (isoStr: string) => {
+        try {
+            const d = parseISO(isoStr);
+            if (!isValid(d)) return '';
+            return format(d, 'HH:mm');
+        } catch {
+            return '';
+        }
+    };
+
+    const sortedAppointments = useMemo(() => {
+        return [...patientAppointments].sort((a, b) => {
+            return (a.start || '').localeCompare(b.start || '');
+        });
+    }, [patientAppointments]);
+
+    const futureApptsCount = useMemo(() => {
+        return patientAppointments.filter(isFutureAppointment).length;
+    }, [patientAppointments]);
+
+    const pastApptsCount = useMemo(() => {
+        return patientAppointments.length - futureApptsCount;
+    }, [patientAppointments, futureApptsCount]);
+
+    const displayedAppointments = useMemo(() => {
+        return sortedAppointments.filter(appt => {
+            if (apptFilter === 'future') return isFutureAppointment(appt);
+            if (apptFilter === 'past') return !isFutureAppointment(appt);
+            return true;
+        });
+    }, [sortedAppointments, apptFilter]);
+
+    const allFilteredSelected = displayedAppointments.length > 0 &&
+        displayedAppointments.every(a => selectedApptIds.has(a.id));
+
+    const toggleSelectAll = () => {
+        if (allFilteredSelected) {
+            setSelectedApptIds(prev => {
+                const next = new Set(prev);
+                displayedAppointments.forEach(a => next.delete(a.id));
+                return next;
+            });
+        } else {
+            setSelectedApptIds(prev => {
+                const next = new Set(prev);
+                displayedAppointments.forEach(a => next.add(a.id));
+                return next;
+            });
+        }
+    };
+
+    const toggleSelectAppt = (id: string) => {
+        setSelectedApptIds(prev => {
+            const next = new Set(prev);
+            if (next.has(id)) {
+                next.delete(id);
+            } else {
+                next.add(id);
+            }
+            return next;
+        });
+    };
+
+    const handleSelectOnlyFuture = () => {
+        const futureIds = patientAppointments.filter(isFutureAppointment).map(a => a.id);
+        setSelectedApptIds(new Set(futureIds));
+        if (futureIds.length === 0) {
+            showToast("No hay citas futuras programadas para este paciente", "info");
+        } else {
+            showToast(`${futureIds.length} citas futuras seleccionadas`, "info");
+        }
+    };
+
+    const handleSelectSeries = (targetAppt: Appointment) => {
+        if (!targetAppt.recurrence) {
+            setSelectedApptIds(prev => new Set([...prev, targetAppt.id]));
+            return;
+        }
+
+        const freq = targetAppt.recurrence.frequency || 'weekly';
+        const seriesMatches = patientAppointments.filter(a => {
+            if (!a.recurrence) return false;
+            if (targetAppt.recurrence?.originalId && a.recurrence?.originalId && targetAppt.recurrence.originalId === a.recurrence.originalId) {
+                if (targetAppt.recurrence.originalId !== 'SERIE') return true;
+            }
+            return a.therapistId === targetAppt.therapistId && (a.recurrence.frequency || 'weekly') === freq;
+        });
+
+        const seriesIds = seriesMatches.map(a => a.id);
+        setSelectedApptIds(prev => {
+            const next = new Set(prev);
+            seriesIds.forEach(id => next.add(id));
+            return next;
+        });
+
+        showToast(`Se han marcado las ${seriesIds.length} citas de la serie ${freq === 'biweekly' ? 'quincenal' : 'semanal'}`, 'info');
+    };
+
+    const handleDeleteSelectedClick = () => {
+        const appts = patientAppointments.filter(a => selectedApptIds.has(a.id));
+        if (appts.length === 0) return;
+        setConfirmDeleteApptsModal({ isOpen: true, appts });
+    };
+
+    const handleDeleteSingleClick = (appt: Appointment) => {
+        setConfirmDeleteApptsModal({ isOpen: true, appts: [appt] });
+    };
+
+    const confirmDeleteSelectedAppts = async () => {
+        if (!confirmDeleteApptsModal.appts || confirmDeleteApptsModal.appts.length === 0) return;
+
+        setIsDeletingAppts(true);
+        const idsToDelete = confirmDeleteApptsModal.appts.map(a => a.id);
+
+        try {
+            await deleteAppointmentsBatch(idsToDelete);
+
+            setPatientAppointments(prev => prev.filter(a => !idsToDelete.includes(a.id)));
+
+            setSelectedApptIds(prev => {
+                const next = new Set(prev);
+                idsToDelete.forEach(id => next.delete(id));
+                return next;
+            });
+
+            showToast(
+                idsToDelete.length === 1
+                    ? "Cita eliminada correctamente"
+                    : `${idsToDelete.length} citas eliminadas correctamente`,
+                "success"
+            );
+            setConfirmDeleteApptsModal({ isOpen: false, appts: [] });
+        } catch (err: any) {
+            console.error("Error deleting appointments:", err);
+            showToast(`Error al eliminar: ${err.message || 'Error desconocido'}`, "error");
+        } finally {
+            setIsDeletingAppts(false);
+        }
+    };
+
     // Canvas signature state
     const [drawing, setDrawing] = useState(false);
 
@@ -59,6 +226,9 @@ const PatientList: React.FC = () => {
     useEffect(() => {
         if (isModalOpen && selectedPatient?.id && (activeTab === 'appointments' || activeTab === 'history')) {
             getAppointmentsByPatient(selectedPatient.id).then(setPatientAppointments);
+        }
+        if (!isModalOpen || activeTab !== 'appointments') {
+            setSelectedApptIds(new Set());
         }
     }, [isModalOpen, selectedPatient?.id, activeTab]);
 
@@ -1154,39 +1324,216 @@ const PatientList: React.FC = () => {
 
                             {activeTab === 'appointments' && (
                                 <div className="appointments-tab">
-                                    <div className="section-title flex justify-between items-center mb-4">
-                                        <h4>Historial de Citas</h4>
+                                    {/* Cabecera y Controles de la Pestaña Citas */}
+                                    <div className="appt-tab-header mb-4">
+                                        <div className="appt-tab-header-left">
+                                            <h4 className="text-base font-bold text-gray-800 flex items-center gap-2 m-0">
+                                                <Calendar size={18} className="text-primary" />
+                                                Citas del Paciente
+                                                <span className="text-xs font-normal text-gray-500 bg-gray-100 px-2 py-0.5 rounded-full">
+                                                    {patientAppointments.length} total ({futureApptsCount} futuras)
+                                                </span>
+                                            </h4>
+
+                                            {/* Filtros de Vista: Todas / Futuras / Pasadas */}
+                                            <div className="appt-view-pills">
+                                                <button
+                                                    type="button"
+                                                    className={`appt-pill-btn ${apptFilter === 'all' ? 'active' : ''}`}
+                                                    onClick={() => setApptFilter('all')}
+                                                >
+                                                    Todas ({patientAppointments.length})
+                                                </button>
+                                                <button
+                                                    type="button"
+                                                    className={`appt-pill-btn ${apptFilter === 'future' ? 'active' : ''}`}
+                                                    onClick={() => setApptFilter('future')}
+                                                >
+                                                    ⚡ Futuras ({futureApptsCount})
+                                                </button>
+                                                <button
+                                                    type="button"
+                                                    className={`appt-pill-btn ${apptFilter === 'past' ? 'active' : ''}`}
+                                                    onClick={() => setApptFilter('past')}
+                                                >
+                                                    Pasadas ({pastApptsCount})
+                                                </button>
+                                            </div>
+                                        </div>
+
+                                        {/* Botones de Acción de Selección y Eliminación Masiva */}
+                                        <div className="appt-tab-header-right flex items-center gap-2">
+                                            {selectedApptIds.size === 0 ? (
+                                                futureApptsCount > 0 && (
+                                                    <button
+                                                        type="button"
+                                                        className="btn-secondary micro flex items-center gap-1.5"
+                                                        onClick={handleSelectOnlyFuture}
+                                                        title="Selecciona de golpe todas las citas futuras del paciente"
+                                                    >
+                                                        <CheckCheck size={14} className="text-primary" />
+                                                        Marcar todas las futuras ({futureApptsCount})
+                                                    </button>
+                                                )
+                                            ) : (
+                                                <div className="flex items-center gap-2 bg-red-50 border border-red-200 px-3 py-1 rounded-xl animate-fadeIn">
+                                                    <span className="text-xs font-bold text-red-800">
+                                                        {selectedApptIds.size} seleccionada{selectedApptIds.size > 1 ? 's' : ''}
+                                                    </span>
+                                                    <button
+                                                        type="button"
+                                                        className="btn-secondary micro text-xs py-0.5 px-2"
+                                                        onClick={() => setSelectedApptIds(new Set())}
+                                                    >
+                                                        Deseleccionar
+                                                    </button>
+                                                    <button
+                                                        type="button"
+                                                        className="btn-danger micro flex items-center gap-1 text-xs py-1 px-3 shadow-sm"
+                                                        onClick={handleDeleteSelectedClick}
+                                                        style={{ backgroundColor: '#dc2626', color: 'white', fontWeight: 700 }}
+                                                    >
+                                                        <Trash2 size={13} />
+                                                        Eliminar ({selectedApptIds.size})
+                                                    </button>
+                                                </div>
+                                            )}
+                                        </div>
                                     </div>
+
                                     {patientAppointments.length === 0 ? (
                                         <div className="empty-state">No hay citas registradas para este paciente.</div>
+                                    ) : displayedAppointments.length === 0 ? (
+                                        <div className="empty-state">
+                                            No hay citas en este filtro ({apptFilter === 'future' ? 'futuras' : 'pasadas'}).
+                                            <button
+                                                type="button"
+                                                className="btn-link text-xs ml-2 underline text-primary cursor-pointer bg-transparent border-none"
+                                                onClick={() => setApptFilter('all')}
+                                            >
+                                                Ver todas las citas
+                                            </button>
+                                        </div>
                                     ) : (
-                                        <div className="table-container shadow-none border">
+                                        <div className="table-container shadow-none border rounded-xl overflow-hidden">
                                             <table className="data-table">
                                                 <thead>
                                                     <tr>
-                                                        <th>Fecha</th>
+                                                        <th style={{ width: '40px', textAlign: 'center' }}>
+                                                            <input
+                                                                type="checkbox"
+                                                                className="cursor-pointer"
+                                                                checked={allFilteredSelected}
+                                                                onChange={toggleSelectAll}
+                                                                title={allFilteredSelected ? 'Deseleccionar todas las mostradas' : 'Seleccionar todas las citas mostradas'}
+                                                            />
+                                                        </th>
+                                                        <th style={{ minWidth: '130px' }}>Fecha y Hora</th>
                                                         <th>Terapeuta</th>
                                                         <th>Tipo</th>
+                                                        <th>Recurrencia / Serie</th>
                                                         <th>Estado</th>
+                                                        <th style={{ width: '60px', textAlign: 'right' }}>Acción</th>
                                                     </tr>
                                                 </thead>
                                                 <tbody>
-                                                    {patientAppointments.map(appt => (
-                                                        <tr key={appt.id}>
-                                                            <td>{new Date(appt.start).toLocaleDateString('es-ES')}</td>
-                                                            <td className="flex items-center gap-2"><div className="avatar micro">{appt.therapistName.charAt(0)}</div>{appt.therapistName}</td>
-                                                            <td>{appt.type}</td>
-                                                            <td>
-                                                                <span className={`badge ${appt.status === 'Finalizada' || appt.status === 'En Sesión' ? 'badge-warning' :
-                                                                    appt.status === 'Cobrada' ? 'badge-success' :
+                                                    {displayedAppointments.map(appt => {
+                                                        const isSelected = selectedApptIds.has(appt.id);
+                                                        const isFuture = isFutureAppointment(appt);
+                                                        const isBiweekly = appt.recurrence?.frequency === 'biweekly';
+                                                        const isWeekly = appt.recurrence?.frequency === 'weekly';
+
+                                                        return (
+                                                            <tr
+                                                                key={appt.id}
+                                                                className={isSelected ? 'bg-red-50/50' : ''}
+                                                                style={{ transition: 'background-color 0.15s ease' }}
+                                                            >
+                                                                <td style={{ textAlign: 'center' }}>
+                                                                    <input
+                                                                        type="checkbox"
+                                                                        className="cursor-pointer"
+                                                                        checked={isSelected}
+                                                                        onChange={() => toggleSelectAppt(appt.id)}
+                                                                    />
+                                                                </td>
+                                                                <td>
+                                                                    <div className="flex flex-col">
+                                                                        <span className={`text-sm ${isFuture ? 'font-bold text-gray-900' : 'text-gray-600'}`}>
+                                                                            {formatApptDate(appt.start)}
+                                                                        </span>
+                                                                        {appt.start && appt.start.includes('T') && (
+                                                                            <span className="text-xs text-gray-500 font-mono">
+                                                                                {formatApptTime(appt.start)}
+                                                                            </span>
+                                                                        )}
+                                                                    </div>
+                                                                </td>
+                                                                <td>
+                                                                    <div className="flex items-center gap-2">
+                                                                        <div className="avatar micro">{appt.therapistName?.charAt(0) || 'T'}</div>
+                                                                        <span className="text-sm font-medium text-gray-800">{appt.therapistName}</span>
+                                                                    </div>
+                                                                </td>
+                                                                <td>
+                                                                    <span className="text-sm text-gray-700">{appt.type || 'Sesión'}</span>
+                                                                </td>
+                                                                <td>
+                                                                    {isBiweekly ? (
+                                                                        <div className="flex items-center gap-1.5 flex-wrap">
+                                                                            <span className="text-[11px] font-bold px-2 py-0.5 rounded-md bg-indigo-50 text-indigo-700 border border-indigo-200 inline-flex items-center gap-1">
+                                                                                <Repeat size={11} /> Quincenal (15 días)
+                                                                            </span>
+                                                                            <button
+                                                                                type="button"
+                                                                                className="text-[11px] text-indigo-600 hover:text-indigo-900 underline font-semibold bg-transparent border-none cursor-pointer p-0"
+                                                                                onClick={() => handleSelectSeries(appt)}
+                                                                                title="Marcar todas las citas de 15 días de esta serie"
+                                                                            >
+                                                                                Marcar serie
+                                                                            </button>
+                                                                        </div>
+                                                                    ) : isWeekly ? (
+                                                                        <div className="flex items-center gap-1.5 flex-wrap">
+                                                                            <span className="text-[11px] font-bold px-2 py-0.5 rounded-md bg-purple-50 text-purple-700 border border-purple-200 inline-flex items-center gap-1">
+                                                                                <Repeat size={11} /> Semanal
+                                                                            </span>
+                                                                            <button
+                                                                                type="button"
+                                                                                className="text-[11px] text-purple-600 hover:text-purple-900 underline font-semibold bg-transparent border-none cursor-pointer p-0"
+                                                                                onClick={() => handleSelectSeries(appt)}
+                                                                                title="Marcar todas las citas semanales de esta serie"
+                                                                            >
+                                                                                Marcar serie
+                                                                            </button>
+                                                                        </div>
+                                                                    ) : (
+                                                                        <span className="text-xs text-gray-400">—</span>
+                                                                    )}
+                                                                </td>
+                                                                <td>
+                                                                    <span className={`badge ${
+                                                                        appt.status === 'Finalizada' || appt.status === 'En Sesión' ? 'badge-warning' :
+                                                                        appt.status === 'Cobrada' ? 'badge-success' :
                                                                         appt.status === 'Cancelada' ? 'badge-danger' :
-                                                                            'badge-info'
+                                                                        'badge-info'
                                                                     }`}>
-                                                                    {appt.status}
-                                                                </span>
-                                                            </td>
-                                                        </tr>
-                                                    ))}
+                                                                        {appt.status}
+                                                                    </span>
+                                                                </td>
+                                                                <td style={{ textAlign: 'right' }}>
+                                                                    <button
+                                                                        type="button"
+                                                                        className="btn-icon-round text-gray-400 hover:text-red-600 hover:bg-red-50 p-1.5 transition-colors cursor-pointer"
+                                                                        onClick={() => handleDeleteSingleClick(appt)}
+                                                                        title="Eliminar esta cita"
+                                                                    >
+                                                                        <Trash2 size={15} />
+                                                                    </button>
+                                                                </td>
+                                                            </tr>
+                                                        );
+                                                    })}
                                                 </tbody>
                                             </table>
                                         </div>
@@ -1573,7 +1920,7 @@ const PatientList: React.FC = () => {
                     </div>
                 </div>
             )}
-            {/* Modal de Confirmación de Eliminación Custom */}
+            {/* Modal de Confirmación de Eliminación Custom de Archivo */}
             {deleteConfirm.isOpen && (
                 <div className="modal-overlay" style={{ zIndex: 40000, backgroundColor: 'rgba(0,0,0,0.5)' }}>
                     <div className="modal-container" style={{ maxWidth: '400px', padding: '2rem', textAlign: 'center' }}>
@@ -1585,6 +1932,90 @@ const PatientList: React.FC = () => {
                         <div className="flex gap-3 justify-center">
                             <button className="btn-secondary" onClick={() => setDeleteConfirm({ isOpen: false, file: null })}>Cancelar</button>
                             <button className="btn-primary" style={{ backgroundColor: '#ef4444', border: 'none' }} onClick={confirmDelete}>Eliminar ahora</button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Modal de Confirmación de Eliminación de Citas */}
+            {confirmDeleteApptsModal.isOpen && (
+                <div className="modal-overlay" style={{ zIndex: 45000, backgroundColor: 'rgba(0,0,0,0.55)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    <div className="modal-content" style={{ maxWidth: '520px', width: '90%', borderRadius: '16px', padding: '1.75rem', backgroundColor: 'white', boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.35)' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '1rem' }}>
+                            <div style={{ width: '42px', height: '42px', borderRadius: '50%', backgroundColor: '#fee2e2', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                                <Trash2 size={22} style={{ color: '#dc2626' }} />
+                            </div>
+                            <div>
+                                <h3 style={{ margin: 0, fontSize: '1.2rem', fontWeight: 800, color: '#991b1b' }}>
+                                    {confirmDeleteApptsModal.appts.length === 1 ? '¿Eliminar esta cita?' : `¿Eliminar ${confirmDeleteApptsModal.appts.length} citas?`}
+                                </h3>
+                                <p style={{ margin: '2px 0 0 0', fontSize: '0.8rem', color: '#64748b' }}>
+                                    {confirmDeleteApptsModal.appts.length === 1
+                                        ? 'Esta cita se eliminará permanentemente de la agenda.'
+                                        : `Se eliminarán permanentemente las ${confirmDeleteApptsModal.appts.length} citas seleccionadas de la agenda.`}
+                                </p>
+                            </div>
+                        </div>
+
+                        <div style={{ maxHeight: '220px', overflowY: 'auto', margin: '1rem 0', padding: '0.75rem', backgroundColor: '#f8fafc', borderRadius: '10px', border: '1px solid #e2e8f0' }}>
+                            <div style={{ fontSize: '0.75rem', fontWeight: 700, color: '#475569', textTransform: 'uppercase', marginBottom: '0.5rem' }}>
+                                Resumen de citas a eliminar:
+                            </div>
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
+                                {confirmDeleteApptsModal.appts.map(a => (
+                                    <div key={a.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.82rem', padding: '0.4rem 0.6rem', backgroundColor: 'white', borderRadius: '6px', border: '1px solid #e2e8f0' }}>
+                                        <div>
+                                            <span style={{ fontWeight: 700, color: '#1e293b' }}>{formatApptDate(a.start)}</span>
+                                            {a.start && a.start.includes('T') && (
+                                                <span style={{ color: '#64748b', marginLeft: '6px', fontSize: '0.75rem', fontFamily: 'monospace' }}>
+                                                    {formatApptTime(a.start)}
+                                                </span>
+                                            )}
+                                            {a.recurrence?.frequency === 'biweekly' && (
+                                                <span style={{ fontSize: '0.7rem', backgroundColor: '#e0e7ff', color: '#4338ca', padding: '1px 5px', borderRadius: '4px', marginLeft: '6px', fontWeight: 600 }}>
+                                                    15 días
+                                                </span>
+                                            )}
+                                            {a.recurrence?.frequency === 'weekly' && (
+                                                <span style={{ fontSize: '0.7rem', backgroundColor: '#ede9fe', color: '#6d28d9', padding: '1px 5px', borderRadius: '4px', marginLeft: '6px', fontWeight: 600 }}>
+                                                    Semanal
+                                                </span>
+                                            )}
+                                        </div>
+                                        <span style={{ fontSize: '0.78rem', color: '#64748b' }}>{a.therapistName}</span>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+
+                        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.75rem', marginTop: '1.25rem', paddingTop: '1rem', borderTop: '1px solid #f1f5f9' }}>
+                            <button
+                                type="button"
+                                className="btn-secondary"
+                                disabled={isDeletingAppts}
+                                onClick={() => setConfirmDeleteApptsModal({ isOpen: false, appts: [] })}
+                            >
+                                Cancelar
+                            </button>
+                            <button
+                                type="button"
+                                className="btn-danger"
+                                disabled={isDeletingAppts}
+                                onClick={confirmDeleteSelectedAppts}
+                                style={{ minWidth: '160px', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: '6px', backgroundColor: '#dc2626', color: 'white', fontWeight: 700 }}
+                            >
+                                {isDeletingAppts ? (
+                                    <>
+                                        <span className="animate-spin inline-block w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full" />
+                                        <span>Eliminando...</span>
+                                    </>
+                                ) : (
+                                    <>
+                                        <Trash2 size={16} />
+                                        <span>Sí, eliminar {confirmDeleteApptsModal.appts.length === 1 ? 'cita' : `${confirmDeleteApptsModal.appts.length} citas`}</span>
+                                    </>
+                                )}
+                            </button>
                         </div>
                     </div>
                 </div>

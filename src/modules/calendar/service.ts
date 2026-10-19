@@ -280,6 +280,24 @@ export const deleteAppointment = async (appointmentId: string): Promise<void> =>
     }).catch(err => console.warn('Broadcast sync error on delete:', err));
 };
 
+export const deleteAppointmentsBatch = async (appointmentIds: string[]): Promise<void> => {
+    if (!appointmentIds || appointmentIds.length === 0) return;
+
+    // Delete associated transactions first
+    await supabase.from('transactions').delete().in('appointment_id', appointmentIds);
+
+    const { error } = await supabase
+        .from('appointments')
+        .delete()
+        .in('id', appointmentIds);
+    if (error) throw error;
+
+    broadcastCalendarChange({
+        action: 'delete',
+        appointmentId: appointmentIds[0]
+    }).catch(err => console.warn('Broadcast sync error on batch delete:', err));
+};
+
 export const markAppointmentPaid = async (appointmentId: string): Promise<void> => {
     const { data: currentAppt } = await supabase
         .from('appointments')

@@ -1938,6 +1938,7 @@ const WorkforceReport: React.FC = () => {
                     setIsEditModalOpen(false);
                     setEditingRecord(null);
                 }}
+                maxWidth="540px"
                 title={
                     editingRecord?.type === 'work' 
                         ? (editingRecord?.id ? "Editar Registro de Jornada" : "Fichaje Manual")
@@ -1953,7 +1954,7 @@ const WorkforceReport: React.FC = () => {
                                 onClick={() => setEditingRecord({ ...editingRecord, type: 'work' })}
                                 className={`wf-type-btn ${editingRecord?.type === 'work' ? 'active-work' : ''}`}
                             >
-                                <Clock size={16} /> Jornada
+                                <Clock size={15} /> Jornada
                             </button>
                             <button 
                                 type="button"
@@ -1969,7 +1970,7 @@ const WorkforceReport: React.FC = () => {
                                 }}
                                 className={`wf-type-btn ${editingRecord?.type === 'vacation' ? 'active-vacation' : ''}`}
                             >
-                                <Calendar size={16} /> Vacaciones
+                                <Calendar size={15} /> Vacaciones
                             </button>
                             <button 
                                 type="button"
@@ -1985,7 +1986,7 @@ const WorkforceReport: React.FC = () => {
                                 }}
                                 className={`wf-type-btn ${editingRecord?.type === 'paid_leave' ? 'active-paid-leave' : ''}`}
                             >
-                                <FileText size={16} /> Permiso
+                                <FileText size={15} /> Permiso
                             </button>
                             <button 
                                 type="button"
@@ -2001,7 +2002,7 @@ const WorkforceReport: React.FC = () => {
                                 }}
                                 className={`wf-type-btn ${editingRecord?.type === 'sick_leave' ? 'active-sick' : ''}`}
                             >
-                                <AlertCircle size={16} /> Baja Médica
+                                <AlertCircle size={15} /> Baja Médica
                             </button>
                             <button 
                                 type="button"
@@ -2017,14 +2018,14 @@ const WorkforceReport: React.FC = () => {
                                 }}
                                 className={`wf-type-btn ${editingRecord?.type === 'holiday' ? 'active-holiday' : ''}`}
                             >
-                                <Sun size={16} /> Festivo
+                                <Sun size={15} /> Festivo
                             </button>
                         </div>
                     </div>
 
                     {editingRecord?.type === 'work' ? (
                         <div className="wf-manual-blocks">
-                            <div className="wf-form-row" style={{ marginBottom: '1rem' }}>
+                            <div className="wf-form-row">
                                 <div>
                                     <label className="wf-form-label">Fecha</label>
                                     <input
@@ -2088,7 +2089,7 @@ const WorkforceReport: React.FC = () => {
                             ))}
                         </div>
                     ) : (
-                        <div className="wf-form-row" style={{ marginBottom: '1rem' }}>
+                        <div className="wf-form-row">
                             <div>
                                 <label className="wf-form-label">Fecha Inicio</label>
                                 <input
@@ -2159,6 +2160,7 @@ const WorkforceReport: React.FC = () => {
                     setIsAbsenceModalOpen(false);
                     setEditingRecord(null);
                 }}
+                maxWidth="540px"
                 title="Registrar Periodo de Ausencia"
             >
                 <form onSubmit={handleSaveAttendance} className="wf-form">
@@ -2170,34 +2172,34 @@ const WorkforceReport: React.FC = () => {
                                 onClick={() => setEditingRecord({ ...editingRecord, type: 'vacation', isGlobal: false })}
                                 className={`wf-type-btn ${editingRecord?.type === 'vacation' ? 'active-vacation' : ''}`}
                             >
-                                <Calendar size={18} /> Vacaciones
+                                <Calendar size={15} /> Vacaciones
                             </button>
                             <button 
                                 type="button"
                                 onClick={() => setEditingRecord({ ...editingRecord, type: 'holiday', isGlobal: selectedTherapistId === 'all' })}
                                 className={`wf-type-btn ${editingRecord?.type === 'holiday' ? 'active-holiday' : ''}`}
                             >
-                                <Sun size={18} /> Festivo
+                                <Sun size={15} /> Festivo
                             </button>
                             <button 
                                 type="button"
                                 onClick={() => setEditingRecord({ ...editingRecord, type: 'paid_leave', isGlobal: false })}
                                 className={`wf-type-btn ${editingRecord?.type === 'paid_leave' ? 'active-paid-leave' : ''}`}
                             >
-                                <FileText size={18} /> Permiso Justificado
+                                <FileText size={15} /> Permiso Justificado
                             </button>
                             <button 
                                 type="button"
                                 onClick={() => setEditingRecord({ ...editingRecord, type: 'sick_leave', isGlobal: false })}
                                 className={`wf-type-btn ${editingRecord?.type === 'sick_leave' ? 'active-sick' : ''}`}
                             >
-                                <AlertCircle size={18} /> Baja Médica
+                                <AlertCircle size={15} /> Baja Médica
                             </button>
                         </div>
                     </div>
 
                     {selectedTherapistId === 'all' && !editingRecord?.isGlobal && (
-                        <div style={{ marginBottom: '1.25rem' }}>
+                        <div style={{ marginBottom: '0.65rem' }}>
                             <label className="wf-form-label">Terapeuta</label>
                             <select 
                                 className="wf-form-input"
@@ -2213,17 +2215,17 @@ const WorkforceReport: React.FC = () => {
                         </div>
                     )}
                     {editingRecord?.type === 'holiday' && (
-                        <div style={{ marginBottom: '1.25rem', padding: '0 0.5rem' }}>
-                            <label className="flex items-center gap-3 cursor-pointer p-4 bg-amber-50 rounded-xl border border-amber-200 shadow-sm transition-all hover:bg-amber-100">
+                        <div style={{ marginBottom: '0.65rem' }}>
+                            <label className="flex items-center gap-2 cursor-pointer p-2.5 px-3 bg-amber-50 rounded-lg border border-amber-200 shadow-sm transition-all hover:bg-amber-100">
                                 <input 
                                     type="checkbox" 
-                                    className="w-5 h-5 text-amber-600 rounded border-amber-300"
+                                    className="w-4 h-4 text-amber-600 rounded border-amber-300"
                                     checked={editingRecord?.isGlobal || false}
                                     onChange={e => setEditingRecord({ ...editingRecord, isGlobal: e.target.checked })}
                                 />
                                 <div>
-                                    <span className="font-bold text-amber-900 text-sm">Festivo Global</span>
-                                    <p className="text-xs text-amber-700">Registrar para todas las terapeutas del equipo</p>
+                                    <span className="font-bold text-amber-900 text-xs">Festivo Global</span>
+                                    <p className="text-[11px] text-amber-700">Registrar para todas las terapeutas del equipo</p>
                                 </div>
                             </label>
                         </div>

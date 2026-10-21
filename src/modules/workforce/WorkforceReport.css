@@ -969,14 +969,14 @@
 .wf-form {
     display: flex;
     flex-direction: column;
-    gap: 1.5rem;
-    padding-top: 0.5rem;
+    gap: 0.85rem;
+    padding-top: 0;
 }
 
 .wf-form-row {
     display: grid;
     grid-template-columns: 1fr 1fr;
-    gap: 1rem;
+    gap: 0.75rem;
 }
 
 .wf-form-label {
@@ -985,23 +985,23 @@
     font-weight: 700;
     color: #94a3b8;
     text-transform: uppercase;
-    letter-spacing: 0.1em;
-    margin-bottom: 0.5rem;
-    padding-left: 0.25rem;
+    letter-spacing: 0.08em;
+    margin-bottom: 0.35rem;
+    padding-left: 0.2rem;
 }
 
 .wf-form-input {
     width: 100%;
-    padding: 0.9rem 1rem;
+    padding: 0.55rem 0.75rem;
     background: #f8fafc;
-    border: 1px solid transparent;
-    border-radius: 14px;
+    border: 1px solid #e2e8f0;
+    border-radius: 10px;
     font-family: inherit;
-    font-size: 0.9rem;
+    font-size: 0.85rem;
     font-weight: 500;
     color: var(--color-text-primary);
     outline: none;
-    transition: all 0.3s;
+    transition: all 0.2s;
 }
 
 .wf-form-input:focus {
@@ -1012,18 +1012,19 @@
 
 .wf-form-textarea {
     width: 100%;
-    padding: 0.9rem 1rem;
+    padding: 0.55rem 0.75rem;
     background: #f8fafc;
-    border: 1px solid transparent;
-    border-radius: 14px;
+    border: 1px solid #e2e8f0;
+    border-radius: 10px;
     font-family: inherit;
-    font-size: 0.9rem;
+    font-size: 0.85rem;
     font-weight: 500;
     color: var(--color-text-primary);
     outline: none;
     resize: none;
-    height: 100px;
-    transition: all 0.3s;
+    height: 52px;
+    min-height: 48px;
+    transition: all 0.2s;
 }
 
 .wf-form-textarea:focus {
@@ -1035,28 +1036,30 @@
 /* Absence type selector buttons */
 .wf-type-selector {
     display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 0.75rem;
+    grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+    gap: 0.5rem;
 }
 
 .wf-type-btn {
     display: flex;
     align-items: center;
     justify-content: center;
-    gap: 0.5rem;
-    padding: 1rem;
-    border: 2px solid #f1f5f9;
-    border-radius: 14px;
+    gap: 0.4rem;
+    padding: 0.5rem 0.65rem;
+    border: 1.5px solid #e2e8f0;
+    border-radius: 10px;
     background: white;
-    font-size: 0.9rem;
+    font-size: 0.82rem;
     font-weight: 600;
-    color: #94a3b8;
+    color: #64748b;
     cursor: pointer;
-    transition: all 0.3s;
+    transition: all 0.2s;
+    white-space: nowrap;
 }
 
 .wf-type-btn:hover {
-    border-color: #e2e8f0;
+    border-color: #cbd5e1;
+    background: #f8fafc;
 }
 
 .wf-type-btn.active-work {
@@ -1093,21 +1096,21 @@
 .wf-form-footer {
     display: flex;
     justify-content: flex-end;
-    gap: 0.75rem;
-    padding-top: 0.5rem;
+    gap: 0.65rem;
+    padding-top: 0.25rem;
 }
 
 .wf-btn-cancel {
-    padding: 0.7rem 1.5rem;
+    padding: 0.5rem 1.25rem;
     border: none;
-    border-radius: 14px;
+    border-radius: 10px;
     background: transparent;
     font-family: inherit;
-    font-size: 0.9rem;
+    font-size: 0.85rem;
     font-weight: 600;
     color: var(--color-text-secondary);
     cursor: pointer;
-    transition: all 0.3s;
+    transition: all 0.2s;
 }
 
 .wf-btn-cancel:hover {
@@ -1115,23 +1118,23 @@
 }
 
 .wf-btn-save {
-    padding: 0.7rem 2rem;
+    padding: 0.5rem 1.6rem;
     border: none;
-    border-radius: 14px;
+    border-radius: 10px;
     background: var(--color-accent-blue);
     font-family: inherit;
-    font-size: 0.9rem;
+    font-size: 0.85rem;
     font-weight: 700;
     color: #1A5F7A;
     cursor: pointer;
-    transition: all 0.3s;
-    box-shadow: 0 4px 14px rgba(188, 228, 234, 0.4);
+    transition: all 0.2s;
+    box-shadow: 0 2px 8px rgba(188, 228, 234, 0.4);
 }
 
 .wf-btn-save:hover {
     background: var(--color-accent-hover);
     transform: translateY(-1px);
-    box-shadow: 0 6px 20px rgba(188, 228, 234, 0.5);
+    box-shadow: 0 4px 12px rgba(188, 228, 234, 0.5);
 }
 
 .wf-btn-save:active {
@@ -1140,8 +1143,8 @@
 
 /* ── Manual Blocks in Modal ── */
 .wf-manual-blocks {
-    margin-bottom: 1.5rem;
-    padding-bottom: 1rem;
+    margin-bottom: 0.85rem;
+    padding-bottom: 0.5rem;
     border-bottom: 1px solid #f1f5f9;
 }
 

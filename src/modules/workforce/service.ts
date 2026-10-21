@@ -131,6 +131,12 @@ export const getTherapistVacations = async (therapistId: string): Promise<Attend
 
 export const addAttendance = async (attendance: Partial<Attendance>, adminInfo?: { id: string, name: string }): Promise<Attendance> => {
     if (adminInfo) {
+        const { data: { session } } = await supabase.auth.getSession();
+        const headers: Record<string, string> = {};
+        if (session?.access_token) {
+            headers.Authorization = `Bearer ${session.access_token}`;
+        }
+
         const { data, error } = await supabase.functions.invoke('admin-manage-attendance', {
             body: {
                 action: 'insert',
@@ -142,10 +148,21 @@ export const addAttendance = async (attendance: Partial<Attendance>, adminInfo?:
                     type: attendance.type,
                     notes: attendance.notes
                 }
-            }
+            },
+            headers
         });
         
-        if (error || !data.success) throw new Error(data?.error || error?.message || 'Error inserting attendance via admin API');
+        if (error || !data?.success) {
+            let errorMsg = data?.error || error?.message || 'Error al insertar asistencia via admin API';
+            if (error && 'context' in error) {
+                try {
+                    const errJson = await (error as any).context.json();
+                    if (errJson?.error) errorMsg = errJson.error;
+                    else if (errJson?.details?.message) errorMsg = errJson.details.message;
+                } catch (_) {}
+            }
+            throw new Error(errorMsg);
+        }
         
         await addAuditLog({
             userId: adminInfo.id,
@@ -196,6 +213,12 @@ export const addAttendance = async (attendance: Partial<Attendance>, adminInfo?:
 
 export const updateAttendance = async (id: string, updates: Partial<Attendance>, adminInfo?: { id: string, name: string }): Promise<Attendance> => {
     if (adminInfo) {
+        const { data: { session } } = await supabase.auth.getSession();
+        const headers: Record<string, string> = {};
+        if (session?.access_token) {
+            headers.Authorization = `Bearer ${session.access_token}`;
+        }
+
         const { data, error } = await supabase.functions.invoke('admin-manage-attendance', {
             body: {
                 action: 'update',
@@ -206,10 +229,21 @@ export const updateAttendance = async (id: string, updates: Partial<Attendance>,
                     type: updates.type,
                     notes: updates.notes
                 }
-            }
+            },
+            headers
         });
         
-        if (error || !data.success) throw new Error(data?.error || error?.message || 'Error updating attendance via admin API');
+        if (error || !data?.success) {
+            let errorMsg = data?.error || error?.message || 'Error al actualizar asistencia via admin API';
+            if (error && 'context' in error) {
+                try {
+                    const errJson = await (error as any).context.json();
+                    if (errJson?.error) errorMsg = errJson.error;
+                    else if (errJson?.details?.message) errorMsg = errJson.details.message;
+                } catch (_) {}
+            }
+            throw new Error(errorMsg);
+        }
 
         await addAuditLog({
             userId: adminInfo.id,

@@ -934,6 +934,12 @@
     border-color: #e2e8f0;
 }
 
+.wf-type-btn.active-work {
+    border-color: #10b981;
+    background: #ecfdf5;
+    color: #059669;
+}
+
 .wf-type-btn.active-vacation {
     border-color: #3b82f6;
     background: #eef4ff;

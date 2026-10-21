@@ -84,8 +84,7 @@ export const getAllAttendance = async (month: string, therapistId?: string): Pro
     let query = supabase
         .from('attendance')
         .select('*')
-        .gte('start_time', startDate)
-        .lte('start_time', endDate);
+        .or(`and(start_time.gte.${startDate},start_time.lte.${endDate}),and(start_time.lte.${endDate},end_time.gte.${startDate})`);
 
     if (therapistId && therapistId !== 'all') {
         query = query.eq('therapist_id', therapistId);

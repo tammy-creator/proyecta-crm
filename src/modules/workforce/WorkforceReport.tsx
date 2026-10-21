@@ -11,7 +11,8 @@ import {
     endOfDay,
     set,
     subMonths,
-    addMonths
+    addMonths,
+    isWithinInterval
 } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { useAuth } from '../../context/AuthContext';
@@ -44,9 +45,9 @@ import {
 import { 
     getAllAttendance, 
     addAttendance, 
+    updateAttendance,
     deleteAttendance, 
     getAllSignatures, 
-    getTherapistVacations,
     checkScheduleAdherence
 } from './service';
 import { getTherapists, updateTherapistTimeTracking } from '../therapists/service';
@@ -196,32 +197,30 @@ const WorkforceReport: React.FC = () => {
         setVacationLoading(true);
         setIsVacationListModalOpen(true);
         try {
-            if (selectedTherapistId === 'all') {
-                const data = await getAllAttendance(month);
-                setAllVacations(data.filter(a => a.type !== 'work'));
-            } else {
-                // Show current year for specific therapist
-                const currentYear = format(new Date(), 'yyyy');
-                const { data, error } = await supabase
-                    .from('attendance')
-                    .select('*')
-                    .eq('therapist_id', selectedTherapistId)
-                    .neq('type', 'work')
-                    .gte('start_time', `${currentYear}-01-01T00:00:00Z`)
-                    .lte('start_time', `${currentYear}-12-31T23:59:59Z`)
-                    .order('start_time', { ascending: false });
-                
-                if (error) throw error;
-                setAllVacations((data || []).map(d => ({
-                    id: d.id,
-                    userId: d.user_id,
-                    therapistId: d.therapist_id,
-                    startTime: d.start_time,
-                    endTime: d.end_time,
-                    type: d.type as any,
-                    notes: d.notes
-                })));
+            const currentYear = format(new Date(), 'yyyy');
+            let query = supabase
+                .from('attendance')
+                .select('*')
+                .neq('type', 'work')
+                .gte('start_time', `${currentYear}-01-01T00:00:00Z`)
+                .lte('start_time', `${currentYear}-12-31T23:59:59Z`)
+                .order('start_time', { ascending: false });
+
+            if (selectedTherapistId !== 'all') {
+                query = query.eq('therapist_id', selectedTherapistId);
             }
+
+            const { data, error } = await query;
+            if (error) throw error;
+            setAllVacations((data || []).map(d => ({
+                id: d.id,
+                userId: d.user_id,
+                therapistId: d.therapist_id,
+                startTime: d.start_time,
+                endTime: d.end_time,
+                type: d.type as any,
+                notes: d.notes
+            })));
         } catch (error) {
             console.error("Error fetching vacation history:", error);
         } finally {
@@ -274,10 +273,12 @@ const WorkforceReport: React.FC = () => {
                     const tUserAccount = userAccounts?.find(ua => ua.therapist_id === t.id) || 
                                        (t.email ? userAccounts?.find(ua => ua.email?.toLowerCase() === t.email?.toLowerCase()) : null);
                     
-                    if (tUserAccount) {
+                    const userId = tUserAccount?.id || currentUser?.id;
+                    
+                    if (userId) {
                         try {
                             await addAttendance({
-                                userId: tUserAccount.id,
+                                userId: userId,
                                 therapistId: t.id,
                                 startTime: editingRecord.startTime,
                                 endTime: editingRecord.endTime,
@@ -319,23 +320,13 @@ const WorkforceReport: React.FC = () => {
             return;
         }
 
-        // Validation for overlaps in absences
+        // Validation for date order in absences
         if (editingRecord.type !== 'work') {
-            const existingAbsences = await getTherapistVacations(targetTherapistId);
             const newStart = parseISO(editingRecord.startTime!);
             const newEnd = editingRecord.endTime ? parseISO(editingRecord.endTime) : newStart;
             
-            const hasOverlap = existingAbsences.some(abs => {
-                if (abs.id === editingRecord.id) return false; // Ignore current if editing
-                const absStart = parseISO(abs.startTime);
-                const absEnd = abs.endTime ? parseISO(abs.endTime) : absStart;
-                
-                // Overlap logic: (StartA <= EndB) and (EndA >= StartB)
-                return newStart <= absEnd && newEnd >= absStart;
-            });
-
-            if (hasOverlap) {
-                showToast("Ya existe una ausencia registrada para este terapeuta en las fechas seleccionadas.", "error");
+            if (newEnd < newStart) {
+                showToast("La fecha de fin no puede ser anterior a la fecha de inicio.", "error");
                 return;
             }
         }
@@ -372,55 +363,138 @@ const WorkforceReport: React.FC = () => {
                 }
             }
 
-            if (!userAccount) {
+            const targetUserId = userAccount?.id || currentUser?.id;
+
+            if (!targetUserId) {
                 const name = therapists.find(t => t.id === targetTherapistId)?.fullName || 'este terapeuta';
                 const email = therapists.find(t => t.id === targetTherapistId)?.email;
                 showToast(`No se ha encontrado una cuenta de usuario vinculada para ${name}.${email ? ` Buscado por email: ${email}` : ' No tiene email configurado.'} Revisa 'Equipo y Roles'.`, "error");
                 return;
             }
 
-            // If editing, we clear current daily records first to ensure a fresh set
-            if (isEditing) {
-                const day = parseISO(editingRecord.startTime!);
-                const dayStart = startOfDay(day).toISOString();
-                const dayEnd = endOfDay(day).toISOString();
-                
-                const { error: deleteError } = await supabase
-                    .from('attendance')
-                    .delete()
-                    .eq('therapist_id', targetTherapistId)
-                    .eq('type', 'work')
-                    .gte('start_time', dayStart)
-                    .lte('start_time', dayEnd);
-                
-                if (deleteError) throw deleteError;
-            }
+            if (editingRecord.type !== 'work') {
+                const sDate = startOfDay(parseISO(editingRecord.startTime!));
+                const eDate = editingRecord.endTime ? endOfDay(parseISO(editingRecord.endTime)) : endOfDay(parseISO(editingRecord.startTime!));
 
-            // Multi-block support for both new and edit operations
-            const baseDate = parseISO(editingRecord.startTime!);
-            
-            for (const block of manualBlocks) {
-                if (!block.start || !block.end) continue;
-                
-                // If it's the placeholder '-', skip it
-                if (block.end === '—') continue;
+                // Clean up any conflicting work records for this therapist in this interval
+                const conflictingWork = attendances.filter(a =>
+                    a.therapistId === targetTherapistId &&
+                    a.type === 'work' &&
+                    a.startTime &&
+                    isWithinInterval(parseISO(a.startTime), { start: sDate, end: eDate })
+                );
 
-                const [sH, sM] = block.start.split(':').map(Number);
-                const [eH, eM] = block.end.split(':').map(Number);
-                
-                const blockStart = set(baseDate, { hours: sH, minutes: sM, seconds: 0, milliseconds: 0 });
-                const blockEnd = set(baseDate, { hours: eH, minutes: eM, seconds: 0, milliseconds: 0 });
+                for (const w of conflictingWork) {
+                    if (w.id && w.id !== editingRecord.id) {
+                        try {
+                            await deleteAttendance(w.id, adminInfo);
+                        } catch (delErr) {
+                            console.warn("Could not delete conflicting work record:", delErr);
+                        }
+                    }
+                }
+
+                // Clean up any other overlapping absence records in this interval
+                const conflictingAbsences = attendances.filter(a =>
+                    a.therapistId === targetTherapistId &&
+                    a.type !== 'work' &&
+                    a.startTime &&
+                    a.id !== editingRecord.id &&
+                    (
+                        isWithinInterval(parseISO(a.startTime), { start: sDate, end: eDate }) ||
+                        (a.endTime && isWithinInterval(parseISO(a.endTime), { start: sDate, end: eDate }))
+                    )
+                );
+
+                for (const a of conflictingAbsences) {
+                    if (a.id) {
+                        try {
+                            await deleteAttendance(a.id, adminInfo);
+                        } catch (delErr) {
+                            console.warn("Could not delete conflicting absence record:", delErr);
+                        }
+                    }
+                }
 
                 const payload = {
-                    userId: userAccount.id,
+                    userId: targetUserId,
                     therapistId: targetTherapistId,
-                    startTime: blockStart.toISOString(),
-                    endTime: blockEnd.toISOString(),
-                    type: 'work',
+                    startTime: sDate.toISOString(),
+                    endTime: eDate.toISOString(),
+                    type: editingRecord.type,
                     notes: editingRecord.notes
                 };
-                
-                await addAttendance(payload as any, adminInfo);
+
+                if (isEditing && editingRecord.id) {
+                    await updateAttendance(editingRecord.id, payload as any, adminInfo);
+                } else {
+                    await addAttendance(payload as any, adminInfo);
+                }
+
+                const typeLabel = editingRecord.type === 'vacation' 
+                    ? 'Vacaciones' 
+                    : editingRecord.type === 'holiday' 
+                        ? 'Festivo' 
+                        : 'Baja médica';
+
+                showToast(isEditing ? `${typeLabel} actualizadas correctamente` : `${typeLabel} registradas correctamente`, "success");
+            } else {
+                const baseDate = parseISO(editingRecord.startTime!);
+                const dayStart = startOfDay(baseDate);
+                const dayEnd = endOfDay(baseDate);
+
+                // Clear any current daily records on this date (both old work and any absence)
+                const existingRecordsOnDay = attendances.filter(a =>
+                    a.therapistId === targetTherapistId &&
+                    a.startTime &&
+                    isWithinInterval(parseISO(a.startTime), { start: dayStart, end: dayEnd })
+                );
+
+                for (const rec of existingRecordsOnDay) {
+                    if (rec.id) {
+                        try {
+                            await deleteAttendance(rec.id, adminInfo);
+                        } catch (delErr) {
+                            console.warn("Could not delete existing day record:", delErr);
+                        }
+                    }
+                }
+
+                // Fallback direct delete
+                try {
+                    await supabase
+                        .from('attendance')
+                        .delete()
+                        .eq('therapist_id', targetTherapistId)
+                        .gte('start_time', dayStart.toISOString())
+                        .lte('start_time', dayEnd.toISOString());
+                } catch (_) {}
+
+                // Multi-block support for both new and edit operations
+                for (const block of manualBlocks) {
+                    if (!block.start || !block.end) continue;
+                    
+                    // If it's the placeholder '-', skip it
+                    if (block.end === '—') continue;
+
+                    const [sH, sM] = block.start.split(':').map(Number);
+                    const [eH, eM] = block.end.split(':').map(Number);
+                    
+                    const blockStart = set(baseDate, { hours: sH, minutes: sM, seconds: 0, milliseconds: 0 });
+                    const blockEnd = set(baseDate, { hours: eH, minutes: eM, seconds: 0, milliseconds: 0 });
+
+                    const payload = {
+                        userId: targetUserId,
+                        therapistId: targetTherapistId,
+                        startTime: blockStart.toISOString(),
+                        endTime: blockEnd.toISOString(),
+                        type: 'work',
+                        notes: editingRecord.notes
+                    };
+                    
+                    await addAttendance(payload as any, adminInfo);
+                }
+                showToast(isEditing ? "Registros actualizados correctamente" : "Jornada registrada correctamente", "success");
             }
             
             setIsEditModalOpen(false);
@@ -428,10 +502,9 @@ const WorkforceReport: React.FC = () => {
             setEditingRecord(null);
             setManualBlocks([]);
             fetchData();
-            showToast(isEditing ? "Registros actualizados correctamente" : "Jornada registrada correctamente", "success");
-        } catch (error) {
+        } catch (error: any) {
             console.error("Error saving attendance:", error);
-            showToast("Error al guardar el registro.", "error");
+            showToast(`Error al guardar el registro: ${error?.message || 'Error desconocido'}`, "error");
         }
     };
 
@@ -792,7 +865,17 @@ const WorkforceReport: React.FC = () => {
                             type="button"
                             className="btn-absence"
                             onClick={() => {
-                                setEditingRecord({ type: 'vacation', startTime: startOfDay(new Date()).toISOString(), endTime: endOfDay(new Date()).toISOString() });
+                                const now = new Date();
+                                const currentMonthStr = format(now, 'yyyy-MM');
+                                const defaultDate = (month && month !== currentMonthStr) 
+                                    ? startOfDay(parseISO(`${month}-01`)) 
+                                    : startOfDay(now);
+                                setEditingRecord({ 
+                                    type: 'vacation', 
+                                    startTime: defaultDate.toISOString(), 
+                                    endTime: endOfDay(defaultDate).toISOString(),
+                                    therapistId: selectedTherapistId !== 'all' ? selectedTherapistId : undefined
+                                });
                                 setIsAbsenceModalOpen(true);
                             }}
                         >
@@ -814,7 +897,11 @@ const WorkforceReport: React.FC = () => {
                                         value={filterDate}
                                         onChange={e => {
                                             setFilterDate(e.target.value);
-                                            setMonth(format(parseISO(e.target.value), 'yyyy-MM'));
+                                            if (e.target.value) {
+                                                try {
+                                                    setMonth(format(parseISO(e.target.value), 'yyyy-MM'));
+                                                } catch (_) {}
+                                            }
                                         }}
                                         className="wf-date-input"
                                     />
@@ -1018,8 +1105,8 @@ const WorkforceReport: React.FC = () => {
                                                         ) : <span className="wf-time-dash">—</span>}
                                                     </td>
                                                     <td>
-                                                        <div className="wf-actions">
-                                                            {workAtts.length > 0 ? (
+                                                        <div className="wf-row-actions">
+                                                                                                      {workAtts.length > 0 ? (
                                                                 <>
                                                                     <button 
                                                                         className="wf-action-btn wf-action-edit"
@@ -1029,10 +1116,15 @@ const WorkforceReport: React.FC = () => {
                                                                                 start: format(parseISO(att.startTime), 'HH:mm'),
                                                                                 end: att.endTime ? format(parseISO(att.endTime), 'HH:mm') : '—'
                                                                             })));
-                                                                            setEditingRecord(sortedShifts[0]);
+                                                                            setEditingRecord({
+                                                                                ...sortedShifts[0],
+                                                                                type: 'work',
+                                                                                therapistId: therapist?.id || sortedShifts[0].therapistId,
+                                                                                endTime: sortedShifts[sortedShifts.length - 1].endTime || sortedShifts[0].startTime
+                                                                            });
                                                                             setIsEditModalOpen(true);
                                                                         }}
-                                                                        title="Editar jornada (todos los tramos)"
+                                                                        title="Editar jornada / Cambiar tipo"
                                                                     >
                                                                         <Edit2 size={15} />
                                                                     </button>
@@ -1045,13 +1137,29 @@ const WorkforceReport: React.FC = () => {
                                                                     </button>
                                                                 </>
                                                             ) : absenceAtt ? (
-                                                                <button 
-                                                                    className="wf-action-btn wf-action-delete"
-                                                                    onClick={() => handleDelete(absenceAtt.id!)}
-                                                                    title="Eliminar Ausencia"
-                                                                >
-                                                                    <Trash2 size={15} />
-                                                                </button>
+                                                                <>
+                                                                    <button 
+                                                                        className="wf-action-btn wf-action-edit"
+                                                                        onClick={() => {
+                                                                            setEditingRecord({
+                                                                                ...absenceAtt,
+                                                                                therapistId: therapist?.id || absenceAtt.therapistId
+                                                                            });
+                                                                            setManualBlocks([{ start: '09:00', end: '14:00' }]);
+                                                                            setIsEditModalOpen(true);
+                                                                        }}
+                                                                        title="Editar ausencia / Cambiar a jornada"
+                                                                    >
+                                                                        <Edit2 size={15} />
+                                                                    </button>
+                                                                    <button 
+                                                                        className="wf-action-btn wf-action-delete"
+                                                                        onClick={() => handleDelete(absenceAtt.id!)}
+                                                                        title="Eliminar Ausencia"
+                                                                    >
+                                                                        <Trash2 size={15} />
+                                                                    </button>
+                                                                </>
                                                             ) : (
                                                                 <button 
                                                                       className="wf-action-add"
@@ -1078,13 +1186,14 @@ const WorkforceReport: React.FC = () => {
                                                                           setManualBlocks(initialBlocks);
                                                                           setEditingRecord({ 
                                                                               startTime: date.toISOString(), 
+                                                                              endTime: endOfDay(date).toISOString(),
                                                                               type: 'work',
                                                                               therapistId: therapist?.id
                                                                           });
                                                                           setIsEditModalOpen(true);
                                                                       }}
-                                                                  >
-                                                                    <Plus size={14} /> Fichar
+                                                                    >
+                                                                      <Plus size={14} /> Fichar
                                                                 </button>
                                                             )}
                                                         </div>
@@ -1715,69 +1824,183 @@ const WorkforceReport: React.FC = () => {
                     setIsEditModalOpen(false);
                     setEditingRecord(null);
                 }}
-                title={editingRecord?.id ? "Editar Registro de Jornada" : "Fichaje Manual"}
+                title={
+                    editingRecord?.type === 'work' 
+                        ? (editingRecord?.id ? "Editar Registro de Jornada" : "Fichaje Manual")
+                        : (editingRecord?.type === 'vacation' ? "Registrar Vacaciones" : editingRecord?.type === 'holiday' ? "Registrar Festivo" : "Registrar Baja Médica")
+                }
             >
                 <form onSubmit={handleSaveAttendance} className="wf-form">
-                    <div className="wf-manual-blocks">
+                    <div>
+                        <label className="wf-form-label">Tipo de Registro</label>
+                        <div className="wf-type-selector">
+                            <button 
+                                type="button"
+                                onClick={() => setEditingRecord({ ...editingRecord, type: 'work' })}
+                                className={`wf-type-btn ${editingRecord?.type === 'work' ? 'active-work' : ''}`}
+                            >
+                                <Clock size={16} /> Jornada
+                            </button>
+                            <button 
+                                type="button"
+                                onClick={() => {
+                                    const base = editingRecord?.startTime ? parseISO(editingRecord.startTime) : new Date();
+                                    setEditingRecord({ 
+                                        ...editingRecord, 
+                                        type: 'vacation', 
+                                        startTime: startOfDay(base).toISOString(),
+                                        endTime: endOfDay(base).toISOString(),
+                                        isGlobal: false
+                                    });
+                                }}
+                                className={`wf-type-btn ${editingRecord?.type === 'vacation' ? 'active-vacation' : ''}`}
+                            >
+                                <Calendar size={16} /> Vacaciones
+                            </button>
+                            <button 
+                                type="button"
+                                onClick={() => {
+                                    const base = editingRecord?.startTime ? parseISO(editingRecord.startTime) : new Date();
+                                    setEditingRecord({ 
+                                        ...editingRecord, 
+                                        type: 'sick_leave', 
+                                        startTime: startOfDay(base).toISOString(),
+                                        endTime: endOfDay(base).toISOString(),
+                                        isGlobal: false
+                                    });
+                                }}
+                                className={`wf-type-btn ${editingRecord?.type === 'sick_leave' ? 'active-sick' : ''}`}
+                            >
+                                <AlertCircle size={16} /> Baja Médica
+                            </button>
+                            <button 
+                                type="button"
+                                onClick={() => {
+                                    const base = editingRecord?.startTime ? parseISO(editingRecord.startTime) : new Date();
+                                    setEditingRecord({ 
+                                        ...editingRecord, 
+                                        type: 'holiday', 
+                                        startTime: startOfDay(base).toISOString(),
+                                        endTime: endOfDay(base).toISOString(),
+                                        isGlobal: false
+                                    });
+                                }}
+                                className={`wf-type-btn ${editingRecord?.type === 'holiday' ? 'active-holiday' : ''}`}
+                            >
+                                <Sun size={16} /> Festivo
+                            </button>
+                        </div>
+                    </div>
+
+                    {editingRecord?.type === 'work' ? (
+                        <div className="wf-manual-blocks">
+                            <div className="wf-form-row" style={{ marginBottom: '1rem' }}>
+                                <div>
+                                    <label className="wf-form-label">Fecha</label>
+                                    <input
+                                        type="date"
+                                        value={editingRecord?.startTime ? format(parseISO(editingRecord.startTime), "yyyy-MM-dd") : ''}
+                                        onChange={e => {
+                                            if (!e.target.value) return;
+                                            const [y, m, d] = e.target.value.split('-').map(Number);
+                                            if (!y || !m || !d) return;
+                                            const newDate = startOfDay(new Date(y, m - 1, d));
+                                            if (isNaN(newDate.getTime())) return;
+                                            setEditingRecord({ ...editingRecord, startTime: newDate.toISOString() });
+                                        }}
+                                        className="wf-form-input"
+                                        required
+                                        disabled={!!editingRecord?.id} // Only allow date change for new entries
+                                    />
+                                </div>
+                            </div>
+                            
+                            <label className="wf-form-label" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                Tramos Horarios
+                                <button type="button" onClick={addManualBlock} className="wf-btn-add-row">
+                                    <Plus size={14} /> Añadir Tramo
+                                </button>
+                            </label>
+
+                            {manualBlocks.map((block, idx) => (
+                                <div key={idx} className="wf-form-row wf-block-row" style={{ alignItems: 'flex-end', gap: '0.5rem', marginBottom: '0.75rem' }}>
+                                    <div style={{ flex: 1 }}>
+                                        <label className="wf-form-label-small">Entrada</label>
+                                        <input
+                                            type="time"
+                                            value={block.start}
+                                            onChange={e => updateManualBlock(idx, 'start', e.target.value)}
+                                            className="wf-form-input"
+                                            required
+                                        />
+                                    </div>
+                                    <div style={{ flex: 1 }}>
+                                        <label className="wf-form-label-small">Salida</label>
+                                        <input
+                                            type="time"
+                                            value={block.end === '—' ? '' : block.end}
+                                            onChange={e => updateManualBlock(idx, 'end', e.target.value)}
+                                            className="wf-form-input"
+                                            required
+                                        />
+                                    </div>
+                                    {manualBlocks.length > 1 && (
+                                        <button 
+                                            type="button" 
+                                            onClick={() => removeManualBlock(idx)} 
+                                            className="wf-btn-remove-row"
+                                            style={{ padding: '0.5rem', color: '#ef4444', background: '#fef2f2', border: 'none', borderRadius: '6px', cursor: 'pointer' }}
+                                        >
+                                            <Trash2 size={16} />
+                                        </button>
+                                    )}
+                                </div>
+                            ))}
+                        </div>
+                    ) : (
                         <div className="wf-form-row" style={{ marginBottom: '1rem' }}>
                             <div>
-                                <label className="wf-form-label">Fecha</label>
+                                <label className="wf-form-label">Fecha Inicio</label>
                                 <input
                                     type="date"
                                     value={editingRecord?.startTime ? format(parseISO(editingRecord.startTime), "yyyy-MM-dd") : ''}
                                     onChange={e => {
-                                        const newDate = new Date(e.target.value);
-                                        setEditingRecord({ ...editingRecord, startTime: newDate.toISOString() });
+                                        if (!e.target.value) return;
+                                        const [y, m, d] = e.target.value.split('-').map(Number);
+                                        if (!y || !m || !d) return;
+                                        const newDate = startOfDay(new Date(y, m - 1, d));
+                                        if (isNaN(newDate.getTime())) return;
+                                        const currentEnd = editingRecord?.endTime ? parseISO(editingRecord.endTime) : null;
+                                        const shouldUpdateEnd = !currentEnd || currentEnd < newDate;
+                                        setEditingRecord({ 
+                                            ...editingRecord, 
+                                            startTime: newDate.toISOString(),
+                                            ...(shouldUpdateEnd ? { endTime: endOfDay(newDate).toISOString() } : {})
+                                        });
                                     }}
                                     className="wf-form-input"
                                     required
-                                    disabled={!!editingRecord?.id} // Only allow date change for new entries
+                                />
+                            </div>
+                            <div>
+                                <label className="wf-form-label">Fecha Fin</label>
+                                <input
+                                    type="date"
+                                    value={editingRecord?.endTime ? format(parseISO(editingRecord.endTime), "yyyy-MM-dd") : (editingRecord?.startTime ? format(parseISO(editingRecord.startTime), "yyyy-MM-dd") : '')}
+                                    onChange={e => {
+                                        if (!e.target.value) return;
+                                        const [y, m, d] = e.target.value.split('-').map(Number);
+                                        if (!y || !m || !d) return;
+                                        const newDate = endOfDay(new Date(y, m - 1, d));
+                                        if (isNaN(newDate.getTime())) return;
+                                        setEditingRecord({ ...editingRecord, endTime: newDate.toISOString() });
+                                    }}
+                                    className="wf-form-input"
+                                    required
                                 />
                             </div>
                         </div>
-                        
-                        <label className="wf-form-label" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                            Tramos Horarios
-                            <button type="button" onClick={addManualBlock} className="wf-btn-add-row">
-                                <Plus size={14} /> Añadir Tramo
-                            </button>
-                        </label>
-
-                        {manualBlocks.map((block, idx) => (
-                            <div key={idx} className="wf-form-row wf-block-row" style={{ alignItems: 'flex-end', gap: '0.5rem', marginBottom: '0.75rem' }}>
-                                <div style={{ flex: 1 }}>
-                                    <label className="wf-form-label-small">Entrada</label>
-                                    <input
-                                        type="time"
-                                        value={block.start}
-                                        onChange={e => updateManualBlock(idx, 'start', e.target.value)}
-                                        className="wf-form-input"
-                                        required
-                                    />
-                                </div>
-                                <div style={{ flex: 1 }}>
-                                    <label className="wf-form-label-small">Salida</label>
-                                    <input
-                                        type="time"
-                                        value={block.end === '—' ? '' : block.end}
-                                        onChange={e => updateManualBlock(idx, 'end', e.target.value)}
-                                        className="wf-form-input"
-                                        required
-                                    />
-                                </div>
-                                {manualBlocks.length > 1 && (
-                                    <button 
-                                        type="button" 
-                                        onClick={() => removeManualBlock(idx)} 
-                                        className="wf-btn-remove-row"
-                                        style={{ padding: '0.5rem', color: '#ef4444', background: '#fef2f2', border: 'none', borderRadius: '6px', cursor: 'pointer' }}
-                                    >
-                                        <Trash2 size={16} />
-                                    </button>
-                                )}
-                            </div>
-                        ))}
-                    </div>
+                    )}
 
                     <div>
                         <label className="wf-form-label">Notas y Observaciones</label>
@@ -1785,12 +2008,16 @@ const WorkforceReport: React.FC = () => {
                             value={editingRecord?.notes || ''}
                             onChange={e => setEditingRecord({ ...editingRecord, notes: e.target.value })}
                             className="wf-form-textarea"
-                            placeholder="Ej: Olvido de fichaje por emergencia..."
+                            placeholder="Detalles adicionales..."
                         />
                     </div>
                     <div className="wf-form-footer">
                         <button type="button" className="wf-btn-cancel" onClick={() => setIsEditModalOpen(false)}>Cancelar</button>
-                        <button type="submit" className="wf-btn-save">{editingRecord?.id ? 'Guardar Cambios' : 'Registrar Jornada'}</button>
+                        <button type="submit" className="wf-btn-save">
+                            {editingRecord?.type === 'work' 
+                                ? (editingRecord?.id ? 'Guardar Cambios' : 'Registrar Jornada') 
+                                : `Guardar ${editingRecord?.type === 'vacation' ? 'Vacaciones' : editingRecord?.type === 'holiday' ? 'Festivo' : 'Baja'}`}
+                        </button>
                     </div>
                 </form>
             </Modal>
@@ -1871,8 +2098,18 @@ const WorkforceReport: React.FC = () => {
                                 type="date"
                                 value={editingRecord?.startTime ? format(parseISO(editingRecord.startTime), "yyyy-MM-dd") : ''}
                                 onChange={e => {
-                                    const date = startOfDay(new Date(e.target.value));
-                                    setEditingRecord({ ...editingRecord, startTime: date.toISOString() });
+                                    if (!e.target.value) return;
+                                    const [y, m, d] = e.target.value.split('-').map(Number);
+                                    if (!y || !m || !d) return;
+                                    const date = startOfDay(new Date(y, m - 1, d));
+                                    if (isNaN(date.getTime())) return;
+                                    const currentEnd = editingRecord?.endTime ? parseISO(editingRecord.endTime) : null;
+                                    const shouldUpdateEnd = !currentEnd || currentEnd < date;
+                                    setEditingRecord({ 
+                                        ...editingRecord, 
+                                        startTime: date.toISOString(),
+                                        ...(shouldUpdateEnd ? { endTime: endOfDay(date).toISOString() } : {})
+                                    });
                                 }}
                                 className="wf-form-input"
                                 required
@@ -1884,7 +2121,11 @@ const WorkforceReport: React.FC = () => {
                                 type="date"
                                 value={editingRecord?.endTime ? format(parseISO(editingRecord.endTime), "yyyy-MM-dd") : ''}
                                 onChange={e => {
-                                    const date = endOfDay(new Date(e.target.value));
+                                    if (!e.target.value) return;
+                                    const [y, m, d] = e.target.value.split('-').map(Number);
+                                    if (!y || !m || !d) return;
+                                    const date = endOfDay(new Date(y, m - 1, d));
+                                    if (isNaN(date.getTime())) return;
                                     setEditingRecord({ ...editingRecord, endTime: date.toISOString() });
                                 }}
                                 className="wf-form-input"
@@ -1962,17 +2203,20 @@ const WorkforceReport: React.FC = () => {
         <Modal
             isOpen={isVacationListModalOpen}
             onClose={() => setIsVacationListModalOpen(false)}
-            title={`Historial de Ausencias: ${therapists.find(t => t.id === selectedTherapistId)?.fullName}`}
+            title={`Historial de Ausencias: ${selectedTherapistId === 'all' ? 'Todo el Equipo' : (therapists.find(t => t.id === selectedTherapistId)?.fullName || 'Terapeuta')}`}
         >
             <div className="wf-vacation-list" style={{ maxHeight: '60vh', overflowY: 'auto' }}>
                 {vacationLoading ? (
                     <div className="wf-loading"><div className="wf-spinner"></div></div>
                 ) : allVacations.length === 0 ? (
-                    <p style={{ textAlign: 'center', padding: '2rem', color: '#64748b' }}>No se han registrado periodos de vacaciones o bajas para este terapeuta.</p>
+                    <p style={{ textAlign: 'center', padding: '2rem', color: '#64748b' }}>
+                        No se han registrado periodos de vacaciones o bajas {selectedTherapistId === 'all' ? 'para el equipo' : 'para este terapeuta'}.
+                    </p>
                 ) : (
                     <table className="wf-table" style={{ width: '100%' }}>
                         <thead style={{ position: 'sticky', top: 0, zIndex: 1, background: '#f8fafc' }}>
                             <tr>
+                                {selectedTherapistId === 'all' && <th>Terapeuta</th>}
                                 <th>Fecha</th>
                                 <th>Tipo</th>
                                 <th>Notas</th>
@@ -1982,16 +2226,21 @@ const WorkforceReport: React.FC = () => {
                         <tbody>
                             {allVacations.map(v => (
                                 <tr key={v.id}>
+                                    {selectedTherapistId === 'all' && (
+                                        <td style={{ fontSize: '0.85rem', fontWeight: 500 }}>
+                                            {therapists.find(t => t.id === v.therapistId)?.fullName || '—'}
+                                        </td>
+                                    )}
                                     <td style={{ fontSize: '0.85rem' }}>
                                         {v.startTime ? format(parseISO(v.startTime), 'dd/MM/yyyy') : '—'}
                                         {v.endTime && isSameDay(parseISO(v.startTime), parseISO(v.endTime)) ? '' : v.endTime ? ` al ${format(parseISO(v.endTime), 'dd/MM/yyyy')}` : ''}
                                     </td>
                                     <td>
-                                        <span className={`wf-badge ${v.type === 'vacation' ? 'wf-badge-vacation' : 'wf-badge-sick'}`}>
-                                            {v.type === 'vacation' ? 'Vacaciones' : 'Baja'}
+                                        <span className={`wf-badge ${v.type === 'vacation' ? 'wf-badge-vacation' : v.type === 'holiday' ? 'wf-badge-holiday' : 'wf-badge-sick'}`}>
+                                            {v.type === 'vacation' ? 'Vacaciones' : v.type === 'holiday' ? 'Festivo' : 'Baja'}
                                         </span>
                                     </td>
-                                    <td style={{ fontSize: '0.8rem', color: '#64748b', maxWidth: '120px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }} title={v.notes || ''}>
+                                    <td style={{ fontSize: '0.8rem', color: '#64748b', maxWidth: '160px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }} title={v.notes || ''}>
                                         {v.notes || '—'}
                                     </td>
                                     <td style={{ textAlign: 'right' }}>

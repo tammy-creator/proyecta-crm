@@ -509,7 +509,10 @@ const CalendarView: React.FC<CalendarViewProps> = ({ mode: initialMode, therapis
 
             // Si es festivo o vacaciones, bloquea todo el día para ese terapeuta
             if (a.type === 'holiday' || a.type === 'vacation') {
-                return isSameDay(date, start);
+                const dStart = startOfDay(date);
+                const aStart = startOfDay(start);
+                const aEnd = endOfDay(end);
+                return dStart >= aStart && dStart <= aEnd;
             }
 
             // Para otros tipos (baja, etc), verificamos solapamiento del bloque de hora
@@ -1043,10 +1046,13 @@ const CalendarView: React.FC<CalendarViewProps> = ({ mode: initialMode, therapis
 
                     if (!daySchedule || !daySchedule.enabled || !daySchedule.blocks) continue;
 
-                    const dayAbsences = normalizedAbsences.filter(a =>
-                        a.therapist_id === t.id &&
-                        format(new Date(a.start_time), 'yyyy-MM-dd') === dayStr
-                    );
+                    const dayDate = startOfDay(parseISO(dayStr));
+                    const dayAbsences = normalizedAbsences.filter(a => {
+                        if (a.therapist_id !== t.id) return false;
+                        const aStart = startOfDay(new Date(a.start_time));
+                        const aEnd = a.end_time ? endOfDay(new Date(a.end_time)) : endOfDay(aStart);
+                        return dayDate >= aStart && dayDate <= aEnd;
+                    });
 
                     if (dayAbsences.some(a => a.type === 'holiday' || a.type === 'vacation')) continue;
 

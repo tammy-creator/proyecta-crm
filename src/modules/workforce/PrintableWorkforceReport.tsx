@@ -116,8 +116,20 @@ const PrintableWorkforceReport: React.FC<PrintableWorkforceReportProps> = ({
                         let rowBg = isWeekend ? '#fafafa' : '#fff';
                         
                         if (absenceAtt) {
-                            status = absenceAtt.type === 'vacation' ? 'Vacaciones' : 'Baja Médica';
-                            rowBg = absenceAtt.type === 'vacation' ? '#fff3cd' : '#f8d7da';
+                            status = absenceAtt.type === 'vacation' 
+                                ? 'Vacaciones' 
+                                : absenceAtt.type === 'holiday'
+                                    ? 'Festivo'
+                                    : absenceAtt.type === 'paid_leave'
+                                        ? 'Permiso Justificado'
+                                        : 'Baja Médica';
+                            rowBg = absenceAtt.type === 'vacation' 
+                                ? '#fff3cd' 
+                                : absenceAtt.type === 'holiday'
+                                    ? '#fef3c7'
+                                    : absenceAtt.type === 'paid_leave'
+                                        ? '#ede9fe'
+                                        : '#f8d7da';
                         }
 
                         const start = workAtt ? format(parseISO(workAtt.startTime), 'HH:mm') : '-';

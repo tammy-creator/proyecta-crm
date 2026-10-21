@@ -507,8 +507,8 @@ const CalendarView: React.FC<CalendarViewProps> = ({ mode: initialMode, therapis
             const end = a.end_time ? parseISO(a.end_time) : start;
             const slotTime = setMinutes(setHours(date, hour), 0);
 
-            // Si es festivo o vacaciones, bloquea todo el día para ese terapeuta
-            if (a.type === 'holiday' || a.type === 'vacation') {
+            // Si es festivo, vacaciones o permiso retribuido, bloquea todo el día para ese terapeuta
+            if (a.type === 'holiday' || a.type === 'vacation' || a.type === 'paid_leave') {
                 const dStart = startOfDay(date);
                 const aStart = startOfDay(start);
                 const aEnd = endOfDay(end);
@@ -1054,7 +1054,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({ mode: initialMode, therapis
                         return dayDate >= aStart && dayDate <= aEnd;
                     });
 
-                    if (dayAbsences.some(a => a.type === 'holiday' || a.type === 'vacation')) continue;
+                    if (dayAbsences.some(a => a.type === 'holiday' || a.type === 'vacation' || a.type === 'paid_leave')) continue;
 
                     const tOccupations = [
                         ...freshAppointments
@@ -1744,6 +1744,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({ mode: initialMode, therapis
 
                                         const isHoliday = a.type === 'holiday';
                                         const isVacation = a.type === 'vacation';
+                                        const isPaidLeave = a.type === 'paid_leave';
                                         const isSick = a.type === 'sick_leave';
 
                                         let bgColor = 'repeating-linear-gradient(45deg, #f3f4f6, #f3f4f6 10px, #e5e7eb 10px, #e5e7eb 20px)';
@@ -1758,6 +1759,10 @@ const CalendarView: React.FC<CalendarViewProps> = ({ mode: initialMode, therapis
                                             bgColor = 'repeating-linear-gradient(45deg, #e0f2fe, #e0f2fe 10px, #bae6fd 10px, #bae6fd 20px)';
                                             borderColor = '#0ea5e9';
                                             textColor = '#075985';
+                                        } else if (isPaidLeave) {
+                                            bgColor = 'repeating-linear-gradient(45deg, #f5f3ff, #f5f3ff 10px, #ede9fe 10px, #ede9fe 20px)';
+                                            borderColor = '#8b5cf6';
+                                            textColor = '#6d28d9';
                                         } else if (isSick) {
                                             bgColor = 'repeating-linear-gradient(45deg, #fee2e2, #fee2e2 10px, #fecaca 10px, #fecaca 20px)';
                                             borderColor = '#ef4444';
@@ -1786,7 +1791,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({ mode: initialMode, therapis
                                                 }}
                                             >
                                                 <span className="text-[10px] font-bold uppercase tracking-wider" style={{ color: textColor }}>
-                                                    {isVacation ? 'Vacaciones' : isHoliday ? 'Festivo' : 'Baja Médica'}
+                                                    {isVacation ? 'Vacaciones' : isHoliday ? 'Festivo' : isPaidLeave ? 'Permiso' : 'Baja Médica'}
                                                 </span>
                                                 {a.notes && <span className="text-[9px] truncate w-full text-center opacity-80" style={{ color: textColor }}>{a.notes}</span>}
                                             </div>

@@ -47,8 +47,20 @@ const WorkforcePrintDocument: React.FC<WorkforcePrintDocumentProps> = ({
         let status = workAtts.length > 0 ? 'Trabajado' : '---';
         let statusClass = '';
         if (absenceAtt) {
-            status = absenceAtt.type === 'vacation' ? 'Vacaciones' : 'Baja Médica';
-            statusClass = absenceAtt.type === 'vacation' ? 'status-vacation' : 'status-sick';
+            status = absenceAtt.type === 'vacation' 
+                ? 'Vacaciones' 
+                : absenceAtt.type === 'holiday'
+                    ? 'Festivo'
+                    : absenceAtt.type === 'paid_leave'
+                        ? 'Permiso Justificado'
+                        : 'Baja Médica';
+            statusClass = absenceAtt.type === 'vacation' 
+                ? 'status-vacation' 
+                : absenceAtt.type === 'holiday'
+                    ? 'status-holiday'
+                    : absenceAtt.type === 'paid_leave'
+                        ? 'status-paid-leave'
+                        : 'status-sick';
         }
 
         const entries = workAtts.map(att => att.startTime ? format(parseISO(att.startTime), 'HH:mm') : '').filter(Boolean);

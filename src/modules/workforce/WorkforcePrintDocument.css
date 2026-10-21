@@ -143,6 +143,16 @@
     font-weight: 600;
 }
 
+.status-holiday {
+    color: #d97706;
+    font-weight: 600;
+}
+
+.status-paid-leave {
+    color: #7c3aed;
+    font-weight: 600;
+}
+
 .status-sick {
     color: #dc2626;
     font-weight: 600;

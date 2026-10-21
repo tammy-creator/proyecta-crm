@@ -56,7 +56,7 @@ import { getAppointments } from '../calendar/service';
 import { supabase } from '../../lib/supabase';
 import type { Therapist, WorkingHours } from '../therapists/types';
 import { DAYS_OF_WEEK } from '../therapists/types';
-import type { Attendance, MonthlyReportSignature } from './types';
+import type { Attendance, AttendanceType, MonthlyReportSignature } from './types';
 import type { CenterSettings } from '../admin/types';
 import { getCenterSettings } from '../admin/service';
 import Modal from '../../components/ui/Modal';
@@ -180,7 +180,7 @@ const WorkforceReport: React.FC = () => {
                         therapistId: d.therapist_id,
                         startTime: d.start_time,
                         endTime: d.end_time,
-                        type: d.type as 'work' | 'vacation' | 'sick_leave',
+                        type: d.type as AttendanceType,
                         notes: d.notes
                     })));
                 }
@@ -436,7 +436,9 @@ const WorkforceReport: React.FC = () => {
                     ? 'Vacaciones' 
                     : editingRecord.type === 'holiday' 
                         ? 'Festivo' 
-                        : 'Baja médica';
+                        : editingRecord.type === 'paid_leave'
+                            ? 'Permiso justificado'
+                            : 'Baja médica';
 
                 showToast(isEditing ? `${typeLabel} actualizadas correctamente` : `${typeLabel} registradas correctamente`, "success");
             } else {
@@ -1120,8 +1122,8 @@ const WorkforceReport: React.FC = () => {
                                                     </td>
                                                     <td>
                                                         {absenceAtt ? (
-                                                            <span className={`wf-badge ${absenceAtt.type === 'vacation' ? 'wf-badge-vacation' : absenceAtt.type === 'holiday' ? 'wf-badge-holiday' : 'wf-badge-sick'}`}>
-                                                                {absenceAtt.type === 'vacation' ? 'Vacaciones' : absenceAtt.type === 'holiday' ? 'Festivo' : 'Baja'}
+                                                            <span className={`wf-badge ${absenceAtt.type === 'vacation' ? 'wf-badge-vacation' : absenceAtt.type === 'holiday' ? 'wf-badge-holiday' : absenceAtt.type === 'paid_leave' ? 'wf-badge-paid-leave' : 'wf-badge-sick'}`}>
+                                                                {absenceAtt.type === 'vacation' ? 'Vacaciones' : absenceAtt.type === 'holiday' ? 'Festivo' : absenceAtt.type === 'paid_leave' ? 'Permiso' : 'Baja'}
                                                             </span>
                                                         ) : workAtts.length > 0 ? (
                                                             <span className="wf-badge wf-badge-ok">
@@ -1350,6 +1352,7 @@ const WorkforceReport: React.FC = () => {
 
                                         const isVacation = dayAbsences.some(a => a.type === 'vacation');
                                         const isHoliday = dayAbsences.some(a => a.type === 'holiday');
+                                        const isPaidLeave = dayAbsences.some(a => a.type === 'paid_leave');
                                         const isSick = dayAbsences.some(a => a.type === 'sick_leave');
                                         const isToday = isSameDay(day, new Date());
 
@@ -1357,6 +1360,7 @@ const WorkforceReport: React.FC = () => {
                                             'holiday-day',
                                             isVacation ? 'holiday-day-vacation' : '',
                                             isHoliday ? 'holiday-day-holiday' : '',
+                                            isPaidLeave ? 'holiday-day-paid-leave' : '',
                                             isSick ? 'holiday-day-sick' : '',
                                             dayAbsences.length === 0 && isWeekend(day) ? 'holiday-day-weekend' : '',
                                             isToday && dayAbsences.length === 0 ? 'holiday-day-today' : ''
@@ -1396,6 +1400,10 @@ const WorkforceReport: React.FC = () => {
                                         <span className="legend-label">Festivo</span>
                                     </div>
                                     <div className="legend-item">
+                                        <div className="legend-dot legend-dot-paid-leave" />
+                                        <span className="legend-label">Permiso</span>
+                                    </div>
+                                    <div className="legend-item">
                                         <div className="legend-dot legend-dot-sick" />
                                         <span className="legend-label">Baja Médica</span>
                                     </div>
@@ -1421,11 +1429,11 @@ const WorkforceReport: React.FC = () => {
                                             <div className="detail-list" style={{ marginTop: '0.75rem' }}>
                                                 {selectedDayAbsences.absences.map(abs => (
                                                     <div key={abs.id} className="detail-item" style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', padding: '0.5rem 0', borderBottom: '1px solid #f1f5f9' }}>
-                                                        <div className={`detail-indicator`} style={{ width: '8px', height: '8px', borderRadius: '50%', backgroundColor: abs.type === 'vacation' ? '#0ea5e9' : '#ef4444' }} />
+                                                        <div className={`detail-indicator`} style={{ width: '8px', height: '8px', borderRadius: '50%', backgroundColor: abs.type === 'vacation' ? '#3b82f6' : abs.type === 'holiday' ? '#f59e0b' : abs.type === 'paid_leave' ? '#8b5cf6' : '#f97316' }} />
                                                         <div className="detail-info">
                                                             <div className="detail-name" style={{ fontWeight: 500, fontSize: '0.9rem' }}>{abs.therapistName}</div>
                                                             <div className="detail-type" style={{ fontSize: '0.75rem', color: '#64748b' }}>
-                                                                {abs.type === 'vacation' ? 'Vacaciones' : abs.type === 'holiday' ? 'Festivo' : 'Baja médica'}
+                                                                {abs.type === 'vacation' ? 'Vacaciones' : abs.type === 'holiday' ? 'Festivo' : abs.type === 'paid_leave' ? 'Permiso justificado' : 'Baja médica'}
                                                             </div>
                                                         </div>
                                                     </div>
@@ -1475,8 +1483,8 @@ const WorkforceReport: React.FC = () => {
                                                             {v.startTime ? format(parseISO(v.startTime), 'dd/MM/yyyy') : '—'}
                                                         </td>
                                                         <td>
-                                                            <span className={`wf-badge ${v.type === 'vacation' ? 'wf-badge-vacation' : v.type === 'holiday' ? 'wf-badge-holiday' : 'wf-badge-sick'}`} style={{ fontSize: '0.65rem', padding: '0px 4px' }}>
-                                                                {v.type === 'vacation' ? 'VAC' : v.type === 'holiday' ? 'FEST' : 'BAJA'}
+                                                            <span className={`wf-badge ${v.type === 'vacation' ? 'wf-badge-vacation' : v.type === 'holiday' ? 'wf-badge-holiday' : v.type === 'paid_leave' ? 'wf-badge-paid-leave' : 'wf-badge-sick'}`} style={{ fontSize: '0.65rem', padding: '0px 4px' }}>
+                                                                {v.type === 'vacation' ? 'VAC' : v.type === 'holiday' ? 'FEST' : v.type === 'paid_leave' ? 'PERM' : 'BAJA'}
                                                             </span>
                                                         </td>
                                                     </tr>
@@ -1933,7 +1941,7 @@ const WorkforceReport: React.FC = () => {
                 title={
                     editingRecord?.type === 'work' 
                         ? (editingRecord?.id ? "Editar Registro de Jornada" : "Fichaje Manual")
-                        : (editingRecord?.type === 'vacation' ? "Registrar Vacaciones" : editingRecord?.type === 'holiday' ? "Registrar Festivo" : "Registrar Baja Médica")
+                        : (editingRecord?.type === 'vacation' ? "Registrar Vacaciones" : editingRecord?.type === 'holiday' ? "Registrar Festivo" : editingRecord?.type === 'paid_leave' ? "Registrar Permiso Justificado" : "Registrar Baja Médica")
                 }
             >
                 <form onSubmit={handleSaveAttendance} className="wf-form">
@@ -1962,6 +1970,22 @@ const WorkforceReport: React.FC = () => {
                                 className={`wf-type-btn ${editingRecord?.type === 'vacation' ? 'active-vacation' : ''}`}
                             >
                                 <Calendar size={16} /> Vacaciones
+                            </button>
+                            <button 
+                                type="button"
+                                onClick={() => {
+                                    const base = editingRecord?.startTime ? parseISO(editingRecord.startTime) : new Date();
+                                    setEditingRecord({ 
+                                        ...editingRecord, 
+                                        type: 'paid_leave', 
+                                        startTime: startOfDay(base).toISOString(),
+                                        endTime: endOfDay(base).toISOString(),
+                                        isGlobal: false
+                                    });
+                                }}
+                                className={`wf-type-btn ${editingRecord?.type === 'paid_leave' ? 'active-paid-leave' : ''}`}
+                            >
+                                <FileText size={16} /> Permiso
                             </button>
                             <button 
                                 type="button"
@@ -2122,7 +2146,7 @@ const WorkforceReport: React.FC = () => {
                         <button type="submit" className="wf-btn-save">
                             {editingRecord?.type === 'work' 
                                 ? (editingRecord?.id ? 'Guardar Cambios' : 'Registrar Jornada') 
-                                : `Guardar ${editingRecord?.type === 'vacation' ? 'Vacaciones' : editingRecord?.type === 'holiday' ? 'Festivo' : 'Baja'}`}
+                                : `Guardar ${editingRecord?.type === 'vacation' ? 'Vacaciones' : editingRecord?.type === 'holiday' ? 'Festivo' : editingRecord?.type === 'paid_leave' ? 'Permiso' : 'Baja'}`}
                         </button>
                     </div>
                 </form>
@@ -2154,6 +2178,13 @@ const WorkforceReport: React.FC = () => {
                                 className={`wf-type-btn ${editingRecord?.type === 'holiday' ? 'active-holiday' : ''}`}
                             >
                                 <Sun size={18} /> Festivo
+                            </button>
+                            <button 
+                                type="button"
+                                onClick={() => setEditingRecord({ ...editingRecord, type: 'paid_leave', isGlobal: false })}
+                                className={`wf-type-btn ${editingRecord?.type === 'paid_leave' ? 'active-paid-leave' : ''}`}
+                            >
+                                <FileText size={18} /> Permiso Justificado
                             </button>
                             <button 
                                 type="button"
@@ -2342,8 +2373,8 @@ const WorkforceReport: React.FC = () => {
                                         {v.endTime && isSameDay(parseISO(v.startTime), parseISO(v.endTime)) ? '' : v.endTime ? ` al ${format(parseISO(v.endTime), 'dd/MM/yyyy')}` : ''}
                                     </td>
                                     <td>
-                                        <span className={`wf-badge ${v.type === 'vacation' ? 'wf-badge-vacation' : v.type === 'holiday' ? 'wf-badge-holiday' : 'wf-badge-sick'}`}>
-                                            {v.type === 'vacation' ? 'Vacaciones' : v.type === 'holiday' ? 'Festivo' : 'Baja'}
+                                        <span className={`wf-badge ${v.type === 'vacation' ? 'wf-badge-vacation' : v.type === 'holiday' ? 'wf-badge-holiday' : v.type === 'paid_leave' ? 'wf-badge-paid-leave' : 'wf-badge-sick'}`}>
+                                            {v.type === 'vacation' ? 'Vacaciones' : v.type === 'holiday' ? 'Festivo' : v.type === 'paid_leave' ? 'Permiso Justificado' : 'Baja'}
                                         </span>
                                     </td>
                                     <td style={{ fontSize: '0.8rem', color: '#64748b', maxWidth: '160px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }} title={v.notes || ''}>

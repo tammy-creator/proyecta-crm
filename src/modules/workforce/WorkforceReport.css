@@ -423,6 +423,11 @@
     color: #b45309;
 }
 
+.wf-badge-paid-leave {
+    background-color: #ede9fe;
+    color: #7c3aed;
+}
+
 .wf-badge-missing {
     background-color: #fee2e2;
     color: #dc2626;
@@ -793,6 +798,15 @@
     color: white;
 }
 
+.holiday-day-paid-leave {
+    background: #8b5cf6;
+    border-color: transparent;
+}
+
+.holiday-day-paid-leave .holiday-day-number {
+    color: white;
+}
+
 .holiday-day-weekend {
     background: #f8fafc;
 }
@@ -868,6 +882,10 @@
 
 .legend-dot-holiday {
     background: #f59e0b;
+}
+
+.legend-dot-paid-leave {
+    background: #8b5cf6;
 }
 
 .legend-dot-sick {
@@ -1051,6 +1069,12 @@
     border-color: #3b82f6;
     background: #eef4ff;
     color: #3b82f6;
+}
+
+.wf-type-btn.active-paid-leave {
+    border-color: #8b5cf6;
+    background: #f5f3ff;
+    color: #7c3aed;
 }
 
 .wf-type-btn.active-sick {

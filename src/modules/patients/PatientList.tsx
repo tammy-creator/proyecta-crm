@@ -8,7 +8,7 @@ import { type Appointment } from '../calendar/types';
 import { getTherapists } from '../therapists/service';
 import { type Therapist } from '../therapists/types';
 import Card from '../../components/ui/Card';
-import { User, Users, Phone, Mail, Search, UserPlus, X, Calendar, ClipboardList, FileText, Upload, Activity, Download, Send, ShieldCheck, ShieldAlert, Star, Trash2, Heart, ChevronDown, ChevronUp, AlertCircle, MessageSquare, Repeat, CheckCheck } from 'lucide-react';
+import { User, Users, Phone, Mail, Search, UserPlus, X, Calendar, ClipboardList, FileText, Upload, Activity, Download, Send, ShieldCheck, ShieldAlert, Star, Trash2, Heart, ChevronDown, ChevronUp, AlertCircle, MessageSquare, Repeat, CheckCheck, Clock } from 'lucide-react';
 import { format, parseISO, isValid, isAfter } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { useToast } from '../../hooks/useToast';
@@ -41,16 +41,46 @@ const PatientList: React.FC = () => {
 
     // Appointment management states
     const [selectedApptIds, setSelectedApptIds] = useState<Set<string>>(new Set());
-    const [apptFilter, setApptFilter] = useState<'all' | 'future' | 'past'>('all');
+    const [apptFilter, setApptFilter] = useState<'future' | 'past' | 'all'>('future');
     const [confirmDeleteApptsModal, setConfirmDeleteApptsModal] = useState<{ isOpen: boolean; appts: Appointment[] }>({ isOpen: false, appts: [] });
     const [isDeletingAppts, setIsDeletingAppts] = useState(false);
 
     const isFutureAppointment = (appt: Appointment) => {
         try {
-            const d = parseISO(appt.start);
-            return isValid(d) && isAfter(d, new Date());
+            const dateStr = appt.end || appt.start;
+            const d = parseISO(dateStr);
+            if (!isValid(d)) return false;
+            // Si la cita termina en el futuro, es futura/activa
+            if (isAfter(d, new Date())) return true;
+
+            // Si es hoy y su estado sigue en Programada o En Sesión, mantenerla en próximas/pendientes
+            const todayStr = format(new Date(), 'yyyy-MM-dd');
+            const apptDateStr = format(parseISO(appt.start), 'yyyy-MM-dd');
+            if (apptDateStr === todayStr && (appt.status === 'Programada' || appt.status === 'En Sesión')) {
+                return true;
+            }
+            return false;
         } catch {
             return false;
+        }
+    };
+
+    const getApptRelativeLabel = (isoStr: string) => {
+        try {
+            const d = parseISO(isoStr);
+            if (!isValid(d)) return null;
+            const now = new Date();
+            const todayStr = format(now, 'yyyy-MM-dd');
+            const tomorrow = new Date(now);
+            tomorrow.setDate(tomorrow.getDate() + 1);
+            const tomorrowStr = format(tomorrow, 'yyyy-MM-dd');
+            const dateStr = format(d, 'yyyy-MM-dd');
+
+            if (dateStr === todayStr) return 'Hoy';
+            if (dateStr === tomorrowStr) return 'Mañana';
+            return null;
+        } catch {
+            return null;
         }
     };
 
@@ -58,7 +88,9 @@ const PatientList: React.FC = () => {
         try {
             const d = parseISO(isoStr);
             if (!isValid(d)) return isoStr;
-            return format(d, 'dd/MM/yyyy', { locale: es });
+            const shortDay = format(d, 'EEE', { locale: es }).replace('.', '');
+            const capDay = shortDay.charAt(0).toUpperCase() + shortDay.slice(1);
+            return `${capDay}, ${format(d, 'dd/MM/yyyy')}`;
         } catch {
             return isoStr;
         }
@@ -74,12 +106,6 @@ const PatientList: React.FC = () => {
         }
     };
 
-    const sortedAppointments = useMemo(() => {
-        return [...patientAppointments].sort((a, b) => {
-            return (a.start || '').localeCompare(b.start || '');
-        });
-    }, [patientAppointments]);
-
     const futureApptsCount = useMemo(() => {
         return patientAppointments.filter(isFutureAppointment).length;
     }, [patientAppointments]);
@@ -89,12 +115,22 @@ const PatientList: React.FC = () => {
     }, [patientAppointments, futureApptsCount]);
 
     const displayedAppointments = useMemo(() => {
-        return sortedAppointments.filter(appt => {
+        const filtered = patientAppointments.filter(appt => {
             if (apptFilter === 'future') return isFutureAppointment(appt);
             if (apptFilter === 'past') return !isFutureAppointment(appt);
             return true;
         });
-    }, [sortedAppointments, apptFilter]);
+
+        return [...filtered].sort((a, b) => {
+            if (apptFilter === 'future') {
+                // Próximas citas pendientes: de más cercana a hoy en adelante (ascendente)
+                return (a.start || '').localeCompare(b.start || '');
+            } else {
+                // Citas pasadas o Todas: de más recientes a más antiguas (descendente)
+                return (b.start || '').localeCompare(a.start || '');
+            }
+        });
+    }, [patientAppointments, apptFilter]);
 
     const allFilteredSelected = displayedAppointments.length > 0 &&
         displayedAppointments.every(a => selectedApptIds.has(a.id));
@@ -266,6 +302,7 @@ const PatientList: React.FC = () => {
 
     const handleOpenModal = async (patient?: Patient) => {
         setActiveTab('general');
+        setApptFilter('future');
         if (patient?.id) {
             // Recuperar siempre de la BD para asegurar datos frescos
             try {
@@ -1018,7 +1055,14 @@ const PatientList: React.FC = () => {
 
             {isModalOpen && selectedPatient && (
                 <div className="modal-overlay">
-                    <div className="modal-content" style={{ maxWidth: '680px' }}>
+                    <div
+                        className={`modal-content ${activeTab === 'appointments' || activeTab === 'history' ? 'large' : ''}`}
+                        style={{
+                            maxWidth: activeTab === 'appointments' || activeTab === 'history' ? '960px' : '680px',
+                            width: '95%',
+                            transition: 'max-width 0.25s cubic-bezier(0.4, 0, 0.2, 1)'
+                        }}
+                    >
                         <div className="modal-header">
                             <div className="flex items-center gap-5">
                                 <div className="patient-avatar small" style={{ backgroundColor: 'var(--color-status-info-bg)' }}>
@@ -1033,7 +1077,15 @@ const PatientList: React.FC = () => {
                             <button className={`tab-btn ${activeTab === 'general' ? 'active' : ''}`} onClick={() => setActiveTab('general')}>Datos Generales</button>
                             {selectedPatient.id && (
                                 <>
-                                    <button className={`tab-btn ${activeTab === 'appointments' ? 'active' : ''}`} onClick={() => setActiveTab('appointments')}>Citas</button>
+                                    <button
+                                        className={`tab-btn ${activeTab === 'appointments' ? 'active' : ''}`}
+                                        onClick={() => {
+                                            setActiveTab('appointments');
+                                            setApptFilter('future');
+                                        }}
+                                    >
+                                        Citas
+                                    </button>
                                     <button className={`tab-btn ${activeTab === 'history' ? 'active' : ''}`} onClick={() => setActiveTab('history')}>Historia Clínica</button>
                                     <button className={`tab-btn ${activeTab === 'files' ? 'active' : ''}`} onClick={() => setActiveTab('files')}>Archivos</button>
                                 </>
@@ -1325,73 +1377,90 @@ const PatientList: React.FC = () => {
                             {activeTab === 'appointments' && (
                                 <div className="appointments-tab">
                                     {/* Cabecera y Controles de la Pestaña Citas */}
-                                    <div className="appt-tab-header mb-4">
-                                        <div className="appt-tab-header-left">
-                                            <h4 className="text-base font-bold text-gray-800 flex items-center gap-2 m-0">
+                                    <div className="appt-tab-header">
+                                        <div className="appt-tab-title-group">
+                                            <h4 className="appt-tab-title">
                                                 <Calendar size={18} className="text-primary" />
                                                 Citas del Paciente
-                                                <span className="text-xs font-normal text-gray-500 bg-gray-100 px-2 py-0.5 rounded-full">
-                                                    {patientAppointments.length} total ({futureApptsCount} futuras)
-                                                </span>
                                             </h4>
+                                            <p className="appt-tab-subtitle">
+                                                {apptFilter === 'future'
+                                                    ? '⚡ Próximas citas pendientes, ordenadas de más cercana a más lejana'
+                                                    : apptFilter === 'past'
+                                                    ? '🕒 Historial de citas anteriores, ordenadas de más recientes a más antiguas'
+                                                    : `Historial completo de citas (${patientAppointments.length})`}
+                                            </p>
+                                        </div>
 
-                                            {/* Filtros de Vista: Todas / Futuras / Pasadas */}
+                                        <div className="appt-tab-actions">
+                                            {/* Filtros de Vista: Próximas Citas / Citas Pasadas / Todas */}
                                             <div className="appt-view-pills">
-                                                <button
-                                                    type="button"
-                                                    className={`appt-pill-btn ${apptFilter === 'all' ? 'active' : ''}`}
-                                                    onClick={() => setApptFilter('all')}
-                                                >
-                                                    Todas ({patientAppointments.length})
-                                                </button>
                                                 <button
                                                     type="button"
                                                     className={`appt-pill-btn ${apptFilter === 'future' ? 'active' : ''}`}
                                                     onClick={() => setApptFilter('future')}
+                                                    title="Ver próximas citas pendientes del paciente"
                                                 >
-                                                    ⚡ Futuras ({futureApptsCount})
+                                                    <Calendar size={13} />
+                                                    <span>Próximas citas</span>
+                                                    <span className="pill-badge">
+                                                        {futureApptsCount}
+                                                    </span>
                                                 </button>
                                                 <button
                                                     type="button"
                                                     className={`appt-pill-btn ${apptFilter === 'past' ? 'active' : ''}`}
                                                     onClick={() => setApptFilter('past')}
+                                                    title="Ver historial de citas finalizadas y pasadas"
                                                 >
-                                                    Pasadas ({pastApptsCount})
+                                                    <Clock size={13} />
+                                                    <span>Citas pasadas</span>
+                                                    <span className="pill-badge">
+                                                        {pastApptsCount}
+                                                    </span>
+                                                </button>
+                                                <button
+                                                    type="button"
+                                                    className={`appt-pill-btn ${apptFilter === 'all' ? 'active' : ''}`}
+                                                    onClick={() => setApptFilter('all')}
+                                                    title="Ver todas las citas"
+                                                >
+                                                    <span>Todas</span>
+                                                    <span className="pill-badge">
+                                                        {patientAppointments.length}
+                                                    </span>
                                                 </button>
                                             </div>
-                                        </div>
 
-                                        {/* Botones de Acción de Selección y Eliminación Masiva */}
-                                        <div className="appt-tab-header-right flex items-center gap-2">
+                                            {/* Botones de Acción de Selección y Eliminación Masiva */}
                                             {selectedApptIds.size === 0 ? (
-                                                futureApptsCount > 0 && (
+                                                apptFilter === 'future' && futureApptsCount > 0 && (
                                                     <button
                                                         type="button"
-                                                        className="btn-secondary micro flex items-center gap-1.5"
+                                                        className="appt-bulk-future-btn"
                                                         onClick={handleSelectOnlyFuture}
                                                         title="Selecciona de golpe todas las citas futuras del paciente"
                                                     >
-                                                        <CheckCheck size={14} className="text-primary" />
-                                                        Marcar todas las futuras ({futureApptsCount})
+                                                        <CheckCheck size={14} />
+                                                        <span>Marcar futuras ({futureApptsCount})</span>
                                                     </button>
                                                 )
                                             ) : (
-                                                <div className="flex items-center gap-2 bg-red-50 border border-red-200 px-3 py-1 rounded-xl animate-fadeIn">
-                                                    <span className="text-xs font-bold text-red-800">
+                                                <div className="appt-bulk-selected-box">
+                                                    <span className="appt-bulk-selected-count">
                                                         {selectedApptIds.size} seleccionada{selectedApptIds.size > 1 ? 's' : ''}
                                                     </span>
                                                     <button
                                                         type="button"
-                                                        className="btn-secondary micro text-xs py-0.5 px-2"
+                                                        className="appt-bulk-desel-btn"
                                                         onClick={() => setSelectedApptIds(new Set())}
                                                     >
                                                         Deseleccionar
                                                     </button>
                                                     <button
                                                         type="button"
-                                                        className="btn-danger micro flex items-center gap-1 text-xs py-1 px-3 shadow-sm"
+                                                        className="appt-bulk-del-btn"
                                                         onClick={handleDeleteSelectedClick}
-                                                        style={{ backgroundColor: '#dc2626', color: 'white', fontWeight: 700 }}
                                                     >
                                                         <Trash2 size={13} />
                                                         Eliminar ({selectedApptIds.size})
@@ -1402,91 +1471,127 @@ const PatientList: React.FC = () => {
                                     </div>
 
                                     {patientAppointments.length === 0 ? (
-                                        <div className="empty-state">No hay citas registradas para este paciente.</div>
+                                        <div className="empty-state py-8 text-center bg-gray-50/70 border border-dashed border-gray-200 rounded-xl my-4">
+                                            No hay citas registradas para este paciente.
+                                        </div>
                                     ) : displayedAppointments.length === 0 ? (
-                                        <div className="empty-state">
-                                            No hay citas en este filtro ({apptFilter === 'future' ? 'futuras' : 'pasadas'}).
-                                            <button
-                                                type="button"
-                                                className="btn-link text-xs ml-2 underline text-primary cursor-pointer bg-transparent border-none"
-                                                onClick={() => setApptFilter('all')}
-                                            >
-                                                Ver todas las citas
-                                            </button>
+                                        <div className="empty-state py-8 text-center bg-gray-50/70 border border-dashed border-gray-200 rounded-xl my-4">
+                                            <p className="text-sm text-gray-600 font-medium mb-3">
+                                                {apptFilter === 'future'
+                                                    ? 'No hay próximas citas programadas para este paciente.'
+                                                    : apptFilter === 'past'
+                                                    ? 'No hay citas pasadas registradas para este paciente.'
+                                                    : 'No hay citas en este filtro.'}
+                                            </p>
+                                            {apptFilter === 'future' && pastApptsCount > 0 && (
+                                                <button
+                                                    type="button"
+                                                    className="appt-bulk-future-btn"
+                                                    onClick={() => setApptFilter('past')}
+                                                >
+                                                    <Clock size={14} />
+                                                    Ver historial de citas pasadas ({pastApptsCount})
+                                                </button>
+                                            )}
+                                            {apptFilter === 'past' && futureApptsCount > 0 && (
+                                                <button
+                                                    type="button"
+                                                    className="appt-bulk-future-btn"
+                                                    onClick={() => setApptFilter('future')}
+                                                >
+                                                    <Calendar size={14} />
+                                                    Ver próximas citas programadas ({futureApptsCount})
+                                                </button>
+                                            )}
                                         </div>
                                     ) : (
-                                        <div className="table-container shadow-none border rounded-xl overflow-hidden">
-                                            <table className="data-table">
+                                        <div className="patient-appt-table-container">
+                                            <table className="patient-appt-table">
                                                 <thead>
                                                     <tr>
                                                         <th style={{ width: '40px', textAlign: 'center' }}>
                                                             <input
                                                                 type="checkbox"
-                                                                className="cursor-pointer"
+                                                                className="appt-checkbox"
                                                                 checked={allFilteredSelected}
                                                                 onChange={toggleSelectAll}
                                                                 title={allFilteredSelected ? 'Deseleccionar todas las mostradas' : 'Seleccionar todas las citas mostradas'}
                                                             />
                                                         </th>
-                                                        <th style={{ minWidth: '130px' }}>Fecha y Hora</th>
-                                                        <th>Terapeuta</th>
-                                                        <th>Tipo</th>
-                                                        <th>Recurrencia / Serie</th>
-                                                        <th>Estado</th>
-                                                        <th style={{ width: '60px', textAlign: 'right' }}>Acción</th>
+                                                        <th style={{ minWidth: '160px' }}>Fecha y Horario</th>
+                                                        <th style={{ minWidth: '180px' }}>Terapeuta</th>
+                                                        <th style={{ minWidth: '150px' }}>Tipo de Sesión</th>
+                                                        <th style={{ minWidth: '160px' }}>Recurrencia / Serie</th>
+                                                        <th style={{ minWidth: '110px' }}>Estado</th>
+                                                        <th style={{ width: '45px', textAlign: 'center' }}>Acción</th>
                                                     </tr>
                                                 </thead>
                                                 <tbody>
                                                     {displayedAppointments.map(appt => {
                                                         const isSelected = selectedApptIds.has(appt.id);
                                                         const isFuture = isFutureAppointment(appt);
+                                                        const relLabel = getApptRelativeLabel(appt.start);
                                                         const isBiweekly = appt.recurrence?.frequency === 'biweekly';
                                                         const isWeekly = appt.recurrence?.frequency === 'weekly';
 
                                                         return (
                                                             <tr
                                                                 key={appt.id}
-                                                                className={isSelected ? 'bg-red-50/50' : ''}
-                                                                style={{ transition: 'background-color 0.15s ease' }}
+                                                                className={isSelected ? 'row-selected' : ''}
                                                             >
                                                                 <td style={{ textAlign: 'center' }}>
                                                                     <input
                                                                         type="checkbox"
-                                                                        className="cursor-pointer"
+                                                                        className="appt-checkbox"
                                                                         checked={isSelected}
                                                                         onChange={() => toggleSelectAppt(appt.id)}
                                                                     />
                                                                 </td>
                                                                 <td>
-                                                                    <div className="flex flex-col">
-                                                                        <span className={`text-sm ${isFuture ? 'font-bold text-gray-900' : 'text-gray-600'}`}>
-                                                                            {formatApptDate(appt.start)}
-                                                                        </span>
+                                                                    <div className="appt-date-cell">
+                                                                        <div className="appt-date-main">
+                                                                            <span className={`appt-date-day ${isFuture ? 'future' : ''}`}>
+                                                                                {formatApptDate(appt.start)}
+                                                                            </span>
+                                                                            {relLabel && (
+                                                                                <span className={`appt-rel-tag ${relLabel === 'Hoy' ? 'tag-today' : 'tag-tomorrow'}`}>
+                                                                                    {relLabel}
+                                                                                </span>
+                                                                            )}
+                                                                        </div>
                                                                         {appt.start && appt.start.includes('T') && (
-                                                                            <span className="text-xs text-gray-500 font-mono">
+                                                                            <span className="appt-time-sub">
+                                                                                <Clock size={11} />
                                                                                 {formatApptTime(appt.start)}
+                                                                                {appt.end && appt.end.includes('T') ? ` – ${formatApptTime(appt.end)}` : ''}
                                                                             </span>
                                                                         )}
                                                                     </div>
                                                                 </td>
                                                                 <td>
-                                                                    <div className="flex items-center gap-2">
-                                                                        <div className="avatar micro">{appt.therapistName?.charAt(0) || 'T'}</div>
-                                                                        <span className="text-sm font-medium text-gray-800">{appt.therapistName}</span>
+                                                                    <div className="appt-therapist-cell">
+                                                                        <div className="appt-therapist-avatar">
+                                                                            {appt.therapistName?.charAt(0) || 'T'}
+                                                                        </div>
+                                                                        <span className="appt-therapist-name" title={appt.therapistName}>
+                                                                            {appt.therapistName || 'Sin asignar'}
+                                                                        </span>
                                                                     </div>
                                                                 </td>
                                                                 <td>
-                                                                    <span className="text-sm text-gray-700">{appt.type || 'Sesión'}</span>
+                                                                    <span className="appt-type-label">
+                                                                        {appt.type || 'Sesión'}
+                                                                    </span>
                                                                 </td>
                                                                 <td>
                                                                     {isBiweekly ? (
-                                                                        <div className="flex items-center gap-1.5 flex-wrap">
-                                                                            <span className="text-[11px] font-bold px-2 py-0.5 rounded-md bg-indigo-50 text-indigo-700 border border-indigo-200 inline-flex items-center gap-1">
-                                                                                <Repeat size={11} /> Quincenal (15 días)
+                                                                        <div className="appt-recurrence-cell">
+                                                                            <span className="appt-badge-recurrence biweekly">
+                                                                                <Repeat size={11} /> Quincenal (15d)
                                                                             </span>
                                                                             <button
                                                                                 type="button"
-                                                                                className="text-[11px] text-indigo-600 hover:text-indigo-900 underline font-semibold bg-transparent border-none cursor-pointer p-0"
+                                                                                className="appt-series-action"
                                                                                 onClick={() => handleSelectSeries(appt)}
                                                                                 title="Marcar todas las citas de 15 días de esta serie"
                                                                             >
@@ -1494,13 +1599,13 @@ const PatientList: React.FC = () => {
                                                                             </button>
                                                                         </div>
                                                                     ) : isWeekly ? (
-                                                                        <div className="flex items-center gap-1.5 flex-wrap">
-                                                                            <span className="text-[11px] font-bold px-2 py-0.5 rounded-md bg-purple-50 text-purple-700 border border-purple-200 inline-flex items-center gap-1">
+                                                                        <div className="appt-recurrence-cell">
+                                                                            <span className="appt-badge-recurrence weekly">
                                                                                 <Repeat size={11} /> Semanal
                                                                             </span>
                                                                             <button
                                                                                 type="button"
-                                                                                className="text-[11px] text-purple-600 hover:text-purple-900 underline font-semibold bg-transparent border-none cursor-pointer p-0"
+                                                                                className="appt-series-action"
                                                                                 onClick={() => handleSelectSeries(appt)}
                                                                                 title="Marcar todas las citas semanales de esta serie"
                                                                             >
@@ -1508,27 +1613,22 @@ const PatientList: React.FC = () => {
                                                                             </button>
                                                                         </div>
                                                                     ) : (
-                                                                        <span className="text-xs text-gray-400">—</span>
+                                                                        <span className="appt-punctual-label">Puntual</span>
                                                                     )}
                                                                 </td>
                                                                 <td>
-                                                                    <span className={`badge ${
-                                                                        appt.status === 'Finalizada' || appt.status === 'En Sesión' ? 'badge-warning' :
-                                                                        appt.status === 'Cobrada' ? 'badge-success' :
-                                                                        appt.status === 'Cancelada' ? 'badge-danger' :
-                                                                        'badge-info'
-                                                                    }`}>
+                                                                    <span className={`appt-status-pill status-${(appt.status || '').toLowerCase().replace(/\s+/g, '-')}`}>
                                                                         {appt.status}
                                                                     </span>
                                                                 </td>
-                                                                <td style={{ textAlign: 'right' }}>
+                                                                <td style={{ textAlign: 'center' }}>
                                                                     <button
                                                                         type="button"
-                                                                        className="btn-icon-round text-gray-400 hover:text-red-600 hover:bg-red-50 p-1.5 transition-colors cursor-pointer"
+                                                                        className="appt-action-delete"
                                                                         onClick={() => handleDeleteSingleClick(appt)}
                                                                         title="Eliminar esta cita"
                                                                     >
-                                                                        <Trash2 size={15} />
+                                                                        <Trash2 size={14} />
                                                                     </button>
                                                                 </td>
                                                             </tr>
@@ -1536,6 +1636,37 @@ const PatientList: React.FC = () => {
                                                     })}
                                                 </tbody>
                                             </table>
+                                        </div>
+                                    )}
+
+                                    {/* Pie de navegación rápida entre próximas y pasadas */}
+                                    {patientAppointments.length > 0 && displayedAppointments.length > 0 && (
+                                        <div className="appt-table-footer">
+                                            <span className="appt-footer-count">
+                                                {apptFilter === 'future'
+                                                    ? `Mostrando ${displayedAppointments.length} próxima(s) cita(s) ordenada(s) por fecha más cercana.`
+                                                    : apptFilter === 'past'
+                                                    ? `Mostrando ${displayedAppointments.length} cita(s) pasada(s) ordenada(s) de más recientes a más antiguas.`
+                                                    : `Mostrando las ${displayedAppointments.length} citas registradas.`}
+                                            </span>
+                                            {apptFilter === 'future' && pastApptsCount > 0 && (
+                                                <button
+                                                    type="button"
+                                                    className="appt-footer-link"
+                                                    onClick={() => setApptFilter('past')}
+                                                >
+                                                    Ver historial de {pastApptsCount} citas pasadas ➔
+                                                </button>
+                                            )}
+                                            {apptFilter === 'past' && futureApptsCount > 0 && (
+                                                <button
+                                                    type="button"
+                                                    className="appt-footer-link"
+                                                    onClick={() => setApptFilter('future')}
+                                                >
+                                                    Ver {futureApptsCount} próximas citas programadas ➔
+                                                </button>
+                                            )}
                                         </div>
                                     )}
                                 </div>
@@ -1590,7 +1721,10 @@ const PatientList: React.FC = () => {
                                                                     </div>
                                                                     <button
                                                                         className="btn-fix-history"
-                                                                        onClick={() => setActiveTab('appointments')}
+                                                                        onClick={() => {
+                                                                            setActiveTab('appointments');
+                                                                            setApptFilter('past');
+                                                                        }}
                                                                     >
                                                                         Ver Cita
                                                                     </button>

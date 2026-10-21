@@ -834,14 +834,37 @@
     align-items: center;
     flex-wrap: wrap;
     gap: 1rem;
-    padding-bottom: 0.75rem;
+    padding-bottom: 0.85rem;
     border-bottom: 1px solid #f1f5f9;
 }
 
-.appt-tab-header-left {
+.appt-tab-title-group {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+}
+
+.appt-tab-title {
+    margin: 0;
+    font-size: 1.05rem;
+    font-weight: 700;
+    color: #0f172a;
     display: flex;
     align-items: center;
-    gap: 1rem;
+    gap: 0.5rem;
+}
+
+.appt-tab-subtitle {
+    margin: 0;
+    font-size: 0.78rem;
+    color: #64748b;
+    font-weight: 500;
+}
+
+.appt-tab-actions {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
     flex-wrap: wrap;
 }
 
@@ -850,28 +873,455 @@
     background-color: #f1f5f9;
     padding: 3px;
     border-radius: 10px;
-    gap: 3px;
+    gap: 4px;
+    border: 1px solid #e2e8f0;
 }
 
 .appt-pill-btn {
-    padding: 4px 10px;
+    padding: 6px 12px;
     border: none;
     background: transparent;
-    border-radius: 7px;
-    font-size: 0.75rem;
+    border-radius: 8px;
+    font-size: 0.8rem;
     font-weight: 600;
     color: #64748b;
     cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
     transition: all 0.15s ease;
 }
 
 .appt-pill-btn:hover {
     color: #1e293b;
+    background-color: rgba(255, 255, 255, 0.6);
 }
 
 .appt-pill-btn.active {
     background-color: white;
-    color: #1A5F7A;
+    color: #0284c7;
     box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+    font-weight: 700;
+}
+
+.appt-pill-btn .pill-badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.7rem;
+    font-weight: 700;
+    padding: 1px 6px;
+    border-radius: 9999px;
+    background-color: #e2e8f0;
+    color: #475569;
+    min-width: 18px;
+    line-height: 1.2;
+    transition: all 0.15s ease;
+}
+
+.appt-pill-btn.active .pill-badge {
+    background-color: #0284c7;
+    color: #ffffff;
+}
+
+/* Bulk buttons */
+.appt-bulk-future-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 12px;
+    font-size: 0.78rem;
+    font-weight: 600;
+    color: #0284c7;
+    background-color: #f0f9ff;
+    border: 1px solid #bae6fd;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.15s ease;
+}
+
+.appt-bulk-future-btn:hover {
+    background-color: #e0f2fe;
+    color: #0369a1;
+}
+
+.appt-bulk-selected-box {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    background-color: #fef2f2;
+    border: 1px solid #fecaca;
+    padding: 4px 10px;
+    border-radius: 10px;
+    animation: fadeIn 0.15s ease;
+}
+
+.appt-bulk-selected-count {
+    font-size: 0.78rem;
+    font-weight: 700;
+    color: #991b1b;
+}
+
+.appt-bulk-desel-btn {
+    background: white;
+    border: 1px solid #fca5a5;
+    color: #991b1b;
+    font-size: 0.72rem;
+    font-weight: 600;
+    padding: 2px 8px;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: all 0.15s ease;
+}
+
+.appt-bulk-desel-btn:hover {
+    background: #fee2e2;
+}
+
+.appt-bulk-del-btn {
+    background-color: #dc2626;
+    border: 1px solid #b91c1c;
+    color: white;
+    font-size: 0.72rem;
+    font-weight: 700;
+    padding: 3px 10px;
+    border-radius: 6px;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    box-shadow: 0 1px 2px rgba(220, 38, 38, 0.2);
+    transition: all 0.15s ease;
+}
+
+.appt-bulk-del-btn:hover {
+    background-color: #b91c1c;
+}
+
+/* ── Modern Table Container ── */
+.patient-appt-table-container {
+    border-radius: 12px;
+    border: 1px solid #e2e8f0;
+    background: white;
+    overflow: hidden;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.03);
+    margin-top: 0.75rem;
+}
+
+.patient-appt-table {
+    width: 100%;
+    border-collapse: separate;
+    border-spacing: 0;
+    text-align: left;
+    font-size: 0.85rem;
+}
+
+.patient-appt-table thead {
+    background-color: #f8fafc;
+}
+
+.patient-appt-table th {
+    padding: 0.75rem 1rem;
+    font-size: 0.72rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: #475569;
+    border-bottom: 1px solid #e2e8f0;
+    white-space: nowrap;
+}
+
+.patient-appt-table td {
+    padding: 0.85rem 1rem;
+    border-bottom: 1px solid #f1f5f9;
+    color: #1e293b;
+    vertical-align: middle;
+}
+
+.patient-appt-table tbody tr {
+    transition: background-color 0.15s ease;
+}
+
+.patient-appt-table tbody tr:hover td {
+    background-color: #f8fafc;
+}
+
+.patient-appt-table tbody tr.row-selected td {
+    background-color: #fef2f2 !important;
+}
+
+.patient-appt-table tbody tr:last-child td {
+    border-bottom: none;
+}
+
+/* Checkbox */
+.appt-checkbox {
+    width: 16px;
+    height: 16px;
+    cursor: pointer;
+    accent-color: #0284c7;
+    margin: 0 auto;
+    display: block;
+}
+
+/* Date cell */
+.appt-date-cell {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+}
+
+.appt-date-main {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex-wrap: wrap;
+}
+
+.appt-date-day {
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: #475569;
+    white-space: nowrap;
+}
+
+.appt-date-day.future {
+    color: #0f172a;
+    font-weight: 700;
+}
+
+.appt-rel-tag {
+    font-size: 0.65rem;
+    font-weight: 800;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    padding: 1px 6px;
+    border-radius: 4px;
+    line-height: 1.3;
+}
+
+.appt-rel-tag.tag-today {
+    background-color: #dcfce7;
+    color: #15803d;
+    border: 1px solid #86efac;
+}
+
+.appt-rel-tag.tag-tomorrow {
+    background-color: #e0f2fe;
+    color: #0369a1;
+    border: 1px solid #7dd3fc;
+}
+
+.appt-time-sub {
+    font-size: 0.75rem;
+    color: #64748b;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+}
+
+/* Therapist */
+.appt-therapist-cell {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+}
+
+.appt-therapist-avatar {
+    width: 26px;
+    height: 26px;
+    border-radius: 7px;
+    background: #e0f2fe;
+    color: #0284c7;
+    font-weight: 700;
+    font-size: 0.75rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+}
+
+.appt-therapist-name {
+    font-size: 0.82rem;
+    font-weight: 600;
+    color: #334155;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 170px;
+}
+
+/* Session Type */
+.appt-type-label {
+    font-size: 0.82rem;
+    color: #1e293b;
+    font-weight: 500;
+    white-space: nowrap;
+}
+
+/* Recurrence */
+.appt-recurrence-cell {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: nowrap;
+}
+
+.appt-badge-recurrence {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 0.72rem;
+    font-weight: 700;
+    padding: 3px 8px;
+    border-radius: 6px;
+    white-space: nowrap;
+}
+
+.appt-badge-recurrence.weekly {
+    background-color: #faf5ff;
+    color: #7e22ce;
+    border: 1px solid #e9d5ff;
+}
+
+.appt-badge-recurrence.biweekly {
+    background-color: #eef2ff;
+    color: #4338ca;
+    border: 1px solid #c7d2fe;
+}
+
+.appt-series-action {
+    background: none !important;
+    border: none !important;
+    padding: 0 !important;
+    font-size: 0.72rem;
+    font-weight: 600;
+    color: #6366f1;
+    cursor: pointer;
+    text-decoration: underline;
+    white-space: nowrap;
+    transition: color 0.15s ease;
+    box-shadow: none !important;
+}
+
+.appt-series-action:hover {
+    color: #3730a3;
+}
+
+.appt-punctual-label {
+    font-size: 0.75rem;
+    color: #94a3b8;
+    font-weight: 400;
+}
+
+/* Status Badges */
+.appt-status-pill {
+    display: inline-flex;
+    align-items: center;
+    font-size: 0.72rem;
+    font-weight: 700;
+    letter-spacing: 0.02em;
+    padding: 3px 9px;
+    border-radius: 9999px;
+    white-space: nowrap;
+}
+
+.appt-status-pill.status-programada {
+    background-color: #f0f9ff;
+    color: #0369a1;
+    border: 1px solid #bae6fd;
+}
+
+.appt-status-pill.status-en-sesión {
+    background-color: #fffbeb;
+    color: #b45309;
+    border: 1px solid #fde68a;
+}
+
+.appt-status-pill.status-finalizada {
+    background-color: #faf5ff;
+    color: #7e22ce;
+    border: 1px solid #f3e8ff;
+}
+
+.appt-status-pill.status-cobrada {
+    background-color: #ecfdf5;
+    color: #047857;
+    border: 1px solid #a7f3d0;
+}
+
+.appt-status-pill.status-cancelada {
+    background-color: #fff1f2;
+    color: #be123c;
+    border: 1px solid #fecdd3;
+}
+
+.appt-status-pill.status-ausente {
+    background-color: #fff7ed;
+    color: #c2410c;
+    border: 1px solid #ffedd5;
+}
+
+/* Delete Action */
+.appt-action-delete {
+    width: 28px;
+    height: 28px;
+    border-radius: 7px;
+    border: 1px solid transparent;
+    background: transparent !important;
+    color: #94a3b8;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: all 0.15s ease;
+    box-shadow: none !important;
+}
+
+.appt-action-delete:hover {
+    background-color: #fee2e2 !important;
+    color: #dc2626;
+    border-color: #fca5a5;
+}
+
+/* Table Footer */
+.appt-table-footer {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-top: 0.75rem;
+    padding: 0.6rem 0.85rem;
+    background: #f8fafc;
+    border-radius: 10px;
+    border: 1px solid #e2e8f0;
+    font-size: 0.78rem;
+    color: #64748b;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+}
+
+.appt-footer-count {
+    font-weight: 500;
+}
+
+.appt-footer-link {
+    background: none !important;
+    border: none !important;
+    padding: 0 !important;
+    font-size: 0.78rem;
+    font-weight: 700;
+    color: #0284c7;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    transition: color 0.15s ease;
+    box-shadow: none !important;
+}
+
+.appt-footer-link:hover {
+    color: #0369a1;
+    text-decoration: underline;
 }
 

@@ -131,7 +131,13 @@ export const generateDetailedReportPDF = async (params: GeneratePDFParams): Prom
         
         let status = workAtts.length > 0 ? 'Trabajado' : '---';
         if (absenceAtt) {
-            status = absenceAtt.type === 'vacation' ? 'Vacaciones' : 'Baja Médica';
+            status = absenceAtt.type === 'vacation' 
+                ? 'Vacaciones' 
+                : absenceAtt.type === 'holiday'
+                    ? 'Festivo'
+                    : absenceAtt.type === 'paid_leave'
+                        ? 'Permiso Justificado'
+                        : 'Baja Médica';
         }
 
         const entries = workAtts.map(att => safeFormat(att.startTime, 'HH:mm')).filter(Boolean).join('\n');
@@ -165,7 +171,9 @@ export const generateDetailedReportPDF = async (params: GeneratePDFParams): Prom
             exits || '-',
             dailyTotalStr,
             apptsCount > 0 ? apptsCount.toString() : '-',
-            workAtts.map(a => a.notes).filter(Boolean).join('; ') || ''
+            absenceAtt 
+                ? (absenceAtt.notes || status) 
+                : (workAtts.map(a => a.notes).filter(Boolean).join('; ') || '')
         ]);
     });
 
@@ -217,6 +225,10 @@ export const generateDetailedReportPDF = async (params: GeneratePDFParams): Prom
                 const status = rawData[1];
                 if (status === 'Vacaciones') {
                     doc.setFillColor(255, 243, 205);
+                } else if (status === 'Festivo') {
+                    doc.setFillColor(254, 243, 199);
+                } else if (status === 'Permiso Justificado') {
+                    doc.setFillColor(237, 233, 254);
                 } else if (status === 'Baja Médica') {
                     doc.setFillColor(248, 215, 218);
                 }

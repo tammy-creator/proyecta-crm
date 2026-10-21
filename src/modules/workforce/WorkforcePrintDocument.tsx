@@ -92,7 +92,9 @@ const WorkforcePrintDocument: React.FC<WorkforcePrintDocumentProps> = ({
             exits,
             total: totalStr,
             appts: apptsCount,
-            notes: workAtts.map(a => a.notes).filter(Boolean).join('; ')
+            notes: absenceAtt 
+                ? (absenceAtt.notes || status) 
+                : (workAtts.map(a => a.notes).filter(Boolean).join('; ') || '')
         };
     });
 

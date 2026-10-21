@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { X, CheckCircle, AlertCircle, PenTool, Eraser, Send, Download, Printer, Clock, Calendar, Users } from 'lucide-react';
-import { format, subMonths, isSameDay, parseISO, eachDayOfInterval, startOfMonth, endOfMonth } from 'date-fns';
+import { format, subMonths, isSameDay, parseISO, eachDayOfInterval, startOfMonth, endOfMonth, startOfDay, endOfDay } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { getMonthlyReport, signMonthlyReport, getSignature, sendSignedReport, getAllAttendance } from './service';
 import { getTherapists } from '../therapists/service';
@@ -153,6 +153,22 @@ const SigningModal: React.FC<SigningModalProps> = ({ onClose, therapistId, initi
         specialty: ''
     } as Therapist);
 
+    const getReportDailyData = (day: Date) => {
+        const dayAtts = attendances.filter(a => a.startTime && isSameDay(parseISO(a.startTime), day));
+        const dayAppts = appointments.filter(a => a.start && isSameDay(parseISO(a.start), day));
+        const workAtts = dayAtts
+            .filter(a => a.type === 'work')
+            .sort((a, b) => a.startTime.localeCompare(b.startTime));
+        const absenceAtt = attendances.find(a => {
+            if (a.type === 'work' || !a.startTime) return false;
+            const sDate = startOfDay(parseISO(a.startTime));
+            const eDate = a.endTime ? endOfDay(parseISO(a.endTime)) : endOfDay(parseISO(a.startTime));
+            const dDate = startOfDay(day);
+            return dDate >= sDate && dDate <= eDate;
+        });
+        return { workAtts, absenceAtt, apptsCount: dayAppts.length };
+    };
+
     const generateLocalPDF = async (sig?: MonthlyReportSignature): Promise<Blob> => {
         if (!tId) throw new Error("No therapist");
         
@@ -160,14 +176,6 @@ const SigningModal: React.FC<SigningModalProps> = ({ onClose, therapistId, initi
             start: startOfMonth(parseISO(selectedMonth + '-01')),
             end: endOfMonth(parseISO(selectedMonth + '-01'))
         });
-
-        const getReportDailyData = (day: Date) => {
-            const dayAtts = attendances.filter(a => a.startTime && isSameDay(parseISO(a.startTime), day));
-            const dayAppts = appointments.filter(a => a.start && isSameDay(parseISO(a.start), day));
-            const workAtts = dayAtts.filter(a => a.type === 'work');
-            const absenceAtt = dayAtts.find(a => a.type !== 'work');
-            return { workAtts, absenceAtt, apptsCount: dayAppts.length };
-        };
 
         const doc = await generateDetailedReportPDF({
             month: selectedMonth,
@@ -241,14 +249,6 @@ const SigningModal: React.FC<SigningModalProps> = ({ onClose, therapistId, initi
                 start: startOfMonth(parseISO(selectedMonth + '-01')),
                 end: endOfMonth(parseISO(selectedMonth + '-01'))
             });
-
-            const getReportDailyData = (day: Date) => {
-                const dayAtts = attendances.filter(a => a.startTime && isSameDay(parseISO(a.startTime), day));
-                const dayAppts = appointments.filter(a => a.start && isSameDay(parseISO(a.start), day));
-                const workAtts = dayAtts.filter(a => a.type === 'work');
-                const absenceAtt = dayAtts.find(a => a.type !== 'work');
-                return { workAtts, absenceAtt, apptsCount: dayAppts.length };
-            };
 
             setPrintData({
                 month: selectedMonth,

@@ -158,7 +158,9 @@ const PrintableWorkforceReport: React.FC<PrintableWorkforceReportProps> = ({
                                 <td style={{ padding: '8px 5px', border: '1px solid #ddd', textAlign: 'center', color: apptsCount === 0 ? '#aaa' : '#000' }}>
                                     {apptsCount > 0 ? apptsCount : '-'}
                                 </td>
-                                <td style={{ padding: '8px 5px', border: '1px solid #ddd', fontStyle: 'italic', color: '#555' }}>{workAtt?.notes || ''}</td>
+                                <td style={{ padding: '8px 5px', border: '1px solid #ddd', fontStyle: 'italic', color: '#555' }}>
+                                    {absenceAtt ? (absenceAtt.notes || status) : (workAtt?.notes || '')}
+                                </td>
                             </tr>
                         );
                     })}

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { 
     format, 
     parseISO, 
@@ -12,7 +12,8 @@ import {
     set,
     subMonths,
     addMonths,
-    isWithinInterval
+    isWithinInterval,
+    differenceInMinutes
 } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { useAuth } from '../../context/AuthContext';
@@ -562,6 +563,48 @@ const WorkforceReport: React.FC = () => {
         };
     };
 
+    const tableSummary = useMemo(() => {
+        let totalMins = 0;
+        let totalAppts = 0;
+        let workedDaysCount = 0;
+        let absenceDaysCount = 0;
+
+        const isAll = selectedTherapistId === 'all';
+        const items = isAll ? timeTrackingTherapists : daysInMonth;
+
+        items.forEach(item => {
+            const day = isAll ? parseISO(filterDate) : (item as Date);
+            const therapist = isAll ? (item as Therapist) : therapists.find(t => t.id === selectedTherapistId);
+            const { workAtts, absenceAtt, apptsCount } = getDailyData(day, isAll ? therapist?.id : undefined);
+
+            totalAppts += apptsCount || 0;
+            if (absenceAtt) absenceDaysCount++;
+            if (workAtts && workAtts.length > 0) {
+                workedDaysCount++;
+                workAtts.forEach(att => {
+                    if (att.startTime && att.endTime) {
+                        try {
+                            const m = differenceInMinutes(parseISO(att.endTime), parseISO(att.startTime));
+                            if (m > 0) totalMins += m;
+                        } catch (_) {}
+                    }
+                });
+            }
+        });
+
+        const hours = Math.floor(totalMins / 60);
+        const mins = totalMins % 60;
+        const formattedHours = totalMins > 0 ? (mins > 0 ? `${hours}h ${mins}m` : `${hours}h`) : '0h';
+
+        return {
+            totalMins,
+            formattedHours,
+            totalAppts,
+            workedDaysCount,
+            absenceDaysCount
+        };
+    }, [selectedTherapistId, filterDate, daysInMonth, timeTrackingTherapists, therapists, attendances, appointments]);
+
     const handleDownloadSignedReport = async (report: MonthlyReportSignature & { therapistName?: string; isPending?: boolean; isInProgress?: boolean }) => {
         try {
             const reportTherapist = therapists.find(t => t.id === report.therapistId) || { 
@@ -1014,6 +1057,7 @@ const WorkforceReport: React.FC = () => {
                                         <th>Estado</th>
                                         <th>Entrada</th>
                                         <th>Salida</th>
+                                        <th>Total Horas</th>
                                         <th>Citas</th>
                                         <th style={{ textAlign: 'right' }}>Acciones</th>
                                     </tr>
@@ -1021,7 +1065,7 @@ const WorkforceReport: React.FC = () => {
                                 <tbody>
                                     {loading ? (
                                         <tr>
-                                            <td colSpan={6}>
+                                            <td colSpan={7}>
                                                 <div className="wf-loading">
                                                     <div className="wf-spinner"></div>
                                                     <span className="wf-loading-text">Cargando registros...</span>
@@ -1036,6 +1080,22 @@ const WorkforceReport: React.FC = () => {
                                             
                                             const { workAtts, absenceAtt, apptsCount, hasMissingClockIn } = getDailyData(day, isAll ? therapist?.id : undefined);
                                             
+                                            const dayMinutes = workAtts.reduce((acc, att) => {
+                                                if (att.startTime && att.endTime) {
+                                                    try {
+                                                        const m = differenceInMinutes(parseISO(att.endTime), parseISO(att.startTime));
+                                                        return m > 0 ? acc + m : acc;
+                                                    } catch (_) {
+                                                        return acc;
+                                                    }
+                                                }
+                                                return acc;
+                                            }, 0);
+
+                                            const dayHours = Math.floor(dayMinutes / 60);
+                                            const dayRemMins = dayMinutes % 60;
+                                            const dayHoursStr = dayMinutes > 0 ? (dayRemMins > 0 ? `${dayHours}h ${dayRemMins}m` : `${dayHours}h`) : '—';
+
                                             const isToday = isSameDay(day, new Date());
                                             const weekend = isWeekend(day);
 
@@ -1096,6 +1156,16 @@ const WorkforceReport: React.FC = () => {
                                                             ))}
                                                             {workAtts.length === 0 && <span className="wf-time-dash">—</span>}
                                                         </div>
+                                                    </td>
+                                                    <td>
+                                                        {dayMinutes > 0 ? (
+                                                            <span className="wf-hours-badge" title={`${(dayMinutes / 60).toFixed(2)} horas trabajadas`}>
+                                                                <Clock size={12} className="wf-icon-clock" />
+                                                                {dayHoursStr}
+                                                            </span>
+                                                        ) : (
+                                                            <span className="wf-time-dash">—</span>
+                                                        )}
                                                     </td>
                                                     <td>
                                                         {apptsCount > 0 ? (
@@ -1203,6 +1273,42 @@ const WorkforceReport: React.FC = () => {
                                         })
                                     )}
                                 </tbody>
+                                {!loading && (
+                                    <tfoot>
+                                        <tr className="wf-table-footer">
+                                            <td>
+                                                <div className="wf-footer-total-label">
+                                                    <strong>Total {selectedTherapistId === 'all' ? 'del día' : 'del mes'}</strong>
+                                                    <span className="wf-footer-subtext">
+                                                        {selectedTherapistId === 'all' 
+                                                            ? `${timeTrackingTherapists.length} profesionales` 
+                                                            : `${daysInMonth.length} días naturales`}
+                                                    </span>
+                                                </div>
+                                            </td>
+                                            <td>
+                                                <span className="wf-footer-stat">
+                                                    {tableSummary.workedDaysCount} {tableSummary.workedDaysCount === 1 ? 'día trabajado' : 'días trabajados'}
+                                                </span>
+                                            </td>
+                                            <td><span className="wf-time-dash">—</span></td>
+                                            <td><span className="wf-time-dash">—</span></td>
+                                            <td>
+                                                <div className="wf-footer-hours" title={`${(tableSummary.totalMins / 60).toFixed(2)} horas acumuladas`}>
+                                                    <Clock size={14} className="wf-icon-clock" />
+                                                    <strong>{tableSummary.formattedHours}</strong>
+                                                </div>
+                                            </td>
+                                            <td>
+                                                <div className="wf-footer-appts">
+                                                    <History size={13} />
+                                                    <strong>{tableSummary.totalAppts} {tableSummary.totalAppts === 1 ? 'cita' : 'citas'}</strong>
+                                                </div>
+                                            </td>
+                                            <td></td>
+                                        </tr>
+                                    </tfoot>
+                                )}
                             </table>
                         </div>
                     </div>

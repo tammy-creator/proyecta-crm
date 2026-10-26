@@ -32,7 +32,7 @@ import {
     startOfDay
 } from 'date-fns';
 import { es } from 'date-fns/locale';
-import { ChevronLeft, ChevronRight, Plus, X, User, UserPlus, Rocket, Puzzle, AlertTriangle, Clock as ClockIcon, DollarSign, Mic, Square, Info, Search, ArrowLeft, CheckCircle2, Repeat, FileText } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Plus, X, User, UserPlus, Rocket, Puzzle, AlertTriangle, Clock as ClockIcon, DollarSign, Mic, Square, Info, Search, ArrowLeft, CheckCircle2, Repeat, FileText, CalendarClock } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { getAppointments, createAppointment, createAppointmentsBatch, updateAppointment, deleteAppointment, checkAppointmentConflict, checkBatchAppointmentConflicts, subscribeToCalendarSync } from './service';
 import { getPatients, getWaitingList } from '../patients/service';
@@ -42,11 +42,12 @@ import { getServices } from '../admin/service';
 import { type Appointment, type AppointmentStatus } from './types';
 import { type Patient } from '../patients/types';
 import { type Therapist } from '../therapists/types';
-import { getIllustrativeAvatar } from '../therapists/utils';
+import { getIllustrativeAvatar, getTherapistDaySchedule } from '../therapists/utils';
 import { type ClinicalService } from '../admin/types';
 import { supabase } from '../../lib/supabase';
 import { useToast } from '../../hooks/useToast';
 import QuickPatientModal from '../patients/QuickPatientModal';
+import SpecialScheduleModal from '../therapists/SpecialScheduleModal';
 import './CalendarView.css';
 
 interface CalendarViewProps {
@@ -153,6 +154,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({ mode: initialMode, therapis
     const [showPatientSuggestions, setShowPatientSuggestions] = useState(false);
     const [isQuickPatientModalOpen, setIsQuickPatientModalOpen] = useState(false);
     const [quickPatientName, setQuickPatientName] = useState('');
+    const [isSpecialScheduleModalOpen, setIsSpecialScheduleModalOpen] = useState(false);
 
     // Si no se pasa modo, se controla con viewMode
     const effectiveMode = initialMode || (viewMode === 'day' ? 'TODAY_MULTI' : 'WEEKLY_SINGLE');
@@ -163,6 +165,22 @@ const CalendarView: React.FC<CalendarViewProps> = ({ mode: initialMode, therapis
 
     // Columnas: O bien los días de la semana, o bien los terapeutas
     const days = eachDayOfInterval({ start: weekStart, end: weekEnd });
+
+    const getSpecialScheduleForDate = (date: Date): { note?: string } | null => {
+        const dateStr = format(date, 'yyyy-MM-dd');
+        if (effectiveTherapistId) {
+            const t = therapists.find(t => t.id === effectiveTherapistId);
+            const sp = t?.specialSchedules?.find(s => s.date === dateStr);
+            if (sp) return { note: sp.note || 'Horario especial' };
+        } else {
+            const found = therapists.find(t => t.specialSchedules?.some(s => s.date === dateStr));
+            if (found) {
+                const sp = found.specialSchedules?.find(s => s.date === dateStr);
+                return { note: sp?.note || 'Horario especial' };
+            }
+        }
+        return null;
+    };
 
     const handleOpenQuickPatientModal = (name: string) => {
         setQuickPatientName(name);
@@ -290,17 +308,21 @@ const CalendarView: React.FC<CalendarViewProps> = ({ mode: initialMode, therapis
     }, []);
 
     // Carga de terapeutas e inicialización de selección
-    useEffect(() => {
+    const fetchTherapistsData = () => {
         getTherapists().then(data => {
             // Filtrar para que 'Administración' y terapeutas inactivas no salgan en el calendario
             const filteredTherapists = data.filter(t => t.specialty !== 'Administración' && t.isActive !== false);
             setTherapists(filteredTherapists);
             const initialId = filterTherapistId || (isRole('THERAPIST') ? user?.therapistId : undefined);
             // Si hay un filtro de terapeuta, seleccionar solo ese; si no, todos por defecto
-            setSelectedTherapistIds(initialId ? [initialId] : filteredTherapists.map(t => t.id));
+            setSelectedTherapistIds(prev => prev.length > 0 ? prev : (initialId ? [initialId] : filteredTherapists.map(t => t.id)));
             // Compute dynamic hour range from therapists' schedules, filtering if necessary
             computeDynamicHours(filteredTherapists, initialId);
         }).catch(err => console.error("Error in getTherapists effect:", err.message || err));
+    };
+
+    useEffect(() => {
+        fetchTherapistsData();
     }, [filterTherapistId, user?.therapistId]);
 
     // Handle navigation from Dashboard
@@ -439,19 +461,39 @@ const CalendarView: React.FC<CalendarViewProps> = ({ mode: initialMode, therapis
         });
 
         filteredList.forEach(t => {
-            if (!t.schedule || t.schedule.length === 0) return;
-            t.schedule.forEach(day => {
-                if (!day.enabled || day.blocks.length === 0) return;
-                day.blocks.forEach(block => {
-                    const startH = parseInt(block.start.split(':')[0], 10);
-                    const endH = parseInt(block.end.split(':')[0], 10) + (parseInt(block.end.split(':')[1], 10) > 0 ? 1 : 0);
-                    if (!found) { minHour = startH; maxHour = endH; found = true; }
-                    else {
-                        if (startH < minHour) minHour = startH;
-                        if (endH > maxHour) maxHour = endH;
-                    }
+            if (t.schedule && t.schedule.length > 0) {
+                t.schedule.forEach(day => {
+                    if (!day.enabled || day.blocks.length === 0) return;
+                    day.blocks.forEach(block => {
+                        const startH = parseInt(block.start.split(':')[0], 10);
+                        const endH = parseInt(block.end.split(':')[0], 10) + (parseInt(block.end.split(':')[1], 10) > 0 ? 1 : 0);
+                        if (!found) { minHour = startH; maxHour = endH; found = true; }
+                        else {
+                            if (startH < minHour) minHour = startH;
+                            if (endH > maxHour) maxHour = endH;
+                        }
+                    });
                 });
-            });
+            }
+
+            // También comprobar si hay horarios especiales para fechas de la semana visible
+            if (t.specialSchedules && t.specialSchedules.length > 0) {
+                t.specialSchedules.forEach(sp => {
+                    if (!sp.enabled || !sp.blocks || sp.blocks.length === 0) return;
+                    const spDate = parseISO(sp.date);
+                    const isInPeriod = isAfter(spDate, subDays(weekStart, 1)) && isBefore(spDate, addDays(weekEnd, 1));
+                    if (!isInPeriod) return;
+                    sp.blocks.forEach(block => {
+                        const startH = parseInt(block.start.split(':')[0], 10);
+                        const endH = parseInt(block.end.split(':')[0], 10) + (parseInt(block.end.split(':')[1], 10) > 0 ? 1 : 0);
+                        if (!found) { minHour = startH; maxHour = endH; found = true; }
+                        else {
+                            if (startH < minHour) minHour = startH;
+                            if (endH > maxHour) maxHour = endH;
+                        }
+                    });
+                });
+            }
         });
 
         filteredAppts.forEach(a => {
@@ -521,15 +563,13 @@ const CalendarView: React.FC<CalendarViewProps> = ({ mode: initialMode, therapis
         if (isAbsence) return false;
 
         const therapist = therapists.find(t => t.id === tId);
-        if (!therapist || !therapist.schedule || therapist.schedule.length === 0) return true; // Si no hay horario, por defecto abierto
+        if (!therapist) return true;
 
-        const dayNames = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'];
-        const dayName = dayNames[getDay(date)];
+        const resolved = getTherapistDaySchedule(therapist, date);
+        if (!resolved.hasExplicitSchedule) return true; // Si no hay horario, por defecto abierto
+        if (!resolved.enabled) return false;
 
-        const daySchedule = therapist.schedule.find(d => d.day === dayName);
-        if (!daySchedule || !daySchedule.enabled) return false;
-
-        return daySchedule.blocks.some(block => {
+        return resolved.blocks.some(block => {
             const startH = parseInt(block.start.split(':')[0], 10);
             const endH = parseInt(block.end.split(':')[0], 10) + (parseInt(block.end.split(':')[1], 10) > 0 ? 1 : 0);
             return hour >= startH && hour < endH;
@@ -540,8 +580,6 @@ const CalendarView: React.FC<CalendarViewProps> = ({ mode: initialMode, therapis
         if (!startStr || !endStr) return therapists;
         const start = parseISO(startStr);
         const end = parseISO(endStr);
-        const dayNames = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'];
-        const dayName = dayNames[getDay(start)];
 
         return therapists.filter(t => {
             // Include if it's the already selected therapist for an existing appointment
@@ -560,14 +598,14 @@ const CalendarView: React.FC<CalendarViewProps> = ({ mode: initialMode, therapis
             // 2. Check schedule (Skip check if we are blocking)
             if (selectedAppt?.status === 'Bloqueada') return true;
 
-            if (!t.schedule || t.schedule.length === 0) return true; // By default open if no schedule
-            const daySchedule = t.schedule.find(d => d.day === dayName);
-            if (!daySchedule || !daySchedule.enabled) return false;
+            const resolved = getTherapistDaySchedule(t, start);
+            if (!resolved.hasExplicitSchedule) return true; // By default open if no schedule
+            if (!resolved.enabled) return false;
 
             const startTimeVal = start.getHours() * 60 + start.getMinutes();
             const endTimeVal = end.getHours() * 60 + end.getMinutes();
 
-            return daySchedule.blocks.some(block => {
+            return resolved.blocks.some(block => {
                 const [bStartH, bStartM] = block.start.split(':').map(Number);
                 const [bEndH, bEndM] = block.end.split(':').map(Number);
                 const bStartTimeVal = bStartH * 60 + bStartM;
@@ -993,10 +1031,6 @@ const CalendarView: React.FC<CalendarViewProps> = ({ mode: initialMode, therapis
             const therapistsToUse = freshTherapists.filter(t => t.specialty !== 'Administración' && t.isActive !== false);
             const normalizedAbsences = freshAbsences || [];
 
-
-
-            const normDay = (name: string) => name.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
-
             const addSlotsInInterval = (intervalStart: Date, intervalEnd: Date, t: Therapist, blockStartMins: number) => {
                 let s = new Date(intervalStart);
                 const currentMins = s.getMinutes();
@@ -1032,8 +1066,6 @@ const CalendarView: React.FC<CalendarViewProps> = ({ mode: initialMode, therapis
 
             for (const day of viewDays) {
                 const dayStr = format(day, 'yyyy-MM-dd');
-                const dayNameRaw = format(day, "EEEE", { locale: es });
-                const targetDayName = normDay(dayNameRaw);
 
                 const dayTherapists = targetTherapistId === 'all'
                     ? therapistsToUse
@@ -1042,9 +1074,9 @@ const CalendarView: React.FC<CalendarViewProps> = ({ mode: initialMode, therapis
 
 
                 for (const t of dayTherapists) {
-                    const daySchedule = t.schedule?.find(s => normDay(s.day) === targetDayName);
+                    const resolved = getTherapistDaySchedule(t, day);
 
-                    if (!daySchedule || !daySchedule.enabled || !daySchedule.blocks) continue;
+                    if (!resolved.enabled || !resolved.blocks || resolved.blocks.length === 0) continue;
 
                     const dayDate = startOfDay(parseISO(dayStr));
                     const dayAbsences = normalizedAbsences.filter(a => {
@@ -1069,7 +1101,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({ mode: initialMode, therapis
 
 
 
-                    for (const block of daySchedule.blocks) {
+                    for (const block of resolved.blocks) {
                         const [startH, startM] = block.start.split(':').map(Number);
                         const [endH, endM] = block.end.split(':').map(Number);
                         const workStart = setMinutes(setHours(startOfDay(day), startH), startM);
@@ -1488,12 +1520,23 @@ const CalendarView: React.FC<CalendarViewProps> = ({ mode: initialMode, therapis
                 <div className="calendar-controls-wrapper">
                     <div className="calendar-nav-toolbar">
                         <div className="calendar-nav-left">
-                            <h2 className="current-view-label uppercase text-sm tracking-wider text-gray-800 font-extrabold max-w-[200px] text-left truncate">
-                                {effectiveMode === 'TODAY_MULTI'
-                                    ? format(currentDate, "eeee, d MMMM yyyy", { locale: es })
-                                    : `SEMANA: ${format(weekStart, "d MMM", { locale: es })} - ${format(weekEnd, "d MMM", { locale: es })}`
-                                }
-                            </h2>
+                            <div className="flex items-center gap-2">
+                                <h2 className="current-view-label uppercase text-sm tracking-wider text-gray-800 font-extrabold max-w-[200px] text-left truncate">
+                                    {effectiveMode === 'TODAY_MULTI'
+                                        ? format(currentDate, "eeee, d MMMM yyyy", { locale: es })
+                                        : `SEMANA: ${format(weekStart, "d MMM", { locale: es })} - ${format(weekEnd, "d MMM", { locale: es })}`
+                                    }
+                                </h2>
+                                {effectiveMode === 'TODAY_MULTI' && (() => {
+                                    const sp = getSpecialScheduleForDate(currentDate);
+                                    if (!sp) return null;
+                                    return (
+                                        <span className="text-[10px] bg-amber-100 text-amber-800 font-bold px-2 py-0.5 rounded-full border border-amber-300">
+                                            {sp.note || 'Horario Especial'}
+                                        </span>
+                                    );
+                                })()}
+                            </div>
                             <div className="calendar-nav-controls">
                                 <button className="nav-btn-arrow" onClick={prevPeriod} title="Anterior"><ChevronLeft size={20} /></button>
                                 <button className="nav-btn-today" onClick={goToToday}>Hoy</button>
@@ -1529,6 +1572,16 @@ const CalendarView: React.FC<CalendarViewProps> = ({ mode: initialMode, therapis
                                 <button className="calendar-btn-pill calendar-btn-secondary" onClick={() => findGaps(radarRange, effectiveTherapistId || 'all')} style={{ display: 'flex', alignItems: 'center', gap: '6px' }} title="Buscar huecos disponibles en la agenda">
                                     <Puzzle size={16} /> Radar Huecos
                                 </button>
+                                {isRole('ADMIN') && (
+                                    <button
+                                        className="calendar-btn-pill calendar-btn-secondary"
+                                        onClick={() => setIsSpecialScheduleModalOpen(true)}
+                                        style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
+                                        title="Gestionar horarios especiales por fecha (ej. días no lectivos)"
+                                    >
+                                        <CalendarClock size={16} /> Horarios Especiales
+                                    </button>
+                                )}
                                 {isRole('ADMIN') && (
                                     <button
                                         className="calendar-btn-pill calendar-btn-primary"
@@ -1643,13 +1696,27 @@ const CalendarView: React.FC<CalendarViewProps> = ({ mode: initialMode, therapis
                                             </span>
                                         </div>
                                     ) : (
-                                        <div className={`day-col-header ${isSameDay(col as Date, new Date()) ? 'today' : ''} flex flex-row items-center justify-center gap-1 h-full`}>
-                                            <span className="day-name font-bold text-[11px] uppercase text-gray-500">
-                                                {format(col as Date, 'EEE', { locale: es })}
-                                            </span>
-                                            <span className={`day-number font-black text-[13px] ${isSameDay(col as Date, new Date()) ? 'bg-[#e07a5f] text-white rounded-md px-1' : 'text-gray-800'}`}>
-                                                {format(col as Date, 'd')}
-                                            </span>
+                                        <div className={`day-col-header ${isSameDay(col as Date, new Date()) ? 'today' : ''} flex flex-col items-center justify-center gap-0.5 h-full py-1`}>
+                                            <div className="flex flex-row items-center justify-center gap-1">
+                                                <span className="day-name font-bold text-[11px] uppercase text-gray-500">
+                                                    {format(col as Date, 'EEE', { locale: es })}
+                                                </span>
+                                                <span className={`day-number font-black text-[13px] ${isSameDay(col as Date, new Date()) ? 'bg-[#e07a5f] text-white rounded-md px-1' : 'text-gray-800'}`}>
+                                                    {format(col as Date, 'd')}
+                                                </span>
+                                            </div>
+                                            {(() => {
+                                                const sp = getSpecialScheduleForDate(col as Date);
+                                                if (!sp) return null;
+                                                return (
+                                                    <span
+                                                        className="text-[9px] bg-amber-100 text-amber-800 font-bold px-1.5 py-0.2 rounded-full border border-amber-300 max-w-[90%] truncate cursor-help"
+                                                        title={sp.note || 'Horario Especial'}
+                                                    >
+                                                        {sp.note || 'Especial'}
+                                                    </span>
+                                                );
+                                            })()}
                                         </div>
                                     )}
                                 </div>
@@ -2891,6 +2958,14 @@ const CalendarView: React.FC<CalendarViewProps> = ({ mode: initialMode, therapis
                 onClose={() => setIsQuickPatientModalOpen(false)}
                 onSuccess={handleQuickPatientSuccess}
                 initialName={quickPatientName}
+            />
+
+            {/* Modal de Horarios Especiales / Excepciones por Fecha */}
+            <SpecialScheduleModal
+                isOpen={isSpecialScheduleModalOpen}
+                onClose={() => setIsSpecialScheduleModalOpen(false)}
+                therapists={therapists}
+                onSaveSuccess={fetchTherapistsData}
             />
         </div>
     );

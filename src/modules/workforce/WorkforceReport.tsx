@@ -55,7 +55,7 @@ import { getTherapists, updateTherapistTimeTracking } from '../therapists/servic
 import { getAppointments } from '../calendar/service';
 import { supabase } from '../../lib/supabase';
 import type { Therapist, WorkingHours } from '../therapists/types';
-import { DAYS_OF_WEEK } from '../therapists/types';
+import { getTherapistDaySchedule } from '../therapists/utils';
 import type { Attendance, AttendanceType, MonthlyReportSignature } from './types';
 import type { CenterSettings } from '../admin/types';
 import { getCenterSettings } from '../admin/service';
@@ -1237,18 +1237,11 @@ const WorkforceReport: React.FC = () => {
                                                                       className="wf-action-add"
                                                                       onClick={() => {
                                                                           const date = startOfDay(day);
-                                                                          const dayIdx = day.getDay();
                                                                           let initialBlocks: WorkingHours[] = [];
 
-                                                                          if (dayIdx !== 0 && therapist?.schedule) {
-                                                                              const dayName = DAYS_OF_WEEK[dayIdx - 1];
-                                                                              const daySched = therapist.schedule.find(s => 
-                                                                                  s.day?.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "") === 
-                                                                                  dayName.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "")
-                                                                              );
-                                                                              if (daySched?.enabled && daySched.blocks.length > 0) {
-                                                                                  initialBlocks = [...daySched.blocks];
-                                                                              }
+                                                                          const resolved = getTherapistDaySchedule(therapist, day);
+                                                                          if (resolved.enabled && resolved.blocks.length > 0) {
+                                                                              initialBlocks = [...resolved.blocks];
                                                                           }
 
                                                                           if (initialBlocks.length === 0) {

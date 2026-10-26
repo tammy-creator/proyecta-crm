@@ -1,5 +1,5 @@
 import { supabase } from '../../lib/supabase';
-import { type Therapist } from './types';
+import { type Therapist, type SpecialSchedule, type WorkingHours } from './types';
 
 const mapTherapist = (row: any): Therapist => {
     let avatarUrl = row.avatar_url;
@@ -14,6 +14,7 @@ const mapTherapist = (row: any): Therapist => {
     const cleanSchedule = rawSchedule.filter((s: any) => !s.day?.startsWith('__'));
     const isActive = row.is_active !== undefined ? Boolean(row.is_active) : !isInactiveMeta;
     const hasTimeTracking = !isNoTimeTrackingMeta;
+    const specialSchedules = Array.isArray(row.special_schedules) ? row.special_schedules : [];
 
     return {
         id: row.id,
@@ -27,6 +28,7 @@ const mapTherapist = (row: any): Therapist => {
         avatarUrl: avatarUrl,
         sessionStartOffset: row.session_start_offset ?? 0,
         schedule: cleanSchedule,
+        specialSchedules: specialSchedules,
         isActive: isActive,
         hasTimeTracking: hasTimeTracking,
     };
@@ -61,6 +63,7 @@ export const createTherapist = async (therapist: Omit<Therapist, 'id'>): Promise
         avatar_url: therapist.avatarUrl,
         session_start_offset: therapist.sessionStartOffset ?? 0,
         schedule: scheduleToSave,
+        special_schedules: therapist.specialSchedules ?? [],
     };
 
     // Try inserting with is_active if column exists in database
@@ -102,6 +105,7 @@ export const updateTherapist = async (therapist: Therapist): Promise<Therapist> 
         avatar_url: therapist.avatarUrl,
         session_start_offset: therapist.sessionStartOffset ?? 0,
         schedule: scheduleToSave,
+        special_schedules: therapist.specialSchedules ?? [],
     };
 
     // Try updating with is_active if column exists in database
@@ -231,5 +235,79 @@ export const uploadTherapistAvatar = async (therapistId: string, file: File): Pr
 
     const baseUrl = import.meta.env.VITE_AVATARS_SERVER_URL || '';
     return `${baseUrl}${cleanFileName}`;
+};
+
+export const saveSpecialSchedulesForTherapists = async (
+    therapistIds: string[],
+    dates: string[], // ['2026-10-30', '2026-11-02', '2026-11-03']
+    blocks: WorkingHours[],
+    enabled: boolean = true,
+    note?: string
+): Promise<void> => {
+    if (therapistIds.length === 0 || dates.length === 0) return;
+
+    const { data: rows, error: fetchErr } = await supabase
+        .from('therapists')
+        .select('id, special_schedules')
+        .in('id', therapistIds);
+
+    if (fetchErr) throw fetchErr;
+
+    const updates = (rows || []).map(row => {
+        let specials: SpecialSchedule[] = Array.isArray(row.special_schedules) ? [...row.special_schedules] : [];
+
+        dates.forEach(dateStr => {
+            // Eliminar si ya existía para esa fecha
+            specials = specials.filter(s => s.date !== dateStr);
+            // Insertar nueva excepción
+            specials.push({
+                id: `${dateStr}_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
+                date: dateStr,
+                enabled,
+                blocks,
+                note: note || undefined
+            });
+        });
+
+        // Ordenar por fecha ascendente
+        specials.sort((a, b) => a.date.localeCompare(b.date));
+
+        return supabase
+            .from('therapists')
+            .update({ special_schedules: specials, updated_at: new Date().toISOString() })
+            .eq('id', row.id);
+    });
+
+    const results = await Promise.all(updates);
+    const hasError = results.find(r => r.error);
+    if (hasError?.error) throw hasError.error;
+};
+
+export const removeSpecialScheduleForTherapists = async (
+    therapistIds: string[],
+    date: string
+): Promise<void> => {
+    if (therapistIds.length === 0 || !date) return;
+
+    const { data: rows, error: fetchErr } = await supabase
+        .from('therapists')
+        .select('id, special_schedules')
+        .in('id', therapistIds);
+
+    if (fetchErr) throw fetchErr;
+
+    const updates = (rows || []).map(row => {
+        const specials: SpecialSchedule[] = (Array.isArray(row.special_schedules) ? row.special_schedules : [])
+            .filter((s: SpecialSchedule) => s.date !== date);
+
+        return supabase
+            .from('therapists')
+            .update({ special_schedules: specials, updated_at: new Date().toISOString() })
+            .eq('id', row.id);
+    });
+
+    const results = await Promise.all(updates);
+    const hasError = results.find(r => r.error);
+    if (hasError?.error) throw hasError.error;
 };
 

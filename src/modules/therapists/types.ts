@@ -9,6 +9,14 @@ export interface DaySchedule {
     blocks: WorkingHours[];
 }
 
+export interface SpecialSchedule {
+    id: string;
+    date: string; // 'yyyy-MM-dd'
+    enabled: boolean;
+    blocks: WorkingHours[];
+    note?: string; // Ej: "Día no lectivo"
+}
+
 export interface Therapist {
     id: string;
     fullName: string;
@@ -19,6 +27,7 @@ export interface Therapist {
     phone: string;
     color: string; // Color identificativo para la agenda
     schedule: DaySchedule[];
+    specialSchedules?: SpecialSchedule[];
     avatarUrl?: string; // Optional
     sessionStartOffset?: number; // Minutes from the hour (e.g. 0, 10, 50/-10)
     isActive?: boolean; // Estado activo/inactivo (oculta del calendario si es false)

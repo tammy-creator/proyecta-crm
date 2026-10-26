@@ -2,8 +2,8 @@ import { supabase } from '../../lib/supabase';
 import { format, differenceInSeconds, parseISO, addHours, startOfDay, endOfDay, isWithinInterval, set } from 'date-fns';
 import { addAuditLog } from '../admin/service';
 import type { WorkLog, WorkLogEvent, WorkStatus, MonthlyReportSignature, Attendance, AttendanceType } from './types';
-import type { DaySchedule, WorkingHours } from '../therapists/types';
-import { DAYS_OF_WEEK } from '../therapists/types';
+import type { WorkingHours } from '../therapists/types';
+import { getTherapistDaySchedule } from '../therapists/utils';
 
 // ─── New Attendance System ───────────────────────────────────────────────────
 
@@ -421,33 +421,25 @@ export const checkScheduleAdherence = async (therapistId: string, checkDate?: Da
     try {
         const { data: therapist, error } = await supabase
             .from('therapists')
-            .select('schedule')
+            .select('schedule, special_schedules')
             .eq('id', therapistId)
             .single();
 
         if (error || !therapist) return { isAdherent: true };
 
-        const schedule: DaySchedule[] = therapist.schedule || [];
         const now = checkDate || new Date();
-        const dayIdx = now.getDay(); 
-        
-        // Sunday
-        if (dayIdx === 0) return { isAdherent: false };
+        const resolved = getTherapistDaySchedule({
+            schedule: therapist.schedule || [],
+            specialSchedules: therapist.special_schedules || []
+        }, now);
 
-        // DAYS_OF_WEEK: ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado']
-        const dayName = DAYS_OF_WEEK[dayIdx - 1]; 
-        const daySched = schedule.find(s => 
-            s.day?.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "") === 
-            dayName.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "")
-        );
-
-        if (!daySched || !daySched.enabled || !daySched.blocks.length) {
+        if (!resolved.enabled || !resolved.blocks.length) {
             return { isAdherent: false };
         }
 
         const BUFFER_MINUTES = 10;
 
-        const activeBlock = daySched.blocks.find(block => {
+        const activeBlock = resolved.blocks.find(block => {
             const [startH, startM] = block.start.split(':').map(Number);
             const [endH, endM] = block.end.split(':').map(Number);
             

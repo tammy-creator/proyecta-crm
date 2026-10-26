@@ -3,12 +3,13 @@ import { getTherapists, createTherapist, updateTherapist, uploadTherapistAvatar,
 import { type Therapist, type DaySchedule, SPECIALTIES, DAYS_OF_WEEK } from './types';
 import { getIllustrativeAvatar } from './utils';
 import Card from '../../components/ui/Card';
-import { Mail, Phone, Calendar as CalendarIcon, Edit2, Plus, X, Trash2, Clock, Upload, AlertTriangle } from 'lucide-react';
+import { Mail, Phone, Calendar as CalendarIcon, Edit2, Plus, X, Trash2, Clock, Upload, AlertTriangle, CalendarClock } from 'lucide-react';
 import './TherapistList.css';
 
 import { useAuth } from '../../context/AuthContext';
 import { useToast } from '../../hooks/useToast';
 import CalendarView from '../calendar/CalendarView';
+import SpecialScheduleModal from './SpecialScheduleModal';
 
 const DEFAULT_AVATAR = '';
 
@@ -20,6 +21,7 @@ const TherapistList: React.FC = () => {
     const [isSaving, setIsSaving] = useState(false);
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [isAgendaOpen, setIsAgendaOpen] = useState(false);
+    const [isSpecialScheduleModalOpen, setIsSpecialScheduleModalOpen] = useState(false);
     const [selectedTherapist, setSelectedTherapist] = useState<Partial<Therapist> | null>(null);
     const [activeScheduleDay, setActiveScheduleDay] = useState(0); // 0 = Lunes
     const [avatarFile, setAvatarFile] = useState<File | null>(null);
@@ -246,10 +248,21 @@ const TherapistList: React.FC = () => {
                     </div>
 
                     {isRole('ADMIN') && (
-                        <button className="calendar-btn-pill calendar-btn-primary" onClick={() => handleOpenModal()}>
-                            <Plus size={18} />
-                            <span>Nuevo Terapeuta</span>
-                        </button>
+                        <>
+                            <button
+                                type="button"
+                                className="calendar-btn-pill calendar-btn-secondary"
+                                onClick={() => setIsSpecialScheduleModalOpen(true)}
+                                style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
+                            >
+                                <CalendarClock size={16} />
+                                <span>Horarios Especiales</span>
+                            </button>
+                            <button className="calendar-btn-pill calendar-btn-primary" onClick={() => handleOpenModal()}>
+                                <Plus size={18} />
+                                <span>Nuevo Terapeuta</span>
+                            </button>
+                        </>
                     )}
                 </div>
             </div>
@@ -727,6 +740,14 @@ const TherapistList: React.FC = () => {
                     </div>
                 </div>
             )}
+            {/* Modal de Horarios Especiales / Excepciones por Fecha */}
+            <SpecialScheduleModal
+                isOpen={isSpecialScheduleModalOpen}
+                onClose={() => setIsSpecialScheduleModalOpen(false)}
+                therapists={therapists}
+                onSaveSuccess={fetchData}
+            />
+
             {/* Espaciador final para asegurar margen inferior visual */}
             <div style={{ height: '250px', width: '100%', flexShrink: 0 }} aria-hidden="true" />
         </div>

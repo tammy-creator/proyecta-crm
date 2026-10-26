@@ -150,3 +150,87 @@ export interface MonthlyStatementData {
     expensesByCategory: Record<FinancialCategory, number>;
     incomeByCategory: Record<FinancialCategory, number>;
 }
+
+export interface MonthlyCollectionSummary {
+    totalBilled: number;          // Facturación total teórica
+    totalCollected: number;       // Cobrado efectivamente (Pagado)
+    totalPending: number;         // Pendiente de cobro (Pendiente)
+    collectionRate: number;       // % Cobrado / Facturado
+    paidSessionsCount: number;
+    pendingSessionsCount: number;
+    byMethod: {
+        method: string;
+        amount: number;
+        count: number;
+        percentage: number;
+    }[];
+    pendingPatients: {
+        patientId?: string;
+        patientName: string;
+        amount: number;
+        count: number;
+        lastDate: string;
+    }[];
+}
+
+export type AiInsightCategory = 'COBROS' | 'GASTOS' | 'PRODUCTIVIDAD' | 'CANCELACIONES' | 'ESTRATEGIA';
+export type AiInsightSeverity = 'HIGH' | 'MEDIUM' | 'LOW' | 'TIP';
+
+export interface AiInsight {
+    id: string;
+    category: AiInsightCategory;
+    severity: AiInsightSeverity;
+    title: string;
+    description: string;
+    actionableRecommendation: string;
+    estimatedImpact?: string;
+}
+
+export interface AiHealthDiagnosis {
+    score: number; // 0 - 100
+    level: 'EXCELLENT' | 'HEALTHY' | 'WARNING' | 'CRITICAL';
+    title: string;
+    summary: string;
+    strengths: string[];
+    criticalAlerts: string[];
+    insights: AiInsight[];
+    generatedAt: string;
+}
+
+export interface AcademicYearMonth {
+    monthKey: string;      // "2026-09"
+    monthLabel: string;    // "Septiembre 2026"
+    shortLabel: string;    // "Sep 26"
+    hasBankStatement: boolean;
+    bankIncome: number;
+    bankExpenses: number;
+    bankNet: number;
+    crmCollected: number;
+    crmPending: number;
+    crmBilled: number;
+    sessionsCount: number;
+    marginPercent: number;
+}
+
+export interface AcademicYearData {
+    academicYearKey: string;   // "2026-2027"
+    academicYearLabel: string; // "Curso 2026 - 2027 (Septiembre - Septiembre)"
+    startYear: number;
+    months: AcademicYearMonth[];
+    accumulated: {
+        totalBankIncome: number;
+        totalBankExpenses: number;
+        totalBankNet: number;
+        totalCrmCollected: number;
+        totalCrmPending: number;
+        totalCrmBilled: number;
+        totalSessions: number;
+        overallMarginPercent: number;
+        overallCollectionRate: number;
+        averageMonthlyIncome: number;
+        averageMonthlyExpenses: number;
+        averageMonthlyNet: number;
+        activeMonthsWithData: number;
+    };
+}
+

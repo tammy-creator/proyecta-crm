@@ -89,8 +89,9 @@ export const BankMovementsModal: React.FC<BankMovementsModalProps> = ({
             isOpen={isOpen} 
             onClose={onClose} 
             title={`Extracto Bancario - ${monthLabel}`}
+            maxWidth="1200px"
         >
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem', width: '100%', maxWidth: '1050px', maxHeight: '82vh' }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem', width: '100%', maxHeight: '82vh' }}>
                 
                 {/* Cabecera / Subtítulo */}
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '0.75rem', borderBottom: '1px solid #f1f5f9', paddingBottom: '0.75rem' }}>

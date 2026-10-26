@@ -35,7 +35,7 @@ export const parseAmount = (val: any): number => {
     if (!val) return 0;
 
     let str = String(val).trim();
-    // Quitar símbolo de moneda, espacios normales y no separables (\u00A0, \u202F, etc.)
+    // Quitar símbolo de moneda y todo tipo de espacios (incluyendo no separables \u00A0, \u202F)
     str = str.replace(/€|EUR|eur|[\s\u00A0\u202F\u200B]/g, '');
 
     let isNegative = false;
@@ -52,7 +52,7 @@ export const parseAmount = (val: any): number => {
         str = str.slice(1).trim();
     }
 
-    // Formato numérico con separadores de miles y decimales
+    // Formato con punto y coma: 1.250,50 o 1,250.50
     if (str.includes(',') && str.includes('.')) {
         const lastDot = str.lastIndexOf('.');
         const lastComma = str.lastIndexOf(',');
@@ -64,6 +64,7 @@ export const parseAmount = (val: any): number => {
             str = str.replace(/,/g, '');
         }
     } else if (str.includes(',')) {
+        // Solo coma decimal: 1250,50 o -83,31
         str = str.replace(',', '.');
     }
 
@@ -73,7 +74,7 @@ export const parseAmount = (val: any): number => {
 };
 
 /**
- * Convierte un valor de fecha (Excel serial, Date nativo o string) a string YYYY-MM-DD local.
+ * Convierte un valor de fecha (Date nativo, serial de Excel o string DD/MM/YYYY) a string YYYY-MM-DD local.
  */
 export const parseDateToISO = (val: any): string => {
     if (!val) return '';
@@ -370,8 +371,27 @@ export const parseBankStatementFile = async (
     monthKey: string,
     patients: Patient[] = []
 ): Promise<ParseResult> => {
-    const arrayBuffer = await file.arrayBuffer();
-    const workbook = XLSX.read(arrayBuffer, { type: 'array', cellDates: true });
+    const isCsv = file.name.toLowerCase().endsWith('.csv');
+    let workbook: XLSX.WorkBook;
+
+    if (isCsv) {
+        const arrayBuffer = await file.arrayBuffer();
+        // Intentar decodificar como UTF-8
+        let text = new TextDecoder('utf-8', { fatal: false }).decode(arrayBuffer);
+        // Si hay caracteres no válidos de UTF-8, decodificar con Windows-1252 (estándar bancario español)
+        if (text.includes('\uFFFD')) {
+            try {
+                text = new TextDecoder('windows-1252').decode(arrayBuffer);
+            } catch {
+                // Mantener utf-8
+            }
+        }
+        // IMPORTANTE: raw: true para que XLSX no interprete la coma decimal española como separador de miles!
+        workbook = XLSX.read(text, { type: 'string', raw: true });
+    } else {
+        const arrayBuffer = await file.arrayBuffer();
+        workbook = XLSX.read(arrayBuffer, { type: 'array', raw: true });
+    }
 
     const firstSheetName = workbook.SheetNames[0];
     if (!firstSheetName) {
@@ -379,7 +399,8 @@ export const parseBankStatementFile = async (
     }
 
     const worksheet = workbook.Sheets[firstSheetName];
-    const rows: any[][] = XLSX.utils.sheet_to_json(worksheet, { header: 1, defval: '' });
+    // raw: true es fundamental para que preserve strings con formato español ("-83,31", "-1.130,23")
+    const rows: any[][] = XLSX.utils.sheet_to_json(worksheet, { header: 1, defval: '', raw: true });
 
     if (!rows || rows.length === 0) {
         throw new Error('El extracto bancario está vacío.');
@@ -400,42 +421,42 @@ export const parseBankStatementFile = async (
         }
     }
 
-    // 2. Encontrar la fila de cabeceras de la tabla
+    // 2. Encontrar la fila de cabeceras de la tabla con tolerancia a codificaciones
     let headerRowIdx = -1;
     let colMap: Record<string, number> = {};
 
     for (let r = 0; r < Math.min(15, rows.length); r++) {
         const row = rows[r].map(c => normalizeText(String(c)));
         
-        const hasDate = row.some(c => c.includes('FECHA') || c.includes('F. VALOR') || c.includes('F. CONTABLE') || c.includes('F. OPERACION'));
-        const hasConcept = row.some(c => c.includes('DESCRIPCION') || c.includes('CONCEPTO') || c.includes('MOVIMIENTO') || c.includes('DETALLE'));
-        const hasAmount = row.some(c => c.includes('IMPORTE') || c.includes('CANTIDAD') || (c.includes('CARGO') && row.some(x => x.includes('ABONO'))));
+        const hasDate = row.some(c => c.includes('FECHA') || c.includes('VALOR') || c.includes('CONTAB') || c.includes('OPERAC'));
+        const hasConcept = row.some(c => c.includes('DESCRIP') || c.includes('CONCEP') || c.includes('MOVIMIENTO') || c.includes('DETALLE'));
+        const hasAmount = row.some(c => c.includes('IMPORT') || c.includes('CANTIDAD') || (c.includes('CARGO') && row.some(x => x.includes('ABONO'))));
 
         if ((hasDate && hasConcept) || (hasConcept && hasAmount)) {
             headerRowIdx = r;
             
-            // Mapear columnas con precisión
+            // Mapear columnas con tolerancia
             row.forEach((colName, cIdx) => {
-                if (colName.includes('F. CONTABLE')) colMap.accDate = cIdx;
-                else if (colName.includes('F. OPERACION') || colName.includes('F. OPERACIÓN')) colMap.opDate = cIdx;
-                else if (colName.includes('F. VALOR')) colMap.valDate = cIdx;
+                if (colName.includes('CONTAB')) colMap.accDate = cIdx;
+                else if (colName.includes('OPERAC')) colMap.opDate = cIdx;
+                else if (colName.includes('VALOR')) colMap.valDate = cIdx;
                 else if (colName.includes('FECHA')) {
                     if (colMap.opDate === undefined) colMap.opDate = cIdx;
                 }
 
-                if (colName.includes('DESCRIPCION') || colName.includes('CONCEPTO') || colName.includes('MOVIMIENTO') || colName.includes('DETALLE')) {
+                if (colName.includes('DESCRIP') || colName.includes('CONCEP') || colName.includes('MOVIMIENTO') || colName.includes('DETALLE')) {
                     colMap.concept = cIdx;
                 }
 
-                if (colName.includes('TIPO OPERACION') || colName.includes('TIPO')) {
+                if (colName.includes('TIPO')) {
                     colMap.opType = cIdx;
                 }
 
-                if (colName.includes('REFERENCIA') || colName.includes('REF')) {
+                if (colName.includes('REFEREN') || colName.includes('REF')) {
                     colMap.ref = cIdx;
                 }
 
-                if (colName.includes('IMPORTE') || colName.includes('CANTIDAD')) {
+                if (colName.includes('IMPORT') || colName.includes('CANTIDAD')) {
                     colMap.amount = cIdx;
                 }
 
@@ -446,7 +467,7 @@ export const parseBankStatementFile = async (
                     colMap.credit = cIdx;
                 }
 
-                if (colName.includes('SALDO')) {
+                if (colName.includes('SALD')) {
                     colMap.balance = cIdx;
                 }
 

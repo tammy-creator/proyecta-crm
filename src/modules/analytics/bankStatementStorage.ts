@@ -9,6 +9,7 @@ const CUSTOM_RULES_KEY = 'proyecta_bank_custom_category_rules';
 
 /**
  * Recalcula totales de ingresos, gastos, margen y desgloses por categoría.
+ * Incluye auto-recuperación si detecta datos guardados previamente con el error de escala x100 de CSV.
  */
 export const recalculateStatementTotals = (data: MonthlyStatementData): MonthlyStatementData => {
     let totalIncome = 0;
@@ -23,7 +24,29 @@ export const recalculateStatementTotals = (data: MonthlyStatementData): MonthlyS
         incomeByCategory[cat] = 0;
     });
 
-    data.movements.forEach(m => {
+    // Auto-corrección si se detecta que los datos previos venían multiplicados por 100
+    // (ej. nóminas de -152.688€ en lugar de -1.526,88€ o facturas de luz de -8.331€)
+    const hasUnscaledBug = data.movements.some(m => 
+        Math.abs(m.amount) > 50000 && 
+        (
+            (m.concept || '').toUpperCase().includes('NOMINA') || 
+            (m.concept || '').toUpperCase().includes('IBERDROLA') || 
+            (m.concept || '').toUpperCase().includes('AMORTIZACION') ||
+            (m.concept || '').toUpperCase().includes('SEGUROS') ||
+            (m.concept || '').toUpperCase().includes('TELEFONICA')
+        )
+    );
+
+    let movementsToProcess = data.movements;
+    if (hasUnscaledBug) {
+        movementsToProcess = data.movements.map(m => ({
+            ...m,
+            amount: Math.round((m.amount / 100) * 100) / 100,
+            balance: m.balance !== undefined ? Math.round((m.balance / 100) * 100) / 100 : undefined
+        }));
+    }
+
+    movementsToProcess.forEach(m => {
         if (m.amount >= 0) {
             totalIncome += m.amount;
             incomeByCategory[m.category] = (incomeByCategory[m.category] || 0) + m.amount;
@@ -41,6 +64,7 @@ export const recalculateStatementTotals = (data: MonthlyStatementData): MonthlyS
 
     return {
         ...data,
+        movements: movementsToProcess,
         totalIncome,
         totalExpenses,
         netResult,
@@ -58,7 +82,12 @@ export const getStatementForMonth = (monthKey: string): MonthlyStatementData | n
         const raw = localStorage.getItem(`${STORAGE_KEY_PREFIX}${monthKey}`);
         if (!raw) return null;
         const parsed = JSON.parse(raw);
-        return recalculateStatementTotals(parsed);
+        const calculated = recalculateStatementTotals(parsed);
+        // Si se aplicó la auto-corrección, persistirla de vuelta limpia
+        if (calculated.totalExpenses !== parsed.totalExpenses) {
+            localStorage.setItem(`${STORAGE_KEY_PREFIX}${monthKey}`, JSON.stringify(calculated));
+        }
+        return calculated;
     } catch (err) {
         console.error('Error al cargar extracto bancario:', err);
         return null;

@@ -43,10 +43,10 @@ import {
 } from './types';
 import { 
     getStatementForMonth, 
-    saveStatementForMonth, 
     deleteStatementForMonth, 
     updateMovementCategory 
 } from './bankStatementStorage';
+import { type ParseResult } from './bankStatementParser';
 import BankStatementUploader from './BankStatementUploader';
 import BankMovementsModal from './BankMovementsModal';
 
@@ -61,10 +61,10 @@ const METRIC_DETAILS: Record<string, { title: string; definition: string; analys
     },
     revenue: {
         title: 'Ingresos',
-        definition: 'Entradas económicas. Con extracto bancario muestra las entradas reales a cuenta; sin él, las sesiones del CRM.',
+        definition: 'Entradas económicas. Con extracto bancario muestra las entradas reales a cuenta; sin él, las sesiones cobradas del CRM.',
         analysis: (s, stmt) => stmt 
-            ? `Ingresos reales de ${stmt.totalIncome}€ en cuenta bancaria (vs ${s.totalRevenue}€ registrados en citas).` 
-            : `Has generado ${s.totalRevenue}€ según citas. Sube el extracto bancario para ver el ingreso real en cuenta.`,
+            ? `Ingresos reales de ${stmt.totalIncome}€ en cuenta bancaria (vs ${s.totalRevenue}€ cobrados en citas del CRM).` 
+            : `Has cobrado ${s.totalRevenue}€ según citas (con ${s.pendingRevenue}€ pendientes). Sube el extracto bancario para ver el ingreso real en cuenta.`,
         icon: DollarSign
     },
     expenses: {
@@ -85,8 +85,8 @@ const METRIC_DETAILS: Record<string, { title: string; definition: string; analys
     },
     profitability: {
         title: 'Eficiencia por Profesional',
-        definition: 'Comparación entre horas presenciales en el centro y horas facturadas.',
-        analysis: () => 'Buen equilibrio entre horas trabajadas y facturadas en el equipo.',
+        definition: 'Comparación entre horas de presencia/trabajadas y horas facturadas por cada terapeuta.',
+        analysis: () => 'Buen equilibrio entre horas trabajadas y facturadas en el equipo terapéutico.',
         icon: BarChart3
     },
     cancellations: {
@@ -131,9 +131,15 @@ const AnalyticsDashboard: React.FC = () => {
         setLoading(false);
     };
 
-    const handleStatementLoaded = (data: MonthlyStatementData) => {
-        saveStatementForMonth(monthKey, data);
-        setStatement(data);
+    const handleStatementLoaded = (result: ParseResult) => {
+        if (result.suggestedMonthKey && result.suggestedMonthKey !== monthKey) {
+            const [y, m] = result.suggestedMonthKey.split('-').map(Number);
+            setMonth(new Date(y, m - 1, 1));
+            const newStmt = result.allStatements[result.suggestedMonthKey] || result.currentStatement;
+            setStatement(newStmt);
+        } else {
+            setStatement(result.currentStatement);
+        }
     };
 
     const handleDeleteStatement = () => {
@@ -190,18 +196,27 @@ const AnalyticsDashboard: React.FC = () => {
 
     const CustomTooltip = ({ active, payload, label }: any) => {
         if (active && payload && payload.length) {
+            const therapistFullName = payload[0]?.payload?.therapistFullName;
             return (
                 <div style={{ background: 'rgba(255,255,255,0.95)', backdropFilter: 'blur(10px)', padding: '12px 16px', borderRadius: 14, border: '1px solid #f1f5f9', boxShadow: '0 8px 30px rgba(0,0,0,0.08)' }}>
-                    <p style={{ fontWeight: 700, fontSize: 12, color: '#1e293b', marginBottom: 8, borderBottom: '1px solid #f1f5f9', paddingBottom: 6 }}>{label}</p>
+                    <p style={{ fontWeight: 700, fontSize: 12, color: '#1e293b', marginBottom: 8, borderBottom: '1px solid #f1f5f9', paddingBottom: 6 }}>
+                        {therapistFullName || label}
+                    </p>
                     {payload.map((entry: any, i: number) => (
                         <div key={i} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16, marginBottom: 4 }}>
                             <span style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 11, color: '#64748b', fontWeight: 600 }}>
                                 <span style={{ width: 6, height: 6, borderRadius: '50%', background: entry.color, display: 'inline-block' }} />
                                 {entry.name}
                             </span>
-                            <span style={{ fontWeight: 800, fontSize: 12, color: '#0f172a' }}>{entry.value}{entry.unit || ''}</span>
+                            <span style={{ fontWeight: 800, fontSize: 12, color: '#0f172a' }}>{entry.value}h</span>
                         </div>
                     ))}
+                    {payload[0]?.payload?.revenue !== undefined && (
+                        <div style={{ marginTop: 6, paddingTop: 6, borderTop: '1px dashed #e2e8f0', display: 'flex', justifyContent: 'space-between', fontSize: 11 }}>
+                            <span style={{ color: '#64748b', fontWeight: 600 }}>Facturado cobrado:</span>
+                            <span style={{ fontWeight: 800, color: '#10b981' }}>{payload[0].payload.revenue.toLocaleString('es-ES')}€</span>
+                        </div>
+                    )}
                 </div>
             );
         }
@@ -295,7 +310,7 @@ const AnalyticsDashboard: React.FC = () => {
                         </div>
                         <div style={{ flex: 1 }}>
                             <p style={{ fontSize: '0.7rem', fontWeight: 700, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 2 }}>
-                                {statement ? 'Ingresos Banco' : 'Ingresos Citas'}
+                                {statement ? 'Ingresos Banco' : 'Ingresos Citas CRM'}
                             </p>
                             <span style={{ fontSize: '1.75rem', fontWeight: 800, color: '#1e293b' }}>
                                 {statement ? statement.totalIncome.toLocaleString('es-ES') : stats.totalRevenue.toLocaleString('es-ES')}€
@@ -308,12 +323,14 @@ const AnalyticsDashboard: React.FC = () => {
                     <div style={{ marginTop: 14, display: 'flex', alignItems: 'center', gap: 6 }}>
                         {statement ? (
                             <span style={{ fontSize: '0.7rem', fontWeight: 700, color: statement.totalIncome >= stats.totalRevenue ? '#10b981' : '#f59e0b' }}>
-                                CRM: {stats.totalRevenue.toLocaleString('es-ES')}€ ({statement.totalIncome >= stats.totalRevenue ? 'Cotejo OK' : 'Cobros ptes'})
+                                CRM Cobrado: {stats.totalRevenue.toLocaleString('es-ES')}€ {stats.pendingRevenue > 0 ? `· Ptes: ${stats.pendingRevenue}€` : ''}
                             </span>
                         ) : (
                             <>
                                 <TrendingUp size={14} style={{ color: '#10b981' }} />
-                                <span style={{ fontSize: '0.7rem', fontWeight: 700, color: '#10b981' }}>Basado en citas facturadas</span>
+                                <span style={{ fontSize: '0.7rem', fontWeight: 700, color: '#10b981' }}>
+                                    Cobrado: {stats.totalRevenue.toLocaleString('es-ES')}€ {stats.pendingRevenue > 0 ? `(${stats.pendingRevenue}€ ptes)` : ''}
+                                </span>
                             </>
                         )}
                     </div>
@@ -432,7 +449,7 @@ const AnalyticsDashboard: React.FC = () => {
                             {/* Lista / Leyenda con importes y porcentajes */}
                             <div style={{ display: 'flex', flexDirection: 'column', gap: 8, maxHeight: 220, overflowY: 'auto', paddingRight: 4 }}>
                                 {expensesChartData.length === 0 ? (
-                                    <p style={{ fontSize: '0.8rem', color: '#94a3b8' }}>No se han detectado cargos de gastos en el extracto.</p>
+                                    <p style={{ fontSize: '0.8rem', color: '#94a3b8' }}>No se han detectado cargos de gastos en el extracto de este mes.</p>
                                 ) : (
                                     expensesChartData.map((item, idx) => (
                                         <div key={idx} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '6px 10px', background: '#f8fafc', borderRadius: 8, border: '1px solid #f1f5f9' }}>
@@ -501,15 +518,15 @@ const AnalyticsDashboard: React.FC = () => {
                             onClick={() => setIsMovementsModalOpen(true)}
                             style={{ width: '100%', marginTop: '1.25rem', justifyContent: 'center', gap: 8, padding: '0.75rem' }}
                         >
-                            <Eye size={16} /> Explorar los {statement.movements.length} movimientos bancarios
+                            <Eye size={16} /> Explorar los {statement.movements.length} movimientos de {monthLabel}
                         </button>
                     </div>
                 </div>
             )}
 
-            {/* ===== FILA 3: 3 PANELS (Productividad, Cancelaciones, Recomendación IA) ===== */}
+            {/* ===== FILA 3: 3 PANELS (Productividad Terapeutas Reales, Cancelaciones, Recomendación IA) ===== */}
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '1.5rem' }}>
-                {/* Panel 1: Productividad */}
+                {/* Panel 1: Productividad de Terapeutas Reales */}
                 <div className="card" style={{ padding: '1.5rem' }}>
                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1.25rem' }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
@@ -518,27 +535,29 @@ const AnalyticsDashboard: React.FC = () => {
                             </div>
                             <h4 style={{ fontSize: '0.9rem', fontWeight: 700, color: '#1e293b', margin: 0 }}>Productividad</h4>
                         </div>
-                        <span style={{ fontSize: '0.6rem', fontWeight: 700, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.1em' }}>Horas / Profesional</span>
+                        <span style={{ fontSize: '0.6rem', fontWeight: 700, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.1em' }}>
+                            {stats.profitability.length} Profesionales
+                        </span>
                     </div>
                     
                     <div style={{ height: 280, width: '100%' }}>
                         <ResponsiveContainer minWidth={0}>
                             <BarChart data={stats.profitability} margin={{ top: 5, right: 5, left: -20, bottom: 0 }}>
                                 <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
-                                <XAxis dataKey="therapist" axisLine={false} tickLine={false} tick={{ fontSize: 10, fill: '#94a3b8', fontWeight: 600 }} />
+                                <XAxis dataKey="therapist" axisLine={false} tickLine={false} tick={{ fontSize: 10, fill: '#64748b', fontWeight: 700 }} />
                                 <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 10, fill: '#94a3b8' }} />
                                 <Tooltip content={<CustomTooltip />} cursor={{ fill: '#f8fafc' }} />
-                                <Bar dataKey="workedHours" name="Presenciales" fill="#e2e8f0" radius={[4, 4, 0, 0]} barSize={18} />
-                                <Bar dataKey="billedHours" name="Facturadas" fill="#3b82f6" radius={[4, 4, 0, 0]} barSize={18} />
+                                <Bar dataKey="workedHours" name="Presenciales" fill="#e2e8f0" radius={[4, 4, 0, 0]} barSize={16} />
+                                <Bar dataKey="billedHours" name="Facturadas" fill="#3b82f6" radius={[4, 4, 0, 0]} barSize={16} />
                             </BarChart>
                         </ResponsiveContainer>
                     </div>
                     
                     <div style={{ display: 'flex', gap: '1rem', justifyContent: 'center', marginTop: 12 }}>
-                        <span style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: '0.7rem', color: '#94a3b8', fontWeight: 600 }}>
+                        <span style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: '0.7rem', color: '#64748b', fontWeight: 600 }}>
                             <span style={{ width: 8, height: 8, background: '#e2e8f0', borderRadius: 2, display: 'inline-block' }} /> Presenciales
                         </span>
-                        <span style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: '0.7rem', color: '#94a3b8', fontWeight: 600 }}>
+                        <span style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: '0.7rem', color: '#3b82f6', fontWeight: 700 }}>
                             <span style={{ width: 8, height: 8, background: '#3b82f6', borderRadius: 2, display: 'inline-block' }} /> Facturadas
                         </span>
                     </div>

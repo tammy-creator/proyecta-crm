@@ -9,7 +9,7 @@ import {
     ShieldCheck
 } from 'lucide-react';
 import { type MonthlyStatementData } from './types';
-import { parseBankStatementFile } from './bankStatementParser';
+import { parseBankStatementFile, type ParseResult } from './bankStatementParser';
 import { type Patient } from '../patients/types';
 import { useToast } from '../../hooks/useToast';
 
@@ -18,7 +18,7 @@ interface BankStatementUploaderProps {
     monthLabel: string;
     statement: MonthlyStatementData | null;
     patients: Patient[];
-    onStatementLoaded: (data: MonthlyStatementData) => void;
+    onStatementLoaded: (result: ParseResult) => void;
     onDeleteStatement: () => void;
     onOpenMovements: () => void;
 }
@@ -51,10 +51,15 @@ export const BankStatementUploader: React.FC<BankStatementUploaderProps> = ({
 
         try {
             setIsProcessing(true);
-            showToast(`Analizando extracto bancario de ${monthLabel}...`, 'info');
-            const data = await parseBankStatementFile(file, monthKey, patients);
-            onStatementLoaded(data);
-            showToast(`¡Extracto procesado con éxito! Se han analizado ${data.movements.length} movimientos.`, 'success');
+            showToast(`Analizando extracto bancario...`, 'info');
+            const result = await parseBankStatementFile(file, monthKey, patients);
+            onStatementLoaded(result);
+
+            if (result.monthsDetected.length > 1) {
+                showToast(`¡Extracto cargado! Se han organizado movimientos para ${result.monthsDetected.join(', ')}.`, 'success');
+            } else {
+                showToast(`¡Extracto procesado con éxito! Se han analizado ${result.currentStatement.movements.length} movimientos.`, 'success');
+            }
         } catch (err: any) {
             console.error('Error al procesar extracto bancario:', err);
             showToast(err.message || 'Error al procesar el archivo. Comprueba que el formato sea correcto.', 'error');
@@ -84,7 +89,7 @@ export const BankStatementUploader: React.FC<BankStatementUploaderProps> = ({
     };
 
     // Caso 1: Ya existe un extracto cargado para este mes
-    if (statement) {
+    if (statement && statement.movements.length > 0) {
         return (
             <div 
                 style={{ 
@@ -123,7 +128,7 @@ export const BankStatementUploader: React.FC<BankStatementUploaderProps> = ({
                             </span>
                         </div>
                         <p style={{ margin: '4px 0 0 0', fontSize: '0.8rem', color: '#64748b' }}>
-                            <strong style={{ color: '#475569' }}>{statement.fileName}</strong> · {statement.movements.length} movimientos
+                            <strong style={{ color: '#475569' }}>{statement.fileName}</strong> · {statement.movements.length} movimientos en este mes
                             {statement.accountIban && ` · IBAN: ${statement.accountIban}`}
                         </p>
                     </div>
@@ -143,9 +148,9 @@ export const BankStatementUploader: React.FC<BankStatementUploaderProps> = ({
                         onClick={() => fileInputRef.current?.click()}
                         disabled={isProcessing}
                         style={{ padding: '0.55rem 0.9rem', fontSize: '0.8rem', gap: 6 }}
-                        title="Reemplazar con otro archivo de extracto"
+                        title="Cargar o actualizar extracto"
                     >
-                        <RefreshCw size={14} className={isProcessing ? 'animate-spin' : ''} /> Reemplazar
+                        <RefreshCw size={14} className={isProcessing ? 'animate-spin' : ''} /> Actualizar Extracto
                     </button>
 
                     <button
@@ -231,7 +236,7 @@ export const BankStatementUploader: React.FC<BankStatementUploaderProps> = ({
                         <ShieldCheck size={14} /> Análisis 100% privado en tu navegador
                     </span>
                     <span style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: '0.72rem', color: '#64748b', fontWeight: 600 }}>
-                        <Building2 size={14} /> Clasifica nóminas, alquiler, suministros y pacientes
+                        <Building2 size={14} /> Detecta nóminas, alquiler, suministros y pacientes
                     </span>
                 </div>
             </div>

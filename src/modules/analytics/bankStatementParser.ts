@@ -4,8 +4,15 @@ import {
     type MonthlyStatementData, 
     type FinancialCategory
 } from './types';
-import { getCustomRules, recalculateStatementTotals } from './bankStatementStorage';
+import { getCustomRules, recalculateStatementTotals, saveStatementForMonth } from './bankStatementStorage';
 import { type Patient } from '../patients/types';
+
+export interface ParseResult {
+    currentStatement: MonthlyStatementData;
+    monthsDetected: string[];
+    allStatements: Record<string, MonthlyStatementData>;
+    suggestedMonthKey?: string;
+}
 
 /**
  * Normaliza una cadena quitando tildes y caracteres especiales para comparaciones seguras.
@@ -21,41 +28,75 @@ const normalizeText = (text: string): string => {
 /**
  * Parsea un importe en formato numérico o string español/inglés a número flotante.
  */
-const parseAmount = (val: any): number => {
+export const parseAmount = (val: any): number => {
     if (typeof val === 'number') {
         return isNaN(val) ? 0 : val;
     }
     if (!val) return 0;
 
     let str = String(val).trim();
-    // Quitar símbolo de moneda y espacios
-    str = str.replace(/€|EUR|eur|\s/g, '');
+    // Quitar símbolo de moneda, espacios normales y no separables (\u00A0, \u202F, etc.)
+    str = str.replace(/€|EUR|eur|[\s\u00A0\u202F\u200B]/g, '');
 
-    // Formato español: 1.250,50 o -1.130,23
+    let isNegative = false;
+    if (str.startsWith('(') && str.endsWith(')')) {
+        isNegative = true;
+        str = str.slice(1, -1).trim();
+    } else if (str.endsWith('-')) {
+        isNegative = true;
+        str = str.slice(0, -1).trim();
+    } else if (str.startsWith('-')) {
+        isNegative = true;
+        str = str.slice(1).trim();
+    } else if (str.startsWith('+')) {
+        str = str.slice(1).trim();
+    }
+
+    // Formato numérico con separadores de miles y decimales
     if (str.includes(',') && str.includes('.')) {
-        // Asumimos punto para miles y coma para decimales
-        str = str.replace(/\./g, '').replace(',', '.');
+        const lastDot = str.lastIndexOf('.');
+        const lastComma = str.lastIndexOf(',');
+        if (lastComma > lastDot) {
+            // Estilo europeo: 1.250,50 -> punto miles, coma decimal
+            str = str.replace(/\./g, '').replace(',', '.');
+        } else {
+            // Estilo anglosajón: 1,250.50 -> coma miles, punto decimal
+            str = str.replace(/,/g, '');
+        }
     } else if (str.includes(',')) {
-        // Solo coma para decimales: 1250,50
         str = str.replace(',', '.');
     }
 
     const parsed = parseFloat(str);
-    return isNaN(parsed) ? 0 : parsed;
+    if (isNaN(parsed)) return 0;
+    return isNegative ? -Math.abs(parsed) : parsed;
 };
 
 /**
- * Convierte un valor de fecha (Excel serial number o string DD/MM/YYYY o YYYY-MM-DD) a string YYYY-MM-DD.
+ * Convierte un valor de fecha (Excel serial, Date nativo o string) a string YYYY-MM-DD local.
  */
-const parseDateToISO = (val: any): string => {
+export const parseDateToISO = (val: any): string => {
     if (!val) return '';
 
-    // Si es número de serie de Excel (días desde 1900)
+    // 1. Si es un objeto Date de JavaScript (creado por XLSX con cellDates: true)
+    if (val instanceof Date) {
+        if (!isNaN(val.getTime())) {
+            const year = val.getFullYear();
+            const month = String(val.getMonth() + 1).padStart(2, '0');
+            const day = String(val.getDate()).padStart(2, '0');
+            return `${year}-${month}-${day}`;
+        }
+    }
+
+    // 2. Si es número de serie de Excel (días desde 1900)
     if (typeof val === 'number') {
         try {
             const dateObj = new Date(Math.round((val - 25569) * 86400 * 1000));
             if (!isNaN(dateObj.getTime())) {
-                return dateObj.toISOString().split('T')[0];
+                const year = dateObj.getFullYear();
+                const month = String(dateObj.getMonth() + 1).padStart(2, '0');
+                const day = String(dateObj.getDate()).padStart(2, '0');
+                return `${year}-${month}-${day}`;
             }
         } catch {
             // Continúa a parseo por string
@@ -64,8 +105,8 @@ const parseDateToISO = (val: any): string => {
 
     const str = String(val).trim();
 
-    // Formato DD/MM/YYYY o DD-MM-YYYY
-    const dmyMatch = str.match(/^(\d{1,2})[/-](\d{1,2})[/-](\d{4})/);
+    // 3. Formato DD/MM/YYYY o DD-MM-YYYY o DD.MM.YYYY
+    const dmyMatch = str.match(/^(\d{1,2})[/\-.](\d{1,2})[/\-.](\d{4})/);
     if (dmyMatch) {
         const day = dmyMatch[1].padStart(2, '0');
         const month = dmyMatch[2].padStart(2, '0');
@@ -73,8 +114,8 @@ const parseDateToISO = (val: any): string => {
         return `${year}-${month}-${day}`;
     }
 
-    // Formato YYYY-MM-DD
-    const ymdMatch = str.match(/^(\d{4})[/-](\d{1,2})[/-](\d{1,2})/);
+    // 4. Formato YYYY-MM-DD o YYYY/MM/DD
+    const ymdMatch = str.match(/^(\d{4})[/\-.](\d{1,2})[/\-.](\d{1,2})/);
     if (ymdMatch) {
         const year = ymdMatch[1];
         const month = ymdMatch[2].padStart(2, '0');
@@ -134,7 +175,7 @@ export const categorizeMovement = (
         }
     }
 
-    // 3. Reglas de Ingresos
+    // 3. Reglas de Ingresos (amount > 0)
     if (amount > 0) {
         if (
             fullText.includes('LIQ') || 
@@ -322,13 +363,13 @@ export const categorizeMovement = (
 };
 
 /**
- * Parsea un archivo Excel o CSV de extracto bancario y devuelve la estructura completa.
+ * Parsea un archivo Excel o CSV de extracto bancario y organiza los datos por mes real.
  */
 export const parseBankStatementFile = async (
     file: File,
     monthKey: string,
     patients: Patient[] = []
-): Promise<MonthlyStatementData> => {
+): Promise<ParseResult> => {
     const arrayBuffer = await file.arrayBuffer();
     const workbook = XLSX.read(arrayBuffer, { type: 'array', cellDates: true });
 
@@ -373,10 +414,10 @@ export const parseBankStatementFile = async (
         if ((hasDate && hasConcept) || (hasConcept && hasAmount)) {
             headerRowIdx = r;
             
-            // Mapear columnas
+            // Mapear columnas con precisión
             row.forEach((colName, cIdx) => {
-                if (colName.includes('F. OPERACION') || colName.includes('F. OPERACIÓN')) colMap.opDate = cIdx;
-                else if (colName.includes('F. CONTABLE')) colMap.accDate = cIdx;
+                if (colName.includes('F. CONTABLE')) colMap.accDate = cIdx;
+                else if (colName.includes('F. OPERACION') || colName.includes('F. OPERACIÓN')) colMap.opDate = cIdx;
                 else if (colName.includes('F. VALOR')) colMap.valDate = cIdx;
                 else if (colName.includes('FECHA')) {
                     if (colMap.opDate === undefined) colMap.opDate = cIdx;
@@ -451,12 +492,12 @@ export const parseBankStatementFile = async (
 
         if (amount === 0) continue; // Si no hay importe no es un movimiento válido
 
-        // Fechas
+        // Fechas: Priorizar fecha contable / operación sobre fecha valor
+        const accDateRaw = colMap.accDate !== undefined ? row[colMap.accDate] : undefined;
         const opDateRaw = colMap.opDate !== undefined ? row[colMap.opDate] : undefined;
         const valDateRaw = colMap.valDate !== undefined ? row[colMap.valDate] : undefined;
-        const accDateRaw = colMap.accDate !== undefined ? row[colMap.accDate] : undefined;
 
-        const date = parseDateToISO(opDateRaw) || parseDateToISO(accDateRaw) || parseDateToISO(valDateRaw) || `${monthKey}-01`;
+        const date = parseDateToISO(accDateRaw) || parseDateToISO(opDateRaw) || parseDateToISO(valDateRaw) || `${monthKey}-01`;
         const valueDate = parseDateToISO(valDateRaw);
         const operationDate = parseDateToISO(opDateRaw);
 
@@ -496,21 +537,75 @@ export const parseBankStatementFile = async (
         throw new Error('No se han encontrado transacciones válidas en el extracto.');
     }
 
-    // 4. Estructurar datos mensuales y calcular métricas agregadas
-    const rawData: MonthlyStatementData = {
-        monthKey,
-        fileName: file.name,
-        uploadedAt: new Date().toISOString(),
-        accountIban,
-        period: detectedPeriod,
-        movements,
-        totalIncome: 0,
-        totalExpenses: 0,
-        netResult: 0,
-        realMargin: 0,
-        expensesByCategory: {} as any,
-        incomeByCategory: {} as any
-    };
+    // 4. Agrupar movimientos por su mes real (YYYY-MM)
+    const movementsByMonth = new Map<string, BankStatementMovement[]>();
+    movements.forEach(m => {
+        const mMonth = m.date.substring(0, 7) || monthKey;
+        if (!movementsByMonth.has(mMonth)) {
+            movementsByMonth.set(mMonth, []);
+        }
+        movementsByMonth.get(mMonth)!.push(m);
+    });
 
-    return recalculateStatementTotals(rawData);
+    const monthsDetected = Array.from(movementsByMonth.keys()).sort();
+    const allStatements: Record<string, MonthlyStatementData> = {};
+
+    // 5. Crear y persistir el extracto para CADA mes detectado por separado
+    for (const [mMonth, mList] of movementsByMonth.entries()) {
+        const monthRawData: MonthlyStatementData = {
+            monthKey: mMonth,
+            fileName: file.name,
+            uploadedAt: new Date().toISOString(),
+            accountIban,
+            period: detectedPeriod,
+            movements: mList,
+            totalIncome: 0,
+            totalExpenses: 0,
+            netResult: 0,
+            realMargin: 0,
+            expensesByCategory: {} as any,
+            incomeByCategory: {} as any
+        };
+
+        const calculated = recalculateStatementTotals(monthRawData);
+        saveStatementForMonth(mMonth, calculated);
+        allStatements[mMonth] = calculated;
+    }
+
+    // 6. Determinar el extracto a devolver
+    let currentStatement = allStatements[monthKey];
+    let suggestedMonthKey: string | undefined;
+
+    if (!currentStatement) {
+        // Si el mes actualmente seleccionado no tiene transacciones en este archivo,
+        // sugerir el mes con mayor volumen de transacciones
+        let maxCount = 0;
+        for (const [mMonth, mList] of movementsByMonth.entries()) {
+            if (mList.length > maxCount) {
+                maxCount = mList.length;
+                suggestedMonthKey = mMonth;
+                currentStatement = allStatements[mMonth];
+            }
+        }
+    }
+
+    return {
+        currentStatement: currentStatement || recalculateStatementTotals({
+            monthKey,
+            fileName: file.name,
+            uploadedAt: new Date().toISOString(),
+            accountIban,
+            period: detectedPeriod,
+            movements: [],
+            totalIncome: 0,
+            totalExpenses: 0,
+            netResult: 0,
+            realMargin: 0,
+            expensesByCategory: {} as any,
+            incomeByCategory: {} as any
+        }),
+        monthsDetected,
+        allStatements,
+        suggestedMonthKey
+    };
 };

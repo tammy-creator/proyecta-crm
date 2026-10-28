@@ -1,0 +1,315 @@
+.call-registry-container {
+    padding: 24px;
+    max-width: 1400px;
+    margin: 0 auto;
+}
+
+.call-registry-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: 24px;
+    flex-wrap: wrap;
+    gap: 16px;
+}
+
+.call-registry-header h2 {
+    font-size: 24px;
+    font-weight: 800;
+    color: #0f172a;
+    margin: 0 0 4px 0;
+}
+
+.call-registry-header p {
+    font-size: 14px;
+    color: #64748b;
+    margin: 0;
+}
+
+/* KPI Cards */
+.call-kpi-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 16px;
+    margin-bottom: 24px;
+}
+
+.call-kpi-card {
+    background: #ffffff;
+    border-radius: 12px;
+    padding: 18px 20px;
+    border: 1px solid #e2e8f0;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.02);
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.call-kpi-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+}
+
+.call-kpi-icon {
+    width: 48px;
+    height: 48px;
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.call-kpi-title {
+    font-size: 12px;
+    font-weight: 600;
+    color: #64748b;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-bottom: 2px;
+}
+
+.call-kpi-value {
+    font-size: 26px;
+    font-weight: 800;
+    color: #0f172a;
+    line-height: 1;
+}
+
+/* Filter Bar */
+.call-filter-bar {
+    background: #ffffff;
+    border-radius: 12px;
+    padding: 16px 20px;
+    border: 1px solid #e2e8f0;
+    margin-bottom: 24px;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 16px;
+    align-items: center;
+    justify-content: space-between;
+}
+
+.call-filter-search {
+    position: relative;
+    flex: 1;
+    min-width: 260px;
+}
+
+.call-filter-search input {
+    width: 100%;
+    padding: 9px 12px 9px 36px;
+    border-radius: 8px;
+    border: 1px solid #cbd5e1;
+    font-size: 13px;
+    color: #0f172a;
+    outline: none;
+    box-sizing: border-box;
+    transition: border-color 0.2s;
+}
+
+.call-filter-search input:focus {
+    border-color: #0284c7;
+}
+
+.call-filter-search-icon {
+    position: absolute;
+    left: 12px;
+    top: 50%;
+    transform: translateY(-50%);
+    color: #94a3b8;
+}
+
+.call-status-pills {
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+}
+
+.call-status-pill {
+    padding: 6px 12px;
+    border-radius: 20px;
+    border: 1px solid #e2e8f0;
+    background: #f8fafc;
+    color: #64748b;
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.call-status-pill.active {
+    background: #0284c7;
+    color: #ffffff;
+    border-color: #0284c7;
+}
+
+/* Call Cards List */
+.call-list {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+}
+
+.call-card {
+    background: #ffffff;
+    border-radius: 12px;
+    border: 1px solid #e2e8f0;
+    padding: 18px 20px;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.02);
+    display: grid;
+    grid-template-columns: 200px 1fr auto;
+    gap: 20px;
+    align-items: start;
+    transition: all 0.2s ease;
+}
+
+.call-card:hover {
+    border-color: #cbd5e1;
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.04);
+}
+
+.call-card-meta {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.call-card-date {
+    font-size: 13px;
+    font-weight: 700;
+    color: #0f172a;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.call-status-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 4px 10px;
+    border-radius: 6px;
+    font-size: 11px;
+    font-weight: 700;
+    width: fit-content;
+}
+
+.call-status-badge.pending {
+    background-color: #fef3c7;
+    color: #92400e;
+    border: 1px solid #fde68a;
+}
+
+.call-status-badge.returned {
+    background-color: #d1fae5;
+    color: #065f46;
+    border: 1px solid #a7f3d0;
+}
+
+.call-status-badge.no-answer {
+    background-color: #ffedd5;
+    color: #9a3412;
+    border: 1px solid #fed7aa;
+}
+
+.call-status-badge.info {
+    background-color: #f1f5f9;
+    color: #475569;
+    border: 1px solid #e2e8f0;
+}
+
+.call-card-content {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.call-card-header-info {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    flex-wrap: wrap;
+}
+
+.call-phone-link {
+    font-size: 15px;
+    font-weight: 800;
+    color: #0f172a;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    text-decoration: none;
+}
+
+.call-phone-link:hover {
+    color: #0284c7;
+}
+
+.call-patient-tag {
+    background-color: #eff6ff;
+    color: #1d4ed8;
+    padding: 3px 10px;
+    border-radius: 999px;
+    font-size: 12px;
+    font-weight: 600;
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    border: 1px solid #bfdbfe;
+    text-decoration: none;
+}
+
+.call-patient-tag:hover {
+    background-color: #dbeafe;
+}
+
+.call-summary-box {
+    background-color: #f8fafc;
+    border-radius: 8px;
+    padding: 12px 14px;
+    border: 1px solid #e2e8f0;
+    font-size: 13px;
+    line-height: 1.5;
+    color: #334155;
+}
+
+.call-tracking-report {
+    background-color: #ecfdf5;
+    border-radius: 8px;
+    padding: 12px 14px;
+    border: 1px solid #a7f3d0;
+    font-size: 13px;
+    color: #065f46;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.call-tracking-report.no-answer {
+    background-color: #fff7ed;
+    border-color: #fed7aa;
+    color: #9a3412;
+}
+
+.call-card-actions {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    justify-content: center;
+    height: 100%;
+}
+
+@media (max-width: 860px) {
+    .call-card {
+        grid-template-columns: 1fr;
+        gap: 14px;
+    }
+    .call-card-actions {
+        flex-direction: row;
+        justify-content: flex-start;
+    }
+}

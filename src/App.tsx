@@ -9,6 +9,7 @@ import AdminView from './modules/admin/AdminView';
 import WaitingList from './modules/patients/WaitingList';
 import WorkforceReport from './modules/workforce/WorkforceReport';
 import AppointmentRegistry from './modules/calendar/AppointmentRegistry';
+import CallRegistry from './modules/calls/CallRegistry';
 import LoginPage from './pages/LoginPage';
 import ReviewRedirect from './pages/ReviewRedirect';
 import RequireAuth from './components/layout/RequireAuth';
@@ -66,6 +67,7 @@ const AppRoutes = () => {
         <Route path="therapists" element={<TherapistList />} />
         <Route path="patients" element={<PatientList />} />
         <Route path="waiting-list" element={<WaitingList />} />
+        <Route path="calls" element={<CallRegistry />} />
         <Route path="billing" element={<BillingView />} />
         <Route path="admin" element={<AdminView />} />
       </Route>

@@ -1,6 +1,6 @@
 import React from 'react';
 import { NavLink } from 'react-router-dom';
-import { LayoutDashboard, Users, UserRound, Calendar, ShieldCheck, FileText, Clock } from 'lucide-react';
+import { LayoutDashboard, Users, UserRound, Calendar, ShieldCheck, FileText, Clock, PhoneCall } from 'lucide-react';
 import './Sidebar.css';
 import { useAuth } from '../../context/AuthContext';
 
@@ -23,6 +23,7 @@ const Sidebar: React.FC = () => {
                 { path: '/patients', icon: <Users size={20} />, label: 'Pacientes', roles: ['ADMIN', 'THERAPIST'] },
                 { path: '/appointments', icon: <FileText size={20} />, label: 'Registro de Citas', roles: ['ADMIN', 'THERAPIST'] },
                 { path: '/waiting-list', icon: <Clock size={20} />, label: 'Lista de Espera', roles: ['ADMIN', 'THERAPIST'] },
+                { path: '/calls', icon: <PhoneCall size={20} />, label: 'Llamadas Clara', roles: ['ADMIN', 'THERAPIST'] },
             ]
         },
         {

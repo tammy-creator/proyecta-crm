@@ -1,9 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import Card from '../components/ui/Card';
 import AppointmentDetailModal from '../components/ui/AppointmentDetailModal';
-import { Users, Calendar, DollarSign, AlertTriangle, FileText, Clock, BarChart3, ShieldCheck, Check } from 'lucide-react';
+import { Users, Calendar, DollarSign, AlertTriangle, FileText, Clock, BarChart3, ShieldCheck, PhoneCall, PhoneForwarded, FileEdit } from 'lucide-react';
 import { startOfDay, endOfDay, format, subDays, eachDayOfInterval, isSameDay, isSameMonth, startOfMonth, endOfMonth } from 'date-fns';
 import { es } from 'date-fns/locale';
 import {
@@ -16,6 +16,9 @@ import { getPendingRegistrationAppointments } from '../modules/calendar/service'
 import { supabase } from '../lib/supabase';
 import { type Appointment } from '../modules/calendar/types';
 import { type Transaction } from '../modules/billing/types';
+import { getClaraCalls, formatPhoneDisplay } from '../modules/calls/service';
+import type { ClaraCall } from '../modules/calls/types';
+import { CallModal } from '../modules/calls/CallModal';
 import './Dashboard.css';
 
 interface DashboardStats {
@@ -27,13 +30,10 @@ interface DashboardStats {
     weeklyOccupancy: { day: string; fullDate: string; count: number }[];
 }
 
-import { getAIActivity, dismissNotification } from '../modules/notifications/service';
-
 const Dashboard: React.FC = () => {
     const navigate = useNavigate();
     const { user, isRole } = useAuth();
     const [todayAppointments, setTodayAppointments] = useState<Appointment[]>([]);
-    const [aiLogs, setAiLogs] = useState<any[]>([]);
     const [selectedAppt, setSelectedAppt] = useState<Appointment | null>(null);
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [stats, setStats] = useState<DashboardStats>({
@@ -90,20 +90,24 @@ const Dashboard: React.FC = () => {
         };
 
         window.addEventListener('notification-refresh', handleRefresh);
-        return () => window.removeEventListener('notification-refresh', handleRefresh);
+        window.addEventListener('calls-updated', handleRefresh);
+        return () => {
+            window.removeEventListener('notification-refresh', handleRefresh);
+            window.removeEventListener('calls-updated', handleRefresh);
+        };
     }, [user]);
 
-    const loadAILogs = async () => {
-        const logs = await getAIActivity(3);
-        setAiLogs(logs);
-    };
+    const [showAllAiLogs, setShowAllAiLogs] = useState<boolean>(false);
+    const [claraCalls, setClaraCalls] = useState<ClaraCall[]>([]);
+    const [selectedCall, setSelectedCall] = useState<ClaraCall | null>(null);
+    const [isCallModalOpen, setIsCallModalOpen] = useState(false);
 
-    const handleDismissLog = async (id: string) => {
+    const loadAILogs = async () => {
         try {
-            await dismissNotification(id, true);
-            setAiLogs(prev => prev.filter(log => log.id !== id));
+            const calls = await getClaraCalls();
+            setClaraCalls(calls);
         } catch (error) {
-            console.error('Error descartando log de IA:', error);
+            console.error('Error cargando llamadas de Clara:', error);
         }
     };
 
@@ -245,6 +249,15 @@ const Dashboard: React.FC = () => {
                     setSelectedAppt(null);
                 }}
             />
+            <CallModal
+                call={selectedCall}
+                isOpen={isCallModalOpen}
+                onClose={() => {
+                    setIsCallModalOpen(false);
+                    setSelectedCall(null);
+                }}
+                onSaved={loadAILogs}
+            />
             <div className="flex flex-col items-center justify-center mb-10 text-center">
                 <h2 className="page-title" style={{ marginBottom: '0.5rem' }}>Panel de Control</h2>
                 <p className="text-secondary text-base opacity-80">Resumen general de Proyecta</p>
@@ -314,41 +327,161 @@ const Dashboard: React.FC = () => {
                     </div>
                 </Card>
 
-                <Card title="Actividad del Bot (IA)" className="ai-logs-preview" subtitle="Últimos 3 días">
+                <Card 
+                    title="Actividad del Bot (IA / Clara)" 
+                    className="ai-logs-preview" 
+                    subtitle={!showAllAiLogs ? `${claraCalls.filter(c => c.tracking?.status === 'PENDING').length} llamadas pendientes de devolver` : "Historial reciente de llamadas atendidas"}
+                    action={
+                        <div style={{ display: 'flex', gap: '6px', alignItems: 'center', flexWrap: 'wrap' }}>
+                            <div style={{ display: 'flex', gap: '4px' }}>
+                                <button
+                                    type="button"
+                                    style={{
+                                        fontSize: '11px',
+                                        fontWeight: !showAllAiLogs ? 700 : 500,
+                                        padding: '4px 10px',
+                                        borderRadius: '6px',
+                                        border: '1px solid',
+                                        borderColor: !showAllAiLogs ? '#93c5fd' : '#e2e8f0',
+                                        backgroundColor: !showAllAiLogs ? '#eff6ff' : '#ffffff',
+                                        color: !showAllAiLogs ? '#1d4ed8' : '#64748b',
+                                        cursor: 'pointer'
+                                    }}
+                                    onClick={() => setShowAllAiLogs(false)}
+                                >
+                                    ⏳ Pendientes ({claraCalls.filter(c => c.tracking?.status === 'PENDING').length})
+                                </button>
+                                <button
+                                    type="button"
+                                    style={{
+                                        fontSize: '11px',
+                                        fontWeight: showAllAiLogs ? 700 : 500,
+                                        padding: '4px 10px',
+                                        borderRadius: '6px',
+                                        border: '1px solid',
+                                        borderColor: showAllAiLogs ? '#93c5fd' : '#e2e8f0',
+                                        backgroundColor: showAllAiLogs ? '#eff6ff' : '#ffffff',
+                                        color: showAllAiLogs ? '#1d4ed8' : '#64748b',
+                                        cursor: 'pointer'
+                                    }}
+                                    onClick={() => setShowAllAiLogs(true)}
+                                >
+                                    Historial
+                                </button>
+                            </div>
+                            <Link
+                                to="/calls"
+                                style={{
+                                    fontSize: '11px',
+                                    fontWeight: 700,
+                                    padding: '4px 10px',
+                                    borderRadius: '6px',
+                                    backgroundColor: '#0284c7',
+                                    color: '#ffffff',
+                                    textDecoration: 'none',
+                                    display: 'inline-flex',
+                                    alignItems: 'center',
+                                    gap: '5px'
+                                }}
+                            >
+                                <PhoneCall size={12} />
+                                <span>Ver Registro Completo</span>
+                            </Link>
+                        </div>
+                    }
+                >
                     <div className="ai-logs-container">
-                        {aiLogs.length === 0 ? (
-                            <div className="text-secondary text-sm p-4 text-center italic">Sin actividad reciente.</div>
-                        ) : (
-                            <table className="ai-logs-table">
-                                <thead>
-                                    <tr>
-                                        <th>Fecha</th>
-                                        <th>Acción</th>
-                                        <th>Detalles</th>
-                                        <th className="text-right" style={{ width: '60px' }}>Gestionar</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    {aiLogs.slice(0, 8).map(log => (
-                                        <tr key={log.id}>
-                                            <td className="log-date">{format(log.date, 'dd/MM HH:mm')}</td>
-                                            <td className="log-title">{log.title}</td>
-                                            <td className="log-message">{log.message}</td>
-                                            <td className="text-right">
-                                                <button
-                                                    className="p-1 hover:bg-slate-100 rounded-md text-slate-400 hover:text-emerald-600 transition-colors"
-                                                    title="Marcar como gestionada"
-                                                    onClick={() => handleDismissLog(log.id)}
-                                                    style={{ border: 'none', background: 'transparent', cursor: 'pointer' }}
-                                                >
-                                                    <Check size={16} />
-                                                </button>
-                                            </td>
+                        {(() => {
+                            const displayed = !showAllAiLogs
+                                ? claraCalls.filter(c => c.tracking?.status === 'PENDING')
+                                : claraCalls.slice(0, 15);
+
+                            if (displayed.length === 0) {
+                                return (
+                                    <div className="text-secondary text-sm p-4 text-center italic">
+                                        {!showAllAiLogs ? '🎉 ¡Al día! No hay llamadas pendientes de devolver.' : 'Sin llamadas registradas recientemente.'}
+                                    </div>
+                                );
+                            }
+
+                            return (
+                                <table className="ai-logs-table">
+                                    <thead>
+                                        <tr>
+                                            <th>Fecha</th>
+                                            <th>Contacto</th>
+                                            <th>Resumen</th>
+                                            <th className="text-right" style={{ width: '130px' }}>Gestión</th>
                                         </tr>
-                                    ))}
-                                </tbody>
-                            </table>
-                        )}
+                                    </thead>
+                                    <tbody>
+                                        {displayed.map(call => {
+                                            const isPending = call.tracking?.status === 'PENDING';
+                                            const isReturned = call.tracking?.status === 'RETURNED';
+
+                                            return (
+                                                <tr key={call.id} style={{ opacity: isReturned ? 0.75 : 1 }}>
+                                                    <td className="log-date">{format(call.date, 'dd/MM HH:mm')}</td>
+                                                    <td style={{ minWidth: '140px' }}>
+                                                        <div style={{ fontWeight: 700, color: '#0f172a', fontSize: '13px' }}>
+                                                            {formatPhoneDisplay(call.phone)}
+                                                        </div>
+                                                        {call.patientName && (
+                                                            <div style={{ fontSize: '11px', color: '#0284c7', fontWeight: 600 }}>
+                                                                {call.patientName}
+                                                            </div>
+                                                        )}
+                                                    </td>
+                                                    <td className="log-message">
+                                                        <div>{call.summary}</div>
+                                                        {call.tracking?.notes && (
+                                                            <div style={{ marginTop: '4px', fontSize: '11px', color: '#059669', backgroundColor: '#ecfdf5', padding: '2px 6px', borderRadius: '4px', border: '1px solid #a7f3d0' }}>
+                                                                <strong>Nota ({call.tracking.returnedBy}):</strong> {call.tracking.notes}
+                                                            </div>
+                                                        )}
+                                                    </td>
+                                                    <td className="text-right">
+                                                        <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+                                                            <button
+                                                                type="button"
+                                                                onClick={() => {
+                                                                    setSelectedCall(call);
+                                                                    setIsCallModalOpen(true);
+                                                                }}
+                                                                style={{
+                                                                    padding: '4px 8px',
+                                                                    borderRadius: '6px',
+                                                                    border: isPending ? 'none' : '1px solid #cbd5e1',
+                                                                    backgroundColor: isPending ? '#0284c7' : '#ffffff',
+                                                                    color: isPending ? '#ffffff' : '#475569',
+                                                                    fontWeight: 700,
+                                                                    fontSize: '11px',
+                                                                    cursor: 'pointer',
+                                                                    display: 'inline-flex',
+                                                                    alignItems: 'center',
+                                                                    gap: '4px'
+                                                                }}
+                                                                title="Registrar devolución o editar reporte"
+                                                            >
+                                                                {isPending ? (
+                                                                    <>
+                                                                        <PhoneForwarded size={12} /> Devolver
+                                                                    </>
+                                                                ) : (
+                                                                    <>
+                                                                        <FileEdit size={12} /> Gestionada
+                                                                    </>
+                                                                )}
+                                                            </button>
+                                                        </div>
+                                                    </td>
+                                                </tr>
+                                            );
+                                        })}
+                                    </tbody>
+                                </table>
+                            );
+                        })()}
                     </div>
                 </Card>
             </div>

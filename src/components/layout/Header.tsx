@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { getIllustrativeAvatar } from '../../modules/therapists/utils';
-import { Bell, LogOut, ChevronDown, Clock, LayoutDashboard, Calendar, Users, FileText, ShieldCheck, UserRound } from 'lucide-react';
+import { Bell, LogOut, ChevronDown, Clock, LayoutDashboard, Calendar, Users, FileText, ShieldCheck, UserRound, PhoneCall } from 'lucide-react';
 import './Header.css';
 import { useLocation, useNavigate } from 'react-router-dom';
 import WorkforceWidget from '../../modules/workforce/WorkforceWidget';
@@ -132,6 +132,7 @@ const Header: React.FC = () => {
         if (path.startsWith('/calendar')) return { title: 'Agenda', icon: <span className="header-icon text-primary"><Calendar size={24} /></span> };
         if (path.startsWith('/patients')) return { title: 'Pacientes', icon: <span className="header-icon text-emerald-500"><Users size={24} /></span> };
         if (path.startsWith('/waiting-list')) return { title: 'Lista de Espera', icon: <span className="header-icon text-amber-500"><Clock size={24} /></span> };
+        if (path.startsWith('/calls')) return { title: 'Llamadas Clara (IA)', icon: <span className="header-icon text-sky-600"><PhoneCall size={24} /></span> };
         if (path.startsWith('/therapists')) return { title: 'Terapeutas', icon: <span className="header-icon text-indigo-500"><UserRound size={24} /></span> };
         if (path.startsWith('/billing')) return { title: 'Facturación', icon: <span className="header-icon text-blue-500"><FileText size={24} /></span> };
         if (path.startsWith('/admin')) return { title: 'Configuración', icon: <span className="header-icon text-slate-500"><ShieldCheck size={24} /></span> };

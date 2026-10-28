@@ -32,6 +32,20 @@ export const dismissNotification = async (id: string, isPersistent?: boolean) =>
     }
 };
 
+export const undismissNotification = async (id: string) => {
+    const ids = getDismissedIds().filter(dId => dId !== id);
+    localStorage.setItem(DISMISSED_KEY, JSON.stringify(ids));
+
+    try {
+        await supabase
+            .from('system_notifications')
+            .update({ is_dismissed: false })
+            .eq('id', id);
+    } catch (error) {
+        console.error('Error restoring notification in DB:', error);
+    }
+};
+
 export const clearOldDismissedIds = () => {
     // No-op for now
 };
@@ -168,37 +182,37 @@ export const getNotifications = async (role: 'ADMIN' | 'THERAPIST', userId: stri
         .sort((a, b) => b.date.getTime() - a.date.getTime());
 };
 
-export const getAIActivity = async (days: number = 3): Promise<Notification[]> => {
+export const getAIActivity = async (days: number = 7, includeDismissed: boolean = false): Promise<Notification[]> => {
     const since = new Date();
     since.setDate(since.getDate() - days);
-    since.setHours(0, 0, 0, 0); // From the beginning of the period
+    since.setHours(0, 0, 0, 0); // Desde el inicio del periodo
 
     try {
-        // Super broad filter to debug: catch common bot variants and titles
-        const { data, error } = await supabase
+        let query = supabase
             .from('system_notifications')
             .select('*')
             .or('type.ilike.AI_LOG,type.ilike.WHATSAPP,type.ilike.BOT,title.ilike.%Cita%')
-            .neq('is_dismissed', true)
             .gte('created_at', since.toISOString())
             .order('created_at', { ascending: false })
-            .limit(30);
+            .limit(50);
 
+        if (!includeDismissed) {
+            query = query.neq('is_dismissed', true);
+        }
+
+        const { data, error } = await query;
         if (error) throw error;
 
-        const dismissedIds = getDismissedIds();
-
-        return (data || [])
-            .filter(n => n.is_dismissed !== true && !dismissedIds.includes(n.id))
-            .map(n => ({
-                id: n.id,
-                type: 'AI_LOG',
-                title: n.title,
-                message: n.message,
-                date: new Date(n.created_at),
-                read: n.read || false,
-                priority: 'LOW',
-            }));
+        return (data || []).map(n => ({
+            id: n.id,
+            type: 'AI_LOG',
+            title: n.title,
+            message: n.message,
+            date: new Date(n.created_at),
+            read: n.read || false,
+            priority: 'LOW',
+            isDismissed: n.is_dismissed === true,
+        }));
     } catch (error) {
         console.error('Error fetching AI activity:', error);
         return [];

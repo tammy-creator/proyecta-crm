@@ -20,7 +20,7 @@
     {
       "parameters": {
         "dataType": "string",
-        "value1": "={{ $json.body.message?.toolCalls?.[0]?.function?.args?.accion || $json.body.accion || '' }}",
+        "value1": "={{ $json.body.message?.toolCalls?.[0]?.function?.args?.accion || $json.body.message?.toolCallList?.[0]?.function?.args?.accion || $json.body.accion || '' }}",
         "numberOutputs": 4,
         "rules": {
           "rules": [
@@ -118,7 +118,7 @@
     {
       "parameters": {
         "respondWith": "json",
-        "responseBody": "={\n  \"registrado\": {{$json.registrado}},\n  \"nombre_niño\": \"{{$json.nombre_niño || ''}}\",\n  \"reply\": \"{{$json.reply}}\"\n}",
+        "responseBody": "={\n  \"results\": [\n    {\n      \"toolCallId\": \"{{ $('Bypass Sec Vapi').first().json.body.toolCallId || $('Bypass Sec Vapi').first().json.body.message?.toolCalls?.[0]?.id || $('Bypass Sec Vapi').first().json.body.message?.toolCallList?.[0]?.id || 'call_default' }}\",\n      \"result\": \"{{ $json.reply }}\"\n    }\n  ],\n  \"reply\": \"{{ $json.reply }}\",\n  \"registrado\": {{ $json.registrado }},\n  \"nombre_niño\": \"{{ $json.nombre_niño || '' }}\"\n}",
         "options": {}
       },
       "id": "webhook-response-saludo",
@@ -186,7 +186,7 @@
     {
       "parameters": {
         "respondWith": "json",
-        "responseBody": "={\n  \"reply\": \"{{ 'Perfecto, he tomado nota de tu solicitud de disponibilidad con ' + ($('Bypass Sec Vapi').first().json.body.message?.toolCalls?.[0]?.function?.args?.terapeuta || 'el terapeuta') + ' para ' + ($('Bypass Sec Vapi').first().json.body.message?.toolCalls?.[0]?.function?.args?.preferencia_horaria || $('Bypass Sec Vapi').first().json.body.message?.toolCalls?.[0]?.function?.args?.fecha_hora || 'las tardes') + '. En dirección revisarán la agenda y te contactarán para confirmártelo.' }}\"\n}",
+        "responseBody": "={\n  \"results\": [\n    {\n      \"toolCallId\": \"{{ $('Bypass Sec Vapi').first().json.body.toolCallId || $('Bypass Sec Vapi').first().json.body.message?.toolCalls?.[0]?.id || $('Bypass Sec Vapi').first().json.body.message?.toolCallList?.[0]?.id || 'call_default' }}\",\n      \"result\": \"{{ 'Perfecto, he tomado nota de tu solicitud de disponibilidad con ' + ($('Bypass Sec Vapi').first().json.body.message?.toolCalls?.[0]?.function?.args?.terapeuta || 'el terapeuta') + ' para ' + ($('Bypass Sec Vapi').first().json.body.message?.toolCalls?.[0]?.function?.args?.preferencia_horaria || $('Bypass Sec Vapi').first().json.body.message?.toolCalls?.[0]?.function?.args?.fecha_hora || 'las tardes') + '. En dirección revisarán la agenda y te contactarán para confirmártelo.' }}\"\n    }\n  ],\n  \"reply\": \"{{ 'Perfecto, he tomado nota de tu solicitud de disponibilidad con ' + ($('Bypass Sec Vapi').first().json.body.message?.toolCalls?.[0]?.function?.args?.terapeuta || 'el terapeuta') + ' para ' + ($('Bypass Sec Vapi').first().json.body.message?.toolCalls?.[0]?.function?.args?.preferencia_horaria || $('Bypass Sec Vapi').first().json.body.message?.toolCalls?.[0]?.function?.args?.fecha_hora || 'las tardes') + '. En dirección revisarán la agenda y te contactarán para confirmártelo.' }}\"\n}",
         "options": {}
       },
       "id": "webhook-response-disponibilidad",
@@ -252,7 +252,7 @@
     {
       "parameters": {
         "respondWith": "json",
-        "responseBody": "={\n  \"reply\": \"{{ 'Excelente, ya he registrado tu solicitud para reservar la cita con ' + ($('Bypass Sec Vapi').first().json.body.message?.toolCalls?.[0]?.function?.args?.terapeuta || 'la terapeuta') + ' el ' + ($('Bypass Sec Vapi').first().json.body.message?.toolCalls?.[0]?.function?.args?.fecha_hora || 'día indicado') + '. El equipo de administración revisará la agenda hoy mismo y te contactará para confirmarla.' }}\"\n}",
+        "responseBody": "={\n  \"results\": [\n    {\n      \"toolCallId\": \"{{ $('Bypass Sec Vapi').first().json.body.toolCallId || $('Bypass Sec Vapi').first().json.body.message?.toolCalls?.[0]?.id || $('Bypass Sec Vapi').first().json.body.message?.toolCallList?.[0]?.id || 'call_default' }}\",\n      \"result\": \"{{ 'Excelente, ya he registrado tu solicitud para reservar la cita con ' + ($('Bypass Sec Vapi').first().json.body.message?.toolCalls?.[0]?.function?.args?.terapeuta || 'la terapeuta') + ' el ' + ($('Bypass Sec Vapi').first().json.body.message?.toolCalls?.[0]?.function?.args?.fecha_hora || 'día indicado') + '. El equipo de administración revisará la agenda hoy mismo y te contactará para confirmarla.' }}\"\n    }\n  ],\n  \"reply\": \"{{ 'Excelente, ya he registrado tu solicitud para reservar la cita con ' + ($('Bypass Sec Vapi').first().json.body.message?.toolCalls?.[0]?.function?.args?.terapeuta || 'la terapeuta') + ' el ' + ($('Bypass Sec Vapi').first().json.body.message?.toolCalls?.[0]?.function?.args?.fecha_hora || 'día indicado') + '. El equipo de administración revisará la agenda hoy mismo y te contactará para confirmarla.' }}\"\n}",
         "options": {}
       },
       "id": "webhook-response-confirm",
@@ -318,7 +318,7 @@
     {
       "parameters": {
         "respondWith": "json",
-        "responseBody": "={\n  \"reply\": \"{{ 'Perfecto, he tomado nota de tu solicitud para cancelar la cita. Mis compañeras de recepción verificarán la agenda y te contactarán hoy mismo para confirmar la cancelación.' }}\"\n}",
+        "responseBody": "={\n  \"results\": [\n    {\n      \"toolCallId\": \"{{ $('Bypass Sec Vapi').first().json.body.toolCallId || $('Bypass Sec Vapi').first().json.body.message?.toolCalls?.[0]?.id || $('Bypass Sec Vapi').first().json.body.message?.toolCallList?.[0]?.id || 'call_default' }}\",\n      \"result\": \"{{ 'Perfecto, he tomado nota de tu solicitud para cancelar la cita. Mis compañeras de recepción verificarán la agenda y te contactarán hoy mismo para confirmar la cancelación.' }}\"\n    }\n  ],\n  \"reply\": \"{{ 'Perfecto, he tomado nota de tu solicitud para cancelar la cita. Mis compañeras de recepción verificarán la agenda y te contactarán hoy mismo para confirmar la cancelación.' }}\"\n}",
         "options": {}
       },
       "id": "webhook-response-cancel",
@@ -386,7 +386,7 @@
     {
       "parameters": {
         "respondWith": "json",
-        "responseBody": "{\n  \"reply\": \"Perfecto, he tomado nota de tus datos. Te llamaremos en breve para coordinar tu primera cita. ¡Que tengas un gran día!\"\n}",
+        "responseBody": "={\n  \"results\": [\n    {\n      \"toolCallId\": \"{{ $('Bypass Sec Vapi').first().json.body.toolCallId || $('Bypass Sec Vapi').first().json.body.message?.toolCalls?.[0]?.id || $('Bypass Sec Vapi').first().json.body.message?.toolCallList?.[0]?.id || 'call_default' }}\",\n      \"result\": \"Perfecto, he tomado nota de tus datos. Te llamaremos en breve para coordinar tu primera cita. ¡Que tengas un gran día!\"\n    }\n  ],\n  \"reply\": \"Perfecto, he tomado nota de tus datos. Te llamaremos en breve para coordinar tu primera cita. ¡Que tengas un gran día!\"\n}",
         "options": {}
       },
       "id": "webhook-response-informacion",
@@ -417,7 +417,7 @@
         },
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={\n  \"type\": \"AI_LOG\",\n  \"title\": \"Llamada Vapi registrada\",\n  \"message\": \"Teléfono: {{$json.body.message?.customer?.number || $json.body.message?.call?.customer?.number || $json.body.telefono_origen || $json.body.telefono || 'Desconocido'}}. Motivo/Resumen: {{$json.body.message?.summary || 'No hay resumen'}}\",\n  \"is_dismissed\": false}",
+        "jsonBody": "={\n  \"type\": \"AI_LOG\",\n  \"title\": \"📞 Llamada finalizada (Sin cita / Devolver llamada)\",\n  \"message\": \"Teléfono: {{$json.phone}} | Resumen: {{$json.summary}}\",\n  \"is_dismissed\": false\n}",
         "options": {}
       },
       "id": "http-log-call",
@@ -425,8 +425,8 @@
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.4,
       "position": [
-        550,
-        880
+        940,
+        860
       ],
       "settings": {
         "alwaysOutputData": true
@@ -443,13 +443,13 @@
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1,
       "position": [
-        780,
-        880
+        1160,
+        960
       ]
     },
     {
       "parameters": {
-        "jsCode": "const newItems = [];\n\nfunction normalizePhone(raw) {\n  if (!raw) return '';\n  let clean = String(raw).replace(/[^0-9+]/g, '').trim();\n  if (clean.startsWith('+34')) clean = clean.substring(3);\n  if (clean.startsWith('0034')) clean = clean.substring(4);\n  if (clean.startsWith('34') && clean.length === 11) clean = clean.substring(2);\n  return clean;\n}\n\nfor (let item of $input.all()) {\n  let newItem = JSON.parse(JSON.stringify(item.json));\n  try {\n    let toolCall = newItem.body?.message?.toolCalls?.[0];\n    let args = {};\n    if (toolCall && toolCall.function && toolCall.function.arguments) {\n      let argsStr = toolCall.function.arguments;\n      args = typeof argsStr === 'string' ? JSON.parse(argsStr) : argsStr;\n      \n      // Normalizar nombre de terapeuta para base de datos (con tildes correctas)\n      if (args.terapeuta) {\n        let t = args.terapeuta.toLowerCase().normalize(\"NFD\").replace(/[\\u0300-\\u036f]/g, \"\");\n        t = t.trim();\n        if (t.includes(\"sofia\")) args.terapeuta = \"Sofía\";\n        else if (t.includes(\"angela\")) args.terapeuta = \"Ángela\";\n        else if (t.includes(\"ruth\") || t.includes(\"rut\") || t.includes(\"rus\") || t.includes(\"ruts\")) args.terapeuta = \"Ruth\";\n        else if (t.includes(\"marta\")) args.terapeuta = \"Marta\";\n        else if (t.includes(\"laura\")) args.terapeuta = \"Laura\";\n        else if (t.includes(\"yaiza\")) args.terapeuta = \"Yaiza\";\n        else if (t.includes(\"zoe\")) args.terapeuta = \"Zoe\";\n      }\n\n      // Renombramos los argumentos a 'args' para que el Switch lo pueda leer sin alarmas\n      toolCall.function.args = args;\n      \n      // Subimos la acción al panel principal\n      if (!newItem.body) newItem.body = {};\n      newItem.body.accion = args.accion;\n    }\n\n    // Extraer y normalizar teléfono de forma exhaustiva de cualquier campo posible de Vapi\n    const callerPhone = normalizePhone(\n      args?.telefono ||\n      args?.telefono_origen ||\n      args?.phone ||\n      args?.customer_phone ||\n      args?.datos_lead?.telefono ||\n      args?.datos_lead?.telefono_origen ||\n      newItem.body?.message?.customer?.number ||\n      newItem.body?.message?.call?.customer?.number ||\n      newItem.body?.customer?.number ||\n      newItem.body?.call?.customer?.number ||\n      newItem.body?.telefono_origen ||\n      newItem.body?.telefono ||\n      newItem.body?.phone ||\n      ''\n    );\n\n    if (callerPhone) {\n      if (toolCall && toolCall.function) {\n        if (!toolCall.function.args) toolCall.function.args = {};\n        toolCall.function.args.telefono_origen = callerPhone;\n        toolCall.function.args.telefono = callerPhone;\n      }\n      if (!newItem.body) newItem.body = {};\n      newItem.body.telefono_origen = callerPhone;\n      newItem.body.telefono = callerPhone;\n    }\n  } catch (err) {\n    console.error(\"Error en Bypass Sec Vapi:\", err);\n  }\n  newItems.push({ json: newItem });\n}\nreturn newItems;"
+        "jsCode": "const newItems = [];\n\nfunction normalizePhone(raw) {\n  if (!raw) return '';\n  let clean = String(raw).replace(/[^0-9+]/g, '').trim();\n  if (clean.startsWith('+34')) clean = clean.substring(3);\n  if (clean.startsWith('0034')) clean = clean.substring(4);\n  if (clean.startsWith('34') && clean.length === 11) clean = clean.substring(2);\n  return clean;\n}\n\nfor (let item of $input.all()) {\n  let newItem = JSON.parse(JSON.stringify(item.json));\n  try {\n    let toolCall = newItem.body?.message?.toolCalls?.[0] || newItem.body?.message?.toolCallList?.[0];\n    let toolCallId = toolCall?.id || 'call_proyecta_default';\n    let args = {};\n    if (toolCall && toolCall.function && toolCall.function.arguments) {\n      let argsStr = toolCall.function.arguments;\n      args = typeof argsStr === 'string' ? JSON.parse(argsStr) : argsStr;\n      \n      // Normalizar nombre de terapeuta para base de datos (con tildes correctas)\n      if (args.terapeuta) {\n        let t = args.terapeuta.toLowerCase().normalize(\"NFD\").replace(/[\\u0300-\\u036f]/g, \"\");\n        t = t.trim();\n        if (t.includes(\"sofia\")) args.terapeuta = \"Sofía\";\n        else if (t.includes(\"angela\")) args.terapeuta = \"Ángela\";\n        else if (t.includes(\"ruth\") || t.includes(\"rut\") || t.includes(\"rus\") || t.includes(\"ruts\")) args.terapeuta = \"Ruth\";\n        else if (t.includes(\"marta\")) args.terapeuta = \"Marta\";\n        else if (t.includes(\"laura\")) args.terapeuta = \"Laura\";\n        else if (t.includes(\"yaiza\")) args.terapeuta = \"Yaiza\";\n        else if (t.includes(\"zoe\")) args.terapeuta = \"Zoe\";\n      }\n\n      // Renombramos los argumentos a 'args' para que el Switch lo pueda leer sin alarmas\n      toolCall.function.args = args;\n      \n      // Subimos la acción al panel principal\n      if (!newItem.body) newItem.body = {};\n      newItem.body.accion = args.accion;\n    }\n\n    // Guardar toolCallId para que todos los nodos Respond to Webhook puedan acceder a él\n    if (!newItem.body) newItem.body = {};\n    newItem.body.toolCallId = toolCallId;\n    if (toolCall) {\n      toolCall.id = toolCallId;\n      if (toolCall.function) {\n        if (!toolCall.function.args) toolCall.function.args = {};\n        toolCall.function.args.toolCallId = toolCallId;\n      }\n    }\n\n    // Extraer y normalizar teléfono de forma exhaustiva de cualquier campo posible de Vapi\n    const callerPhone = normalizePhone(\n      args?.telefono ||\n      args?.telefono_origen ||\n      args?.phone ||\n      args?.customer_phone ||\n      args?.datos_lead?.telefono ||\n      args?.datos_lead?.telefono_origen ||\n      newItem.body?.message?.customer?.number ||\n      newItem.body?.message?.call?.customer?.number ||\n      newItem.body?.customer?.number ||\n      newItem.body?.call?.customer?.number ||\n      newItem.body?.telefono_origen ||\n      newItem.body?.telefono ||\n      newItem.body?.phone ||\n      ''\n    );\n\n    if (callerPhone) {\n      if (toolCall && toolCall.function) {\n        if (!toolCall.function.args) toolCall.function.args = {};\n        toolCall.function.args.telefono_origen = callerPhone;\n        toolCall.function.args.telefono = callerPhone;\n      }\n      if (!newItem.body) newItem.body = {};\n      newItem.body.telefono_origen = callerPhone;\n      newItem.body.telefono = callerPhone;\n    }\n  } catch (err) {\n    console.error(\"Error en Bypass Sec Vapi:\", err);\n  }\n  newItems.push({ json: newItem });\n}\nreturn newItems;"
       },
       "id": "code-bypass-vapi",
       "name": "Bypass Sec Vapi",
@@ -550,6 +550,39 @@
       "settings": {
         "alwaysOutputData": true
       }
+    },
+    {
+      "parameters": {
+        "jsCode": "const newItems = [];\n\nfor (const item of $input.all()) {\n  const msg = item.json.body?.message || item.json.body || {};\n  \n  let phone = \n    msg.customer?.number || \n    msg.call?.customer?.number || \n    item.json.body?.customer?.number || \n    item.json.body?.call?.customer?.number || \n    item.json.body?.telefono_origen || \n    item.json.body?.telefono || \n    'Desconocido';\n\n  let summary = '';\n  const structuredOutputs = \n    msg.artifact?.structuredOutputs || \n    msg.call?.artifact?.structuredOutputs || \n    msg.structuredOutputs || \n    msg.analysis?.structuredData || \n    item.json.body?.message?.artifact?.structuredOutputs ||\n    {};\n\n  for (const key of Object.keys(structuredOutputs)) {\n    const val = structuredOutputs[key];\n    if (val) {\n      if (typeof val === 'string' && val.trim().length > 0) {\n        summary = val.trim();\n        break;\n      }\n      if (val.result && typeof val.result === 'string') {\n        summary = val.result.trim();\n        break;\n      }\n      if (val.summary && typeof val.summary === 'string') {\n        summary = val.summary.trim();\n        break;\n      }\n    }\n  }\n\n  if (!summary) {\n    summary = \n      msg.artifact?.summary || \n      msg.analysis?.summary || \n      msg.summary || \n      msg.call?.artifact?.summary || \n      '';\n  }\n\n  let hadAction = false;\n  const messages = msg.artifact?.messages || msg.messages || msg.call?.artifact?.messages || [];\n  for (const m of messages) {\n    const toolCalls = m.tool_calls || m.toolCalls || [];\n    for (const tc of toolCalls) {\n      let args = tc.function?.arguments;\n      if (typeof args === 'string') {\n        try { args = JSON.parse(args); } catch (e) { args = {}; }\n      }\n      const accion = args?.accion || '';\n      if (['disponibilidad', 'confirmacion', 'cancelacion', 'informacion'].includes(accion)) {\n        hadAction = true;\n        break;\n      }\n    }\n    if (hadAction) break;\n  }\n\n  newItems.push({\n    json: {\n      phone: phone,\n      summary: summary || 'Llamada finalizada sin notas adicionales.',\n      hadAction: hadAction,\n      shouldLogNotice: !hadAction\n    }\n  });\n}\n\nreturn newItems;"
+      },
+      "id": "code-process-eoc",
+      "name": "Process End of Call",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        500,
+        900
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "boolean": [
+            {
+              "value1": "={{ $json.shouldLogNotice }}",
+              "value2": true
+            }
+          ]
+        }
+      },
+      "id": "if-should-log-eoc",
+      "name": "Debe Registrar Aviso?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [
+        720,
+        900
+      ]
     }
   ],
   "connections": {
@@ -721,7 +754,7 @@
       "main": [
         [
           {
-            "node": "Log Call to Dashboard",
+            "node": "Process End of Call",
             "type": "main",
             "index": 0
           }
@@ -802,6 +835,35 @@
         [
           {
             "node": "Respond Cancelacion",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Process End of Call": {
+      "main": [
+        [
+          {
+            "node": "Debe Registrar Aviso?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Debe Registrar Aviso?": {
+      "main": [
+        [
+          {
+            "node": "Log Call to Dashboard",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Respond Log",
             "type": "main",
             "index": 0
           }

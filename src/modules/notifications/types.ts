@@ -9,4 +9,5 @@ export interface Notification {
     read: boolean;
     actionLink?: string;
     priority: 'HIGH' | 'MEDIUM' | 'LOW';
+    isDismissed?: boolean;
 }

@@ -327,82 +327,89 @@ const Dashboard: React.FC = () => {
                     </div>
                 </Card>
 
-                <Card 
-                    title="Actividad del Bot (IA / Clara)" 
-                    className="ai-logs-preview" 
-                    subtitle={!showAllAiLogs ? `${claraCalls.filter(c => c.tracking?.status === 'PENDING').length} llamadas pendientes de devolver` : "Historial reciente de llamadas atendidas"}
-                    action={
-                        <div style={{ display: 'flex', gap: '6px', alignItems: 'center', flexWrap: 'wrap' }}>
-                            <div style={{ display: 'flex', gap: '4px' }}>
-                                <button
-                                    type="button"
-                                    style={{
-                                        fontSize: '11px',
-                                        fontWeight: !showAllAiLogs ? 700 : 500,
-                                        padding: '4px 10px',
-                                        borderRadius: '6px',
-                                        border: '1px solid',
-                                        borderColor: !showAllAiLogs ? '#93c5fd' : '#e2e8f0',
-                                        backgroundColor: !showAllAiLogs ? '#eff6ff' : '#ffffff',
-                                        color: !showAllAiLogs ? '#1d4ed8' : '#64748b',
-                                        cursor: 'pointer'
-                                    }}
-                                    onClick={() => setShowAllAiLogs(false)}
-                                >
-                                    ⏳ Pendientes ({claraCalls.filter(c => c.tracking?.status === 'PENDING').length})
-                                </button>
-                                <button
-                                    type="button"
-                                    style={{
-                                        fontSize: '11px',
-                                        fontWeight: showAllAiLogs ? 700 : 500,
-                                        padding: '4px 10px',
-                                        borderRadius: '6px',
-                                        border: '1px solid',
-                                        borderColor: showAllAiLogs ? '#93c5fd' : '#e2e8f0',
-                                        backgroundColor: showAllAiLogs ? '#eff6ff' : '#ffffff',
-                                        color: showAllAiLogs ? '#1d4ed8' : '#64748b',
-                                        cursor: 'pointer'
-                                    }}
-                                    onClick={() => setShowAllAiLogs(true)}
-                                >
-                                    Historial
-                                </button>
-                            </div>
-                            <Link
-                                to="/calls"
-                                style={{
-                                    fontSize: '11px',
-                                    fontWeight: 700,
-                                    padding: '4px 10px',
-                                    borderRadius: '6px',
-                                    backgroundColor: '#0284c7',
-                                    color: '#ffffff',
-                                    textDecoration: 'none',
-                                    display: 'inline-flex',
-                                    alignItems: 'center',
-                                    gap: '5px'
-                                }}
-                            >
-                                <PhoneCall size={12} />
-                                <span>Ver Registro Completo</span>
-                            </Link>
-                        </div>
-                    }
-                >
-                    <div className="ai-logs-container">
-                        {(() => {
-                            const displayed = !showAllAiLogs
-                                ? claraCalls.filter(c => c.tracking?.status === 'PENDING')
-                                : claraCalls.slice(0, 15);
+                {(() => {
+                    const threeDaysLimit = startOfDay(subDays(new Date(), 3));
+                    const callsLast3Days = claraCalls.filter(c => new Date(c.date) >= threeDaysLimit);
+                    const pendingRecentCount = callsLast3Days.filter(c => c.tracking?.status === 'PENDING').length;
 
-                            if (displayed.length === 0) {
-                                return (
-                                    <div className="text-secondary text-sm p-4 text-center italic">
-                                        {!showAllAiLogs ? '🎉 ¡Al día! No hay llamadas pendientes de devolver.' : 'Sin llamadas registradas recientemente.'}
+                    return (
+                        <Card 
+                            title="Actividad del Bot (IA / Clara)" 
+                            className="ai-logs-preview" 
+                            subtitle={!showAllAiLogs ? `${pendingRecentCount} llamadas pendientes (últimos 3 días)` : "Historial de los últimos 3 días"}
+                            action={
+                                <div style={{ display: 'flex', gap: '6px', alignItems: 'center', flexWrap: 'wrap' }}>
+                                    <div style={{ display: 'flex', gap: '4px' }}>
+                                        <button
+                                            type="button"
+                                            style={{
+                                                fontSize: '11px',
+                                                fontWeight: !showAllAiLogs ? 700 : 500,
+                                                padding: '4px 10px',
+                                                borderRadius: '6px',
+                                                border: '1px solid',
+                                                borderColor: !showAllAiLogs ? '#93c5fd' : '#e2e8f0',
+                                                backgroundColor: !showAllAiLogs ? '#eff6ff' : '#ffffff',
+                                                color: !showAllAiLogs ? '#1d4ed8' : '#64748b',
+                                                cursor: 'pointer'
+                                            }}
+                                            onClick={() => setShowAllAiLogs(false)}
+                                        >
+                                            ⏳ Pendientes ({pendingRecentCount})
+                                        </button>
+                                        <button
+                                            type="button"
+                                            style={{
+                                                fontSize: '11px',
+                                                fontWeight: showAllAiLogs ? 700 : 500,
+                                                padding: '4px 10px',
+                                                borderRadius: '6px',
+                                                border: '1px solid',
+                                                borderColor: showAllAiLogs ? '#93c5fd' : '#e2e8f0',
+                                                backgroundColor: showAllAiLogs ? '#eff6ff' : '#ffffff',
+                                                color: showAllAiLogs ? '#1d4ed8' : '#64748b',
+                                                cursor: 'pointer'
+                                            }}
+                                            onClick={() => setShowAllAiLogs(true)}
+                                        >
+                                            Historial 3 días ({callsLast3Days.length})
+                                        </button>
                                     </div>
-                                );
+                                    <Link
+                                        to="/calls"
+                                        style={{
+                                            fontSize: '11px',
+                                            fontWeight: 700,
+                                            padding: '4px 10px',
+                                            borderRadius: '6px',
+                                            backgroundColor: '#0284c7',
+                                            color: '#ffffff',
+                                            textDecoration: 'none',
+                                            display: 'inline-flex',
+                                            alignItems: 'center',
+                                            gap: '5px'
+                                        }}
+                                        title="Ver todo el historial completo de llamadas"
+                                    >
+                                        <PhoneCall size={12} />
+                                        <span>Ver Registro Completo</span>
+                                    </Link>
+                                </div>
                             }
+                        >
+                            <div className="ai-logs-container">
+                                {(() => {
+                                    const displayed = !showAllAiLogs
+                                        ? callsLast3Days.filter(c => c.tracking?.status === 'PENDING')
+                                        : callsLast3Days;
+
+                                    if (displayed.length === 0) {
+                                        return (
+                                            <div className="text-secondary text-sm p-4 text-center italic">
+                                                {!showAllAiLogs ? '🎉 ¡Al día! No hay llamadas pendientes de devolver en los últimos 3 días.' : 'Sin llamadas en los últimos 3 días.'}
+                                            </div>
+                                        );
+                                    }
 
                             return (
                                 <table className="ai-logs-table">
@@ -484,7 +491,9 @@ const Dashboard: React.FC = () => {
                         })()}
                     </div>
                 </Card>
-            </div>
+            );
+        })()}
+    </div>
 
             <div className="dashboard-content-grid" style={{ marginBottom: '4rem' }}>
                 <Card title="Agenda de Hoy" className="agenda-preview" action={<button className="btn-link" onClick={() => navigate('/calendar')}>Ver todo</button>}>

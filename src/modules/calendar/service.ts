@@ -316,12 +316,19 @@ export const markAppointmentPaid = async (appointmentId: string): Promise<void> 
         .eq('id', appointmentId);
     if (error) throw error;
 
-    // Sync linked transaction to Pagado
+    // Sync linked transaction to Pagado con fecha de cobro actual
     try {
-        await supabase
+        const { error: txErr } = await supabase
             .from('transactions')
-            .update({ status: 'Pagado' })
+            .update({ status: 'Pagado', payment_date: new Date().toISOString() })
             .eq('appointment_id', appointmentId);
+        if (txErr) {
+            // Fallback si la columna no existe
+            await supabase
+                .from('transactions')
+                .update({ status: 'Pagado' })
+                .eq('appointment_id', appointmentId);
+        }
     } catch (err) {
         console.warn('Error syncing tx on markAppointmentPaid:', err);
     }

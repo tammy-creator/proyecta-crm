@@ -25,7 +25,7 @@ import {
     CalendarClock
 } from 'lucide-react';
 import { getAppointments, updateAppointment, subscribeToCalendarSync } from './service';
-import { getTransactions, createTransaction, updateTransaction } from '../billing/service';
+import { getTransactions, createTransaction, updateTransaction, isNonClinicalSession } from '../billing/service';
 import { type Transaction } from '../billing/types';
 import { type Appointment, type AppointmentStatus } from './types';
 import { useAuth } from '../../context/AuthContext';
@@ -316,6 +316,11 @@ const AppointmentRegistry: React.FC = () => {
                     }
                 }
 
+                if (isNonClinicalSession(appt.patientName, appt.type)) {
+                    showToast("Esta cita es de trabajo no asistencial y no requiere cobro", 'info');
+                    return;
+                }
+
                 if (!effectivePatientId) {
                     showToast("No se puede cobrar una cita sin paciente asignado", 'error');
                     return;
@@ -324,9 +329,13 @@ const AppointmentRegistry: React.FC = () => {
                 // 2. Determine status and isPaid
                 const txStatus = method === 'Fin de mes' ? 'Pendiente' : 'Pagado';
                 const isPaid = method !== 'Fin de mes';
+                const nowIso = new Date().toISOString();
 
                 // 3. Check if transaction already exists to update it, or create new one
                 const existingTx = transactions.find(t => t.appointmentId === appt.id);
+                const effectiveAmount = (appt.price != null && appt.price > 0)
+                    ? appt.price
+                    : (existingTx?.amount && existingTx.amount > 0 ? existingTx.amount : 60);
 
                 if (existingTx) {
                     await updateTransaction({
@@ -334,7 +343,8 @@ const AppointmentRegistry: React.FC = () => {
                         patientId: effectivePatientId,
                         status: txStatus,
                         method: method as any,
-                        amount: appt.price != null ? appt.price : 60
+                        amount: effectiveAmount,
+                        paymentDate: isPaid ? nowIso : undefined
                     });
                 } else {
                     await createTransaction({
@@ -342,9 +352,10 @@ const AppointmentRegistry: React.FC = () => {
                         patientId: effectivePatientId,
                         patientName: appt.patientName || '',
                         therapistName: appt.therapistName || '',
-                        amount: appt.price != null ? appt.price : 60,
+                        amount: effectiveAmount,
                         method: method as any,
                         date: appt.start,
+                        paymentDate: isPaid ? nowIso : undefined,
                         status: txStatus,
                         category: appt.type || 'Sesión',
                         notes: `Gestionado desde Registro de Citas`

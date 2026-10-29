@@ -8,7 +8,8 @@ export interface Transaction {
     patientName: string;
     therapistName?: string;
     amount: number;
-    date: string; // ISO string
+    date: string; // ISO string (session / accrual date)
+    paymentDate?: string; // ISO string (actual payment / cash date)
     status: TransactionStatus;
     method?: PaymentMethod;
     category: string; // e.g., 'Terapia', 'Evaluación Material'

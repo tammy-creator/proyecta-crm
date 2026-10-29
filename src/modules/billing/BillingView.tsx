@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { getTransactions, recordPayment, updateTransaction, createTransaction, toggleReconciliation } from './service';
+import { getTransactions, recordPayment, updateTransaction, createTransaction, toggleReconciliation, isNonClinicalSession, batchPayAppointments, type BatchPaymentItem } from './service';
 import { type Transaction, type PaymentMethod } from './types';
 import Card from '../../components/ui/Card';
-import { DollarSign, Clock, CheckCircle, CreditCard, Wallet, Send, Download, Calendar as CalendarIcon, Edit2, X, FileText, Receipt, Filter, TrendingUp, AlertTriangle, Banknote, User, CalendarClock, Search, ChevronLeft, ChevronRight, CheckCheck, ArrowUpDown, ArrowUp, ArrowDown, RotateCcw, Landmark, FileSpreadsheet } from 'lucide-react';
+import { DollarSign, Clock, CheckCircle, CreditCard, Wallet, Send, Download, Calendar as CalendarIcon, Edit2, X, FileText, Receipt, Filter, TrendingUp, AlertTriangle, Banknote, User, CalendarClock, Search, ChevronLeft, ChevronRight, CheckCheck, ArrowUpDown, ArrowUp, ArrowDown, RotateCcw, Landmark, FileSpreadsheet, Layers } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import { format, parseISO, startOfDay, endOfDay, isValid, isSameMonth, parse } from 'date-fns';
 import { es } from 'date-fns/locale';
@@ -97,6 +97,16 @@ const BillingView: React.FC = () => {
     const [chargingApptIds, setChargingApptIds] = useState<Set<string>>(new Set());
     const [payingTxIds, setPayingTxIds] = useState<Set<string>>(new Set());
 
+    // Batch Payment Modal States
+    const [isBatchPayModalOpen, setIsBatchPayModalOpen] = useState(false);
+    const [batchPayPatientId, setBatchPayPatientId] = useState<string>('');
+    const [batchPayPatientName, setBatchPayPatientName] = useState<string>('');
+    const [batchPayItems, setBatchPayItems] = useState<BatchPaymentItem[]>([]);
+    const [batchPaySelectedIds, setBatchPaySelectedIds] = useState<Set<string>>(new Set());
+    const [batchPayMethod, setBatchPayMethod] = useState<PaymentMethod>('Efectivo');
+    const [batchPayDate, setBatchPayDate] = useState<string>(selectedDate);
+    const [isBatchProcessing, setIsBatchProcessing] = useState(false);
+
     useEffect(() => {
         fetchData();
     }, [selectedDate, statusFilter, methodFilter, activeTab]);
@@ -156,13 +166,18 @@ const BillingView: React.FC = () => {
             ]);
             setTransactions(txData);
             setPatients(pData);
-            // Solo citas no canceladas ni bloqueos del día seleccionado
-            setTodayAppointments(apptData.filter(a => a.status !== 'Cancelada' && a.status !== 'Bloqueada'));
-            // Todas las citas no pagadas hasta hoy (evitar contar citas futuras como deuda), excluyendo bloqueos
+            // Solo citas asistenciales reales no canceladas ni bloqueos del día seleccionado
+            setTodayAppointments(apptData.filter(a => 
+                a.status !== 'Cancelada' && 
+                a.status !== 'Bloqueada' &&
+                !isNonClinicalSession(a.patientName, a.type)
+            ));
+            // Todas las citas reales no pagadas hasta hoy (evitar contar citas futuras como deuda ni bloqueos no asistenciales)
             const now = new Date();
             setHistoricalUnpaidAppointments(unpaidAppts.filter(a =>
                 a.status !== 'Cancelada' &&
                 a.status !== 'Bloqueada' &&
+                !isNonClinicalSession(a.patientName, a.type) &&
                 new Date(a.start) <= now &&
                 isSameMonth(new Date(a.start), now)
             ));
@@ -174,22 +189,14 @@ const BillingView: React.FC = () => {
         }
     };
 
-    // Force refresh when invoice modal closes to ensure buttons update
-    // Force refresh when invoice modal closes to ensure buttons update
-    // REMOVED: Causing race conditions with explicit fetch in handlers
-    // useEffect(() => {
-    //     if (!isInvoiceModalOpen) {
-    //         fetchData();
-    //     }
-    // }, [isInvoiceModalOpen]);
-
     const handlePayment = async (id: string, method: PaymentMethod) => {
         if (payingTxIds.has(id)) return;
         setPayingTxIds(prev => new Set(prev).add(id));
         try {
             const tx = transactions.find(t => t.id === id);
             const isFinDeMes = method === 'Fin de mes';
-            const success = await recordPayment(id, method);
+            const nowIso = new Date().toISOString();
+            const success = await recordPayment(id, method, isFinDeMes ? undefined : nowIso);
             if (success) {
                 if (tx?.appointmentId) {
                     if (isFinDeMes) {
@@ -215,16 +222,23 @@ const BillingView: React.FC = () => {
     // Cobrar o asignar una cita que todavía no tiene transacción
     const handleChargeAppointment = async (appt: Appointment, method: PaymentMethod) => {
         if (chargingApptIds.has(appt.id)) return;
+        if (isNonClinicalSession(appt.patientName, appt.type)) {
+            showToast('Esta cita es de trabajo no asistencial y no genera cobro', 'info');
+            return;
+        }
         setChargingApptIds(prev => new Set(prev).add(appt.id));
         try {
             const isFinDeMes = method === 'Fin de mes';
+            const nowIso = new Date().toISOString();
+            const effectivePrice = (appt.price != null && appt.price > 0) ? appt.price : 60;
             const tx = await createTransaction({
                 appointmentId: appt.id,
                 patientId: appt.patientId ?? '',
                 patientName: appt.patientName,
                 therapistName: appt.therapistName,
-                amount: appt.price ?? 0,
-                date: appt.start, // Guardamos el timestamp completo para conservar la hora
+                amount: effectivePrice,
+                date: appt.start, // Guardamos el timestamp completo para conservar la hora de la sesión
+                paymentDate: isFinDeMes ? undefined : nowIso, // Fecha real del cobro en caja
                 status: isFinDeMes ? 'Pendiente' : 'Pagado',
                 method,
                 category: appt.type,
@@ -966,6 +980,19 @@ const BillingView: React.FC = () => {
         return txDate === selectedDate;
     });
 
+    // Cobros realizados en la fecha seleccionada (por fecha real de cobro en caja)
+    const collectionsForDay = transactions.filter((t: Transaction) => {
+        if (t.status !== 'Pagado') return false;
+        const pDate = (t.paymentDate || t.date || '').slice(0, 10);
+        return pDate === selectedDate;
+    });
+
+    // Cobros de sesiones anteriores recaudadas en la fecha seleccionada
+    const pastSessionsCollectedToday = collectionsForDay.filter((t: Transaction) => {
+        const sessionDate = (t.date || '').slice(0, 10);
+        return sessionDate !== selectedDate;
+    });
+
     // 4. Fusión: transacciones del día + rows de cita sin cobrar
     // Aplicar filtros de estado y método solo sobre las transacciones
     const filteredTx = txForDay.filter((t: Transaction) => {
@@ -974,17 +1001,108 @@ const BillingView: React.FC = () => {
         return matchesStatus && matchesMethod;
     });
 
-
-
     // Totals for the cards
     // 1. Total Facturado: Total de sesiones/citas del día seleccionado (cobradas + sin cobrar)
     const totalDayInvoiced = txForDay.reduce((acc: number, t: Transaction) => acc + Number(t.amount || 0), 0) +
         apptRowsWithoutTx.reduce((acc: number, a: Appointment) => acc + Number(a.price || 0), 0);
 
-    // 2. Total Cobrado: Suma de lo pagado HOY
-    const totalCollected = txForDay
-        .filter((t: Transaction) => t.status === 'Pagado')
+    // 2. Total Cobrado: Suma real de lo pagado e ingresado en caja HOY (por fecha real de cobro)
+    const totalCollected = collectionsForDay
         .reduce((acc: number, t: Transaction) => acc + Number(t.amount || 0), 0);
+
+    // Mapeo de deuda acumulada por paciente (para cobro agrupado en 1 clic)
+    const patientPendingMap = React.useMemo(() => {
+        const map = new Map<string, BatchPaymentItem[]>();
+        // 1. Transacciones en estado Pendiente
+        transactions.filter(t => t.status === 'Pendiente').forEach(t => {
+            const pName = (t.patientName || '').trim();
+            if (!pName) return;
+            const key = t.patientId ? t.patientId.toLowerCase() : pName.toLowerCase();
+            if (!map.has(key)) map.set(key, []);
+            map.get(key)!.push({
+                transactionId: t.id,
+                appointmentId: t.appointmentId,
+                amount: Number(t.amount || 0),
+                patientId: t.patientId,
+                patientName: pName,
+                therapistName: t.therapistName,
+                date: t.date,
+                category: t.category,
+            });
+        });
+        // 2. Citas pasadas no cobradas sin transacción
+        historicalUnpaidAppointments
+            .filter(a => !txByApptId.has(a.id) && !isNonClinicalSession(a.patientName, a.type))
+            .forEach(a => {
+                const pName = (a.patientName || '').trim();
+                if (!pName) return;
+                const key = a.patientId ? a.patientId.toLowerCase() : pName.toLowerCase();
+                if (!map.has(key)) map.set(key, []);
+                map.get(key)!.push({
+                    appointmentId: a.id,
+                    amount: (a.price != null && a.price > 0) ? a.price : 60,
+                    patientId: a.patientId || '',
+                    patientName: pName,
+                    therapistName: a.therapistName,
+                    date: a.start,
+                    category: a.type,
+                });
+            });
+        return map;
+    }, [transactions, historicalUnpaidAppointments, txByApptId]);
+
+    const openBatchPayModal = (patientId?: string, patientName?: string, includeAppt?: Appointment) => {
+        let items: BatchPaymentItem[] = [];
+        const pName = (patientName || includeAppt?.patientName || '').trim();
+        const pId = (patientId || includeAppt?.patientId || '').trim();
+        const key = pId ? pId.toLowerCase() : pName.toLowerCase();
+        
+        if (key && patientPendingMap.has(key)) {
+            items = [...patientPendingMap.get(key)!];
+        }
+
+        // Si se abrió desde una cita de hoy sin cobrar y aún no está en la lista
+        if (includeAppt && !items.some(i => i.appointmentId === includeAppt.id)) {
+            items.unshift({
+                appointmentId: includeAppt.id,
+                amount: (includeAppt.price != null && includeAppt.price > 0) ? includeAppt.price : 60,
+                patientId: includeAppt.patientId || '',
+                patientName: pName,
+                therapistName: includeAppt.therapistName,
+                date: includeAppt.start,
+                category: includeAppt.type,
+            });
+        }
+
+        setBatchPayPatientId(pId);
+        setBatchPayPatientName(pName);
+        setBatchPayItems(items);
+        setBatchPaySelectedIds(new Set(items.map(i => (i.appointmentId || i.transactionId)!)));
+        setBatchPayMethod('Efectivo');
+        setBatchPayDate(selectedDate);
+        setIsBatchPayModalOpen(true);
+    };
+
+    const handleExecuteBatchPay = async () => {
+        const selectedItems = batchPayItems.filter(i => batchPaySelectedIds.has((i.appointmentId || i.transactionId)!));
+        if (selectedItems.length === 0) {
+            showToast('Selecciona al menos una sesión para cobrar', 'info');
+            return;
+        }
+        setIsBatchProcessing(true);
+        try {
+            const pDateIso = new Date(batchPayDate).toISOString();
+            const res = await batchPayAppointments(selectedItems, batchPayMethod, pDateIso);
+            showToast(`Cobro registrado: ${res.success} sesión(es) cobrada(s) con éxito`, 'success');
+            setIsBatchPayModalOpen(false);
+            await fetchData();
+        } catch (err) {
+            console.error("Error executing batch pay:", err);
+            showToast("Error al procesar el cobro agrupado", "error");
+        } finally {
+            setIsBatchProcessing(false);
+        }
+    };
 
     // 3. Pendiente Histórico (todas las transacciones no pagadas + citas nunca cobradas)
     // IDs de citas con transacción
@@ -1122,10 +1240,27 @@ const BillingView: React.FC = () => {
                                 </select>
                             </div>
                             {!isTherapist && (
-                                <button className="btn-secondary flex items-center gap-2" onClick={() => setIsClosingModalOpen(true)} style={{ borderRadius: '12px', padding: '0.5rem 1rem', fontSize: '0.85rem' }}>
-                                    <Wallet size={16} />
-                                    Cierre de Caja
-                                </button>
+                                <>
+                                    <button
+                                        type="button"
+                                        className="btn-secondary flex items-center gap-2"
+                                        onClick={() => openBatchPayModal()}
+                                        style={{ borderRadius: '12px', padding: '0.5rem 1rem', fontSize: '0.85rem' }}
+                                        title="Cobro conjunto de varias sesiones de un paciente"
+                                    >
+                                        <Layers size={16} />
+                                        Cobro Agrupado
+                                    </button>
+                                    <button
+                                        type="button"
+                                        className="btn-secondary flex items-center gap-2"
+                                        onClick={() => setIsClosingModalOpen(true)}
+                                        style={{ borderRadius: '12px', padding: '0.5rem 1rem', fontSize: '0.85rem' }}
+                                    >
+                                        <Wallet size={16} />
+                                        Cierre de Caja
+                                    </button>
+                                </>
                             )}
                         </>
                     )}
@@ -2685,17 +2820,32 @@ const BillingView: React.FC = () => {
                                 <tbody>
                                     {apptRowsWithoutTx.map((appt) => {
                                         const isCharging = chargingApptIds.has(appt.id);
+                                        const pKey = (appt.patientId || appt.patientName || '').toLowerCase().trim();
+                                        const pendingItems = (patientPendingMap.get(pKey) || []).filter(item => item.appointmentId !== appt.id);
+                                        const hasPending = pendingItems.length > 0;
+                                        const pendingTotal = pendingItems.reduce((acc, i) => acc + i.amount, 0);
+
                                         return (
                                         <tr key={`appt-${appt.id}`} className="row-pending">
                                             <td className="text-secondary text-sm">
                                                 {appt.start ? format(new Date(appt.start), 'HH:mm') : '—'}
                                             </td>
                                             <td style={{ fontWeight: 600 }}>
-                                                <div className="flex items-center gap-2">
+                                                <div className="flex items-center gap-2 flex-wrap">
                                                     <div className="flex items-center justify-center bg-gray-100 rounded-full" style={{ width: 28, height: 28 }}>
                                                         <User size={14} className="text-secondary" />
                                                     </div>
-                                                    {appt.patientName}
+                                                    <span>{appt.patientName}</span>
+                                                    {hasPending && (
+                                                        <button
+                                                            type="button"
+                                                            className="badge-debt-tag"
+                                                            onClick={() => openBatchPayModal(appt.patientId, appt.patientName, appt)}
+                                                            title="Cobrar conjuntamente esta cita y las pendientes"
+                                                        >
+                                                            <Layers size={11} /> {pendingItems.length} pendiente{pendingItems.length > 1 ? 's' : ''} ({pendingTotal.toFixed(2)}€)
+                                                        </button>
+                                                    )}
                                                 </div>
                                             </td>
                                             <td>
@@ -2711,6 +2861,17 @@ const BillingView: React.FC = () => {
                                             <td>—</td>
                                             <td style={{ textAlign: 'right' }}>
                                                 <div className="payment-actions flex gap-1 justify-end">
+                                                    {hasPending && (
+                                                        <button
+                                                            disabled={isCharging}
+                                                            className="btn-payment-method"
+                                                            style={{ background: '#fef3c7', borderColor: '#fde68a', color: '#92400e' }}
+                                                            onClick={() => openBatchPayModal(appt.patientId, appt.patientName, appt)}
+                                                            title="Cobro agrupado de hoy y sesiones pendientes"
+                                                        >
+                                                            <Layers size={14} />
+                                                        </button>
+                                                    )}
                                                     <button disabled={isCharging} style={isCharging ? { opacity: 0.5, cursor: 'not-allowed' } : undefined} className="btn-payment-method" onClick={() => handleChargeAppointment(appt, 'Efectivo')} title="Cobrar Efectivo"><Wallet size={14} /></button>
                                                     <button disabled={isCharging} style={isCharging ? { opacity: 0.5, cursor: 'not-allowed' } : undefined} className="btn-payment-method" onClick={() => handleChargeAppointment(appt, 'Tarjeta')} title="Cobrar Tarjeta"><CreditCard size={14} /></button>
                                                     <button disabled={isCharging} style={isCharging ? { opacity: 0.5, cursor: 'not-allowed' } : undefined} className="btn-payment-method" onClick={() => handleChargeAppointment(appt, 'Transferencia')} title="Cobrar Transferencia"><Send size={14} /></button>
@@ -2719,7 +2880,13 @@ const BillingView: React.FC = () => {
                                             </td>
                                         </tr>
                                     );})}
-                                    {filteredTx.map((t: Transaction) => (
+                                    {filteredTx.map((t: Transaction) => {
+                                        const pKey = (t.patientId || t.patientName || '').toLowerCase().trim();
+                                        const pendingItems = (patientPendingMap.get(pKey) || []).filter(item => item.transactionId !== t.id && item.appointmentId !== t.appointmentId);
+                                        const hasPending = pendingItems.length > 0;
+                                        const pendingTotal = pendingItems.reduce((acc, i) => acc + i.amount, 0);
+
+                                        return (
                                         <tr key={t.id} className={t.status === 'Pendiente' ? 'row-pending' : ''}>
                                             <td className="text-secondary text-sm">
                                                 {t.date && t.date.length > 10
@@ -2727,11 +2894,21 @@ const BillingView: React.FC = () => {
                                                     : '—'}
                                             </td>
                                             <td style={{ fontWeight: 600 }}>
-                                                <div className="flex items-center gap-2">
+                                                <div className="flex items-center gap-2 flex-wrap">
                                                     <div className="flex items-center justify-center bg-gray-100 rounded-full" style={{ width: 28, height: 28 }}>
                                                         <User size={14} className="text-secondary" />
                                                     </div>
-                                                    {t.patientName}
+                                                    <span>{t.patientName}</span>
+                                                    {hasPending && (
+                                                        <button
+                                                            type="button"
+                                                            className="badge-debt-tag"
+                                                            onClick={() => openBatchPayModal(t.patientId, t.patientName)}
+                                                            title="Ver o cobrar deuda acumulada del paciente"
+                                                        >
+                                                            <Layers size={11} /> {pendingItems.length} pendiente{pendingItems.length > 1 ? 's' : ''} ({pendingTotal.toFixed(2)}€)
+                                                        </button>
+                                                    )}
                                                 </div>
                                             </td>
                                             <td>
@@ -2768,6 +2945,17 @@ const BillingView: React.FC = () => {
                                                     )}
                                                     {t.status === 'Pendiente' && (
                                                         <div className="payment-actions flex gap-1">
+                                                            {hasPending && (
+                                                                <button
+                                                                    disabled={payingTxIds.has(t.id)}
+                                                                    className="btn-payment-method"
+                                                                    style={{ background: '#fef3c7', borderColor: '#fde68a', color: '#92400e' }}
+                                                                    onClick={() => openBatchPayModal(t.patientId, t.patientName)}
+                                                                    title="Cobro agrupado con sesiones pendientes"
+                                                                >
+                                                                    <Layers size={14} />
+                                                                </button>
+                                                            )}
                                                             <button disabled={payingTxIds.has(t.id)} style={payingTxIds.has(t.id) ? { opacity: 0.5, cursor: 'not-allowed' } : undefined} className="btn-payment-method" onClick={() => handlePayment(t.id, 'Efectivo')} title="Cobrar Efectivo"><Wallet size={14} /></button>
                                                             <button disabled={payingTxIds.has(t.id)} style={payingTxIds.has(t.id) ? { opacity: 0.5, cursor: 'not-allowed' } : undefined} className="btn-payment-method" onClick={() => handlePayment(t.id, 'Tarjeta')} title="Cobrar Tarjeta"><CreditCard size={14} /></button>
                                                             <button disabled={payingTxIds.has(t.id)} style={payingTxIds.has(t.id) ? { opacity: 0.5, cursor: 'not-allowed' } : undefined} className="btn-payment-method" onClick={() => handlePayment(t.id, 'Transferencia')} title="Cobrar Transferencia"><Send size={14} /></button>
@@ -2779,11 +2967,62 @@ const BillingView: React.FC = () => {
                                                 </div>
                                             </td>
                                         </tr>
-                                    ))}
+                                    );})}
                                 </tbody>
                             </table>
                         )}
                     </div>
+
+                    {/* Cobros de sesiones atrasadas recaudadas en este día */}
+                    {pastSessionsCollectedToday.length > 0 && (
+                        <div className="past-collections-box">
+                            <div className="flex items-center justify-between mb-3">
+                                <h4 className="text-sm font-bold text-success flex items-center gap-2 m-0">
+                                    <Layers size={16} /> Cobros de sesiones anteriores recaudados hoy ({pastSessionsCollectedToday.length})
+                                </h4>
+                                <span className="text-xs font-semibold text-secondary">
+                                    Total atrasado recaudado hoy: <strong className="text-primary">{pastSessionsCollectedToday.reduce((acc, t) => acc + t.amount, 0).toFixed(2)}€</strong>
+                                </span>
+                            </div>
+                            <div className="billing-table-wrapper">
+                                <table className="billing-table">
+                                    <thead>
+                                        <tr>
+                                            <th>Fecha Sesión</th>
+                                            <th>Paciente</th>
+                                            <th>Terapeuta</th>
+                                            <th>Concepto</th>
+                                            <th>Importe</th>
+                                            <th>Método</th>
+                                            <th>Estado</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {pastSessionsCollectedToday.map((pt) => (
+                                            <tr key={`past-${pt.id}`}>
+                                                <td className="text-secondary text-sm">
+                                                    {format(parseISO(pt.date), 'dd/MM/yyyy')}
+                                                </td>
+                                                <td style={{ fontWeight: 600 }}>{pt.patientName}</td>
+                                                <td className="text-secondary text-sm">{pt.therapistName || '—'}</td>
+                                                <td>{pt.category}</td>
+                                                <td className="amount-text">{pt.amount.toFixed(2)}€</td>
+                                                <td>
+                                                    <span className="method-tag">
+                                                        {pt.method === 'Tarjeta' && <CreditCard size={12} />}
+                                                        {pt.method === 'Efectivo' && <Wallet size={12} />}
+                                                        {pt.method === 'Transferencia' && <Send size={12} />}
+                                                        {pt.method}
+                                                    </span>
+                                                </td>
+                                                <td><span className="badge badge-success">Cobrado hoy</span></td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    )}
                 </div>
             )}
 
@@ -2867,10 +3106,10 @@ const BillingView: React.FC = () => {
                             <p className="mb-4 text-secondary">Resumen de transacciones para el día <strong>{format(parseISO(selectedDate), "dd 'de' MMMM, yyyy", { locale: es })}</strong></p>
 
                             <div className="breakdown-section mb-6">
-                                <h4 className="border-bottom pb-2 mb-3">Desglose por Terapeuta</h4>
+                                <h4 className="border-bottom pb-2 mb-3">Desglose por Terapeuta (Recaudado Hoy)</h4>
                                 <div className="grid grid-cols-2 gap-4">
                                     {Object.entries(
-                                        txForDay.reduce((acc: Record<string, number>, t: Transaction) => {
+                                        collectionsForDay.reduce((acc: Record<string, number>, t: Transaction) => {
                                             const name = t.therapistName || 'Sin asignar';
                                             acc[name] = (acc[name] || 0) + (t.status === 'Pagado' ? t.amount : 0);
                                             return acc;
@@ -2888,7 +3127,7 @@ const BillingView: React.FC = () => {
                                 <h4 className="border-bottom pb-2 mb-3">Desglose por Forma de Pago</h4>
                                 <div className="grid grid-cols-3 gap-4">
                                     {['Efectivo', 'Tarjeta', 'Transferencia', 'Fin de mes'].map(method => {
-                                        const total = txForDay
+                                        const total = collectionsForDay
                                             .filter((t: Transaction) => t.method === method && t.status === 'Pagado')
                                             .reduce((acc: number, t: Transaction) => acc + t.amount, 0);
                                         return (
@@ -2903,25 +3142,221 @@ const BillingView: React.FC = () => {
 
                             <div className="total-summary p-4 bg-primary text-white rounded-xl flex justify-between items-center">
                                 <div>
-                                    <div className="text-sm opacity-80">Total Cobrado (Hoy)</div>
+                                    <div className="text-sm opacity-80">Total Cobrado Real (Hoy)</div>
                                     <div className="text-3xl font-bold">
-                                        {txForDay
-                                            .filter((t: Transaction) => t.status === 'Pagado')
-                                            .reduce((acc: number, t: Transaction) => acc + Number(t.amount || 0), 0).toFixed(2)}€
+                                        {totalCollected.toFixed(2)}€
                                     </div>
                                 </div>
                                 <div className="text-right">
-                                    <div className="text-sm opacity-80">Sin cobrar (citas)</div>
+                                    <div className="text-sm opacity-80">Sin cobrar (citas de hoy)</div>
                                     <div className="text-xl font-semibold text-warning">
                                         {apptRowsWithoutTx.length} citas
                                     </div>
                                 </div>
                             </div>
+
+                            {pastSessionsCollectedToday.length > 0 && (
+                                <div className="mt-4 p-3 bg-blue-50 border border-blue-200 rounded-lg text-xs text-blue-900">
+                                    <div className="font-bold flex items-center gap-1 mb-1">
+                                        <Layers size={14} /> Incluye {pastSessionsCollectedToday.length} cobro(s) de sesiones atrasadas recaudadas hoy:
+                                    </div>
+                                    <ul className="list-disc pl-4 space-y-0.5">
+                                        {pastSessionsCollectedToday.map(pt => (
+                                            <li key={pt.id}>
+                                                <strong>{pt.patientName}</strong> — Sesión del {format(parseISO(pt.date), 'dd/MM/yyyy')} ({pt.amount.toFixed(2)}€ en {pt.method})
+                                            </li>
+                                        ))}
+                                    </ul>
+                                </div>
+                            )}
                         </div>
                         <div className="modal-footer">
                             <button className="btn-secondary" onClick={() => setIsClosingModalOpen(false)}>Cerrar</button>
                             <button type="button" className="btn-primary flex items-center gap-2" onClick={() => window.print()}>
                                 <Download size={18} /> Imprimir Reporte
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Modal de Cobro Agrupado de Sesiones Pendientes */}
+            {isBatchPayModalOpen && (
+                <div className="modal-overlay">
+                    <div className="modal-content" style={{ maxWidth: '650px' }}>
+                        <div className="modal-header">
+                            <div className="flex items-center gap-2">
+                                <Layers size={22} className="text-primary" />
+                                <div>
+                                    <h3 className="m-0 text-lg font-bold">Cobro Agrupado de Sesiones</h3>
+                                    <p className="text-xs text-secondary m-0">
+                                        {batchPayPatientName ? `Paciente: ${batchPayPatientName}` : 'Selecciona paciente y sesiones a liquidar'}
+                                    </p>
+                                </div>
+                            </div>
+                            <button className="btn-icon-round" onClick={() => setIsBatchPayModalOpen(false)}>
+                                <X size={20} />
+                            </button>
+                        </div>
+                        <div className="p-4 batch-pay-container">
+                            {!batchPayPatientName && (
+                                <div className="form-group mb-3">
+                                    <label className="text-sm font-semibold">Seleccionar Paciente con Sesiones Pendientes</label>
+                                    <select
+                                        className="w-full p-2 border rounded-lg bg-white mt-1"
+                                        value={batchPayPatientId}
+                                        onChange={(e) => {
+                                            const selectedKey = e.target.value;
+                                            const items = patientPendingMap.get(selectedKey) || [];
+                                            const pName = items[0]?.patientName || '';
+                                            setBatchPayPatientId(selectedKey);
+                                            setBatchPayPatientName(pName);
+                                            setBatchPayItems(items);
+                                            setBatchPaySelectedIds(new Set(items.map(i => (i.appointmentId || i.transactionId)!)));
+                                        }}
+                                    >
+                                        <option value="">-- Elige un paciente --</option>
+                                        {Array.from(patientPendingMap.entries()).map(([key, items]) => {
+                                            const total = items.reduce((s, i) => s + i.amount, 0);
+                                            return (
+                                                <option key={key} value={key}>
+                                                    {items[0]?.patientName || key} ({items.length} pendientes - {total.toFixed(2)}€)
+                                                </option>
+                                            );
+                                        })}
+                                    </select>
+                                </div>
+                            )}
+
+                            <div>
+                                <div className="flex justify-between items-center mb-2">
+                                    <span className="text-sm font-semibold text-secondary">
+                                        Sesiones a cobrar ({batchPaySelectedIds.size} de {batchPayItems.length} seleccionadas):
+                                    </span>
+                                    {batchPayItems.length > 0 && (
+                                        <button
+                                            type="button"
+                                            className="text-xs text-primary font-bold hover:underline"
+                                            onClick={() => {
+                                                if (batchPaySelectedIds.size === batchPayItems.length) {
+                                                    setBatchPaySelectedIds(new Set());
+                                                } else {
+                                                    setBatchPaySelectedIds(new Set(batchPayItems.map(i => (i.appointmentId || i.transactionId)!)));
+                                                }
+                                            }}
+                                        >
+                                            {batchPaySelectedIds.size === batchPayItems.length ? 'Deseleccionar todas' : 'Seleccionar todas'}
+                                        </button>
+                                    )}
+                                </div>
+
+                                <div className="batch-pay-list">
+                                    {batchPayItems.length === 0 ? (
+                                        <div className="p-6 text-center text-sm text-secondary">
+                                            {batchPayPatientName ? 'No tiene sesiones pendientes adicionales.' : 'Selecciona un paciente para ver sus sesiones pendientes.'}
+                                        </div>
+                                    ) : (
+                                        batchPayItems.map((item) => {
+                                            const itemId = (item.appointmentId || item.transactionId)!;
+                                            const isChecked = batchPaySelectedIds.has(itemId);
+                                            const isToday = item.date.slice(0, 10) === selectedDate;
+                                            return (
+                                                <div
+                                                    key={itemId}
+                                                    className={`batch-pay-item ${isChecked ? 'selected' : ''}`}
+                                                    onClick={() => {
+                                                        setBatchPaySelectedIds(prev => {
+                                                            const next = new Set(prev);
+                                                            if (next.has(itemId)) next.delete(itemId);
+                                                            else next.add(itemId);
+                                                            return next;
+                                                        });
+                                                    }}
+                                                >
+                                                    <div className="flex items-center gap-3">
+                                                        <input
+                                                            type="checkbox"
+                                                            checked={isChecked}
+                                                            onChange={() => {}}
+                                                        />
+                                                        <div>
+                                                            <div className="font-semibold text-sm flex items-center gap-2">
+                                                                <span>{format(parseISO(item.date), "dd 'de' MMMM, yyyy", { locale: es })}</span>
+                                                                {isToday && <span className="badge badge-info" style={{ fontSize: '0.65rem' }}>Hoy</span>}
+                                                            </div>
+                                                            <div className="text-xs text-secondary">
+                                                                {item.category || 'Sesión'} • {item.therapistName || 'Terapeuta'}
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                    <div className="font-bold text-sm text-primary">
+                                                        {item.amount.toFixed(2)}€
+                                                    </div>
+                                                </div>
+                                            );
+                                        })
+                                    )}
+                                </div>
+                            </div>
+
+                            <div className="grid grid-cols-2 gap-4 mt-2">
+                                <div>
+                                    <label className="text-xs font-semibold text-secondary block mb-1">Método de Cobro</label>
+                                    <select
+                                        className="w-full p-2 border rounded-lg text-sm bg-white"
+                                        value={batchPayMethod}
+                                        onChange={(e) => setBatchPayMethod(e.target.value as PaymentMethod)}
+                                    >
+                                        <option value="Efectivo">Efectivo</option>
+                                        <option value="Tarjeta">Tarjeta (Datáfono)</option>
+                                        <option value="Transferencia">Transferencia</option>
+                                        <option value="Fin de mes">Fin de mes</option>
+                                    </select>
+                                </div>
+                                <div>
+                                    <label className="text-xs font-semibold text-secondary block mb-1">Fecha de Ingreso en Caja</label>
+                                    <input
+                                        type="date"
+                                        className="w-full p-2 border rounded-lg text-sm bg-white"
+                                        value={batchPayDate}
+                                        onChange={(e) => setBatchPayDate(e.target.value)}
+                                    />
+                                </div>
+                            </div>
+
+                            <div className="batch-pay-total-box mt-3">
+                                <div>
+                                    <div className="text-xs opacity-75">Importe Total a Cobrar</div>
+                                    <div className="text-2xl font-bold">
+                                        {batchPayItems
+                                            .filter(i => batchPaySelectedIds.has((i.appointmentId || i.transactionId)!))
+                                            .reduce((acc, i) => acc + i.amount, 0).toFixed(2)}€
+                                    </div>
+                                </div>
+                                <div className="text-right text-xs opacity-75">
+                                    {batchPaySelectedIds.size} sesión(es) seleccionada(s)
+                                </div>
+                            </div>
+                        </div>
+                        <div className="modal-footer">
+                            <button
+                                type="button"
+                                className="btn-secondary"
+                                onClick={() => setIsBatchPayModalOpen(false)}
+                                disabled={isBatchProcessing}
+                            >
+                                Cancelar
+                            </button>
+                            <button
+                                type="button"
+                                className="btn-primary flex items-center gap-2"
+                                onClick={handleExecuteBatchPay}
+                                disabled={isBatchProcessing || batchPaySelectedIds.size === 0}
+                            >
+                                <Wallet size={16} />
+                                {isBatchProcessing ? 'Procesando...' : `Confirmar Cobro (${batchPayItems
+                                    .filter(i => batchPaySelectedIds.has((i.appointmentId || i.transactionId)!))
+                                    .reduce((acc, i) => acc + i.amount, 0).toFixed(2)}€)`}
                             </button>
                         </div>
                     </div>
@@ -2966,6 +3401,18 @@ const BillingView: React.FC = () => {
                                             {breakdownFilter === 'PENDING' && (
                                                 <td>
                                                     <div className="payment-actions flex gap-1">
+                                                        <button
+                                                            disabled={isBusy}
+                                                            style={isBusy ? { opacity: 0.5, cursor: 'not-allowed' } : { background: '#fef3c7', borderColor: '#fde68a', color: '#92400e' }}
+                                                            className="btn-payment-method"
+                                                            onClick={() => {
+                                                                setIsBreakdownOpen(false);
+                                                                openBatchPayModal(t.patientId, t.patientName, t._rawAppt);
+                                                            }}
+                                                            title="Cobro agrupado de este paciente"
+                                                        >
+                                                            <Layers size={14} />
+                                                        </button>
                                                         <button
                                                             disabled={isBusy}
                                                             style={isBusy ? { opacity: 0.5, cursor: 'not-allowed' } : undefined}

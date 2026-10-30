@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { getTransactions, recordPayment, updateTransaction, createTransaction, toggleReconciliation, isNonClinicalSession, batchPayAppointments, type BatchPaymentItem } from './service';
+import { getTransactions, recordPayment, updateTransaction, createTransaction, toggleReconciliation, isNonClinicalSession, batchPayAppointments, type BatchPaymentItem, computePatientBalances, addPatientCredit } from './service';
 import { type Transaction, type PaymentMethod } from './types';
 import Card from '../../components/ui/Card';
-import { DollarSign, Clock, CheckCircle, CreditCard, Wallet, Send, Download, Calendar as CalendarIcon, Edit2, X, FileText, Receipt, Filter, TrendingUp, AlertTriangle, Banknote, User, CalendarClock, Search, ChevronLeft, ChevronRight, CheckCheck, ArrowUpDown, ArrowUp, ArrowDown, RotateCcw, Landmark, FileSpreadsheet, Layers } from 'lucide-react';
+import { DollarSign, Clock, CheckCircle, CreditCard, Wallet, Send, Download, Calendar as CalendarIcon, Edit2, X, FileText, Receipt, Filter, TrendingUp, AlertTriangle, Banknote, User, CalendarClock, Search, ChevronLeft, ChevronRight, CheckCheck, ArrowUpDown, ArrowUp, ArrowDown, RotateCcw, Landmark, FileSpreadsheet, Layers, Coins } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import { format, parseISO, startOfDay, endOfDay, isValid, isSameMonth, parse } from 'date-fns';
 import { es } from 'date-fns/locale';
@@ -40,7 +40,7 @@ const BillingView: React.FC = () => {
     const [loading, setLoading] = useState(true);
     const [selectedDate, setSelectedDate] = useState<string>(format(new Date(), 'yyyy-MM-dd'));
     const [statusFilter, setStatusFilter] = useState<'ALL' | 'Pendiente' | 'Pagado'>('ALL');
-    const [methodFilter, setMethodFilter] = useState<'ALL' | 'Efectivo' | 'Tarjeta' | 'Transferencia' | 'Fin de mes'>('ALL');
+    const [methodFilter, setMethodFilter] = useState<'ALL' | 'Efectivo' | 'Tarjeta' | 'Transferencia' | 'Fin de mes' | 'Saldo a favor'>('ALL');
 
     // Reconciliation Sub-states (Datáfono vs Transferencias vs Otras Formas)
     const [reconciliationType, setReconciliationType] = useState<'CARD' | 'TRANSFER' | 'OTHER'>('CARD');
@@ -106,6 +106,73 @@ const BillingView: React.FC = () => {
     const [batchPayMethod, setBatchPayMethod] = useState<PaymentMethod>('Efectivo');
     const [batchPayDate, setBatchPayDate] = useState<string>(selectedDate);
     const [isBatchProcessing, setIsBatchProcessing] = useState(false);
+
+    // Patient Wallet / Bolsa de Saldos states
+    const [isWalletModalOpen, setIsWalletModalOpen] = useState(false);
+    const [walletSearchTerm, setWalletSearchTerm] = useState('');
+    const [isAddCreditModalOpen, setIsAddCreditModalOpen] = useState(false);
+    const [selectedWalletPatient, setSelectedWalletPatient] = useState<{ id: string; name: string } | null>(null);
+    const [newCreditAmount, setNewCreditAmount] = useState('');
+    const [newCreditMethod, setNewCreditMethod] = useState<'Transferencia' | 'Tarjeta' | 'Efectivo'>('Transferencia');
+    const [newCreditCategory, setNewCreditCategory] = useState('Ingreso Beca MEC');
+    const [newCreditDate, setNewCreditDate] = useState(selectedDate);
+    const [newCreditNotes, setNewCreditNotes] = useState('');
+    const [isSavingCredit, setIsSavingCredit] = useState(false);
+
+    const patientBalances = React.useMemo(() => {
+        return computePatientBalances(transactions);
+    }, [transactions]);
+
+    const patientsWithBalanceList = React.useMemo(() => {
+        const list: { id: string; name: string; balance: number; totalDeposited: number; totalConsumed: number }[] = [];
+        patients.forEach(p => {
+            const b = patientBalances.get(p.id) || (p.firstName ? patientBalances.get(`${p.firstName} ${p.lastName}`.toLowerCase().trim()) : null);
+            if (b && (b.totalDeposited > 0 || b.balance !== 0)) {
+                list.push({
+                    id: p.id,
+                    name: `${p.firstName} ${p.lastName}`,
+                    balance: b.balance,
+                    totalDeposited: b.totalDeposited,
+                    totalConsumed: b.totalConsumed
+                });
+            }
+        });
+        return list.sort((a, b) => b.balance - a.balance);
+    }, [patients, patientBalances]);
+
+    const positiveBalancesCount = patientsWithBalanceList.filter(p => p.balance > 0).length;
+    const totalCustodialBalance = patientsWithBalanceList.reduce((acc, p) => acc + Math.max(0, p.balance), 0);
+
+    const handleSaveWalletCredit = async () => {
+        if (!selectedWalletPatient?.id || !newCreditAmount || Number(newCreditAmount) <= 0) {
+            showToast("Introduce un importe válido", "error");
+            return;
+        }
+
+        setIsSavingCredit(true);
+        try {
+            await addPatientCredit({
+                patientId: selectedWalletPatient.id,
+                patientName: selectedWalletPatient.name,
+                amount: Number(newCreditAmount),
+                method: newCreditMethod,
+                category: newCreditCategory,
+                paymentDate: newCreditDate ? new Date(newCreditDate).toISOString() : new Date().toISOString(),
+                notes: newCreditNotes.trim() || undefined
+            });
+
+            showToast("¡Ingreso en bolsa de saldo / beca registrado!", "success");
+            setIsAddCreditModalOpen(false);
+            setNewCreditAmount('');
+            setNewCreditNotes('');
+            await fetchData();
+        } catch (error) {
+            console.error("Error adding credit in billing:", error);
+            showToast("No se pudo guardar el ingreso.", "error");
+        } finally {
+            setIsSavingCredit(false);
+        }
+    };
 
     useEffect(() => {
         fetchData();
@@ -1007,7 +1074,13 @@ const BillingView: React.FC = () => {
         apptRowsWithoutTx.reduce((acc: number, a: Appointment) => acc + Number(a.price || 0), 0);
 
     // 2. Total Cobrado: Suma real de lo pagado e ingresado en caja HOY (por fecha real de cobro)
+    // EXCLUYE consumos de 'Saldo a favor' para no duplicar el dinero que ya ingresó cuando se abonó la beca/anticipo
     const totalCollected = collectionsForDay
+        .filter((t: Transaction) => t.method !== 'Saldo a favor')
+        .reduce((acc: number, t: Transaction) => acc + Number(t.amount || 0), 0);
+
+    const saldoConsumedToday = collectionsForDay
+        .filter((t: Transaction) => t.method === 'Saldo a favor')
         .reduce((acc: number, t: Transaction) => acc + Number(t.amount || 0), 0);
 
     // Mapeo de deuda acumulada por paciente (para cobro agrupado en 1 clic)
@@ -1089,6 +1162,17 @@ const BillingView: React.FC = () => {
             showToast('Selecciona al menos una sesión para cobrar', 'info');
             return;
         }
+
+        if (batchPayMethod === 'Saldo a favor') {
+            const totalToPay = selectedItems.reduce((acc, i) => acc + i.amount, 0);
+            const pBal = (batchPayPatientId && patientBalances.get(batchPayPatientId)?.balance) ||
+                (batchPayPatientName && patientBalances.get(batchPayPatientName.toLowerCase().trim())?.balance) || 0;
+            if (pBal < totalToPay) {
+                showToast(`⚠️ Saldo insuficiente: el paciente dispone de ${pBal.toFixed(2)}€ y el total de sesiones es de ${totalToPay.toFixed(2)}€.`, 'error');
+                return;
+            }
+        }
+
         setIsBatchProcessing(true);
         try {
             const pDateIso = new Date(batchPayDate).toISOString();
@@ -1237,10 +1321,21 @@ const BillingView: React.FC = () => {
                                     <option value="Tarjeta">Tarjeta</option>
                                     <option value="Transferencia">Transferencia</option>
                                     <option value="Fin de mes">Fin de mes</option>
+                                    <option value="Saldo a favor">Saldo a favor</option>
                                 </select>
                             </div>
                             {!isTherapist && (
                                 <>
+                                    <button
+                                        type="button"
+                                        className="btn-secondary flex items-center gap-2"
+                                        onClick={() => setIsWalletModalOpen(true)}
+                                        style={{ borderRadius: '12px', padding: '0.5rem 1rem', fontSize: '0.85rem', backgroundColor: '#ecfdf5', borderColor: '#a7f3d0', color: '#047857', fontWeight: 600 }}
+                                        title="Bolsa de fondos, becas y anticipos de pacientes"
+                                    >
+                                        <Coins size={16} />
+                                        Bolsa de Becas / Saldos {positiveBalancesCount > 0 ? `(${positiveBalancesCount})` : ''}
+                                    </button>
                                     <button
                                         type="button"
                                         className="btn-secondary flex items-center gap-2"
@@ -2872,6 +2967,24 @@ const BillingView: React.FC = () => {
                                                             <Layers size={14} />
                                                         </button>
                                                     )}
+                                                    {(() => {
+                                                        const pBal = (appt.patientId && patientBalances.get(appt.patientId)?.balance) ||
+                                                            (appt.patientName && patientBalances.get(appt.patientName.toLowerCase().trim())?.balance) || 0;
+                                                        if (pBal >= Number(appt.price || 0) && Number(appt.price || 0) > 0) {
+                                                            return (
+                                                                <button
+                                                                    disabled={isCharging}
+                                                                    style={isCharging ? { opacity: 0.5, cursor: 'not-allowed' } : { backgroundColor: '#ecfdf5', borderColor: '#a7f3d0', color: '#047857', fontWeight: 700 }}
+                                                                    className="btn-payment-method"
+                                                                    onClick={() => handleChargeAppointment(appt, 'Saldo a favor')}
+                                                                    title={`Cobrar con Saldo a favor / Beca (Disponible: ${pBal.toFixed(0)}€)`}
+                                                                >
+                                                                    <Coins size={14} /> Saldo ({pBal.toFixed(0)}€)
+                                                                </button>
+                                                            );
+                                                        }
+                                                        return null;
+                                                    })()}
                                                     <button disabled={isCharging} style={isCharging ? { opacity: 0.5, cursor: 'not-allowed' } : undefined} className="btn-payment-method" onClick={() => handleChargeAppointment(appt, 'Efectivo')} title="Cobrar Efectivo"><Wallet size={14} /></button>
                                                     <button disabled={isCharging} style={isCharging ? { opacity: 0.5, cursor: 'not-allowed' } : undefined} className="btn-payment-method" onClick={() => handleChargeAppointment(appt, 'Tarjeta')} title="Cobrar Tarjeta"><CreditCard size={14} /></button>
                                                     <button disabled={isCharging} style={isCharging ? { opacity: 0.5, cursor: 'not-allowed' } : undefined} className="btn-payment-method" onClick={() => handleChargeAppointment(appt, 'Transferencia')} title="Cobrar Transferencia"><Send size={14} /></button>
@@ -2930,6 +3043,7 @@ const BillingView: React.FC = () => {
                                                         {t.method === 'Efectivo' && <Wallet size={12} />}
                                                         {t.method === 'Transferencia' && <Send size={12} />}
                                                         {t.method === 'Fin de mes' && <CalendarClock size={12} />}
+                                                        {t.method === 'Saldo a favor' && <Wallet size={12} className="text-emerald-700" />}
                                                         {t.method}
                                                     </span>
                                                 ) : '—'}
@@ -2956,6 +3070,24 @@ const BillingView: React.FC = () => {
                                                                     <Layers size={14} />
                                                                 </button>
                                                             )}
+                                                            {(() => {
+                                                                const pBalTx = (t.patientId && patientBalances.get(t.patientId)?.balance) ||
+                                                                    (t.patientName && patientBalances.get(t.patientName.toLowerCase().trim())?.balance) || 0;
+                                                                if (pBalTx >= t.amount && t.amount > 0) {
+                                                                    return (
+                                                                        <button
+                                                                            disabled={payingTxIds.has(t.id)}
+                                                                            style={payingTxIds.has(t.id) ? { opacity: 0.5, cursor: 'not-allowed' } : { backgroundColor: '#ecfdf5', borderColor: '#a7f3d0', color: '#047857', fontWeight: 700 }}
+                                                                            className="btn-payment-method"
+                                                                            onClick={() => handlePayment(t.id, 'Saldo a favor')}
+                                                                            title={`Cobrar con Saldo a favor / Beca (Disponible: ${pBalTx.toFixed(0)}€)`}
+                                                                        >
+                                                                            <Coins size={14} /> Saldo ({pBalTx.toFixed(0)}€)
+                                                                        </button>
+                                                                    );
+                                                                }
+                                                                return null;
+                                                            })()}
                                                             <button disabled={payingTxIds.has(t.id)} style={payingTxIds.has(t.id) ? { opacity: 0.5, cursor: 'not-allowed' } : undefined} className="btn-payment-method" onClick={() => handlePayment(t.id, 'Efectivo')} title="Cobrar Efectivo"><Wallet size={14} /></button>
                                                             <button disabled={payingTxIds.has(t.id)} style={payingTxIds.has(t.id) ? { opacity: 0.5, cursor: 'not-allowed' } : undefined} className="btn-payment-method" onClick={() => handlePayment(t.id, 'Tarjeta')} title="Cobrar Tarjeta"><CreditCard size={14} /></button>
                                                             <button disabled={payingTxIds.has(t.id)} style={payingTxIds.has(t.id) ? { opacity: 0.5, cursor: 'not-allowed' } : undefined} className="btn-payment-method" onClick={() => handlePayment(t.id, 'Transferencia')} title="Cobrar Transferencia"><Send size={14} /></button>
@@ -3138,6 +3270,17 @@ const BillingView: React.FC = () => {
                                         );
                                     })}
                                 </div>
+                                {saldoConsumedToday > 0 && (
+                                    <div className="mt-3 p-3 bg-emerald-50 border border-emerald-200 rounded-lg flex justify-between items-center text-xs text-emerald-900">
+                                        <span className="font-semibold flex items-center gap-1.5">
+                                            <Coins size={14} className="text-emerald-700" />
+                                            Sesiones cobradas con Saldo a favor / Beca hoy:
+                                        </span>
+                                        <span className="font-bold text-sm text-emerald-700">
+                                            {saldoConsumedToday.toFixed(2)}€
+                                        </span>
+                                    </div>
+                                )}
                             </div>
 
                             <div className="total-summary p-4 bg-primary text-white rounded-xl flex justify-between items-center">
@@ -3179,6 +3322,276 @@ const BillingView: React.FC = () => {
                     </div>
                 </div>
             )}
+
+            {/* Modal de Bolsa de Saldos y Becas */}
+            {isWalletModalOpen && (
+                <div className="modal-overlay" style={{ zIndex: 10000 }}>
+                    <div className="modal-content" style={{ maxWidth: '800px' }}>
+                        <div className="modal-header">
+                            <div className="flex items-center gap-2">
+                                <Coins size={22} style={{ color: '#047857' }} />
+                                <div>
+                                    <h3 className="m-0 text-lg font-bold">Bolsa de Saldos, Becas y Anticipos</h3>
+                                    <p className="text-xs text-secondary m-0">Fondos en custodia depositados por familias para futuras sesiones</p>
+                                </div>
+                            </div>
+                            <button className="btn-icon-round" onClick={() => setIsWalletModalOpen(false)}>
+                                <X size={20} />
+                            </button>
+                        </div>
+                        <div className="p-4">
+                            {/* Summary Cards */}
+                            <div className="grid grid-cols-2 gap-4 mb-4">
+                                <div className="p-4 rounded-xl text-white" style={{ background: 'linear-gradient(135deg, #065f46 0%, #047857 100%)' }}>
+                                    <div className="text-xs opacity-80 uppercase font-semibold">Total Fondos en Custodia</div>
+                                    <div className="text-3xl font-extrabold mt-1">{totalCustodialBalance.toFixed(2)}€</div>
+                                    <div className="text-xs opacity-75 mt-1">Saldo a favor total de todas las familias</div>
+                                </div>
+                                <div className="p-4 rounded-xl bg-gray-50 border border-gray-200 flex flex-col justify-between">
+                                    <div>
+                                        <div className="text-xs text-gray-500 uppercase font-semibold">Pacientes con Saldo a Favor</div>
+                                        <div className="text-3xl font-extrabold text-gray-800 mt-1">{positiveBalancesCount}</div>
+                                    </div>
+                                    <div className="text-xs text-gray-400">Becas MEC o mensualidades anticipadas activas</div>
+                                </div>
+                            </div>
+
+                            {/* Search and Filters */}
+                            <div className="flex items-center justify-between gap-3 mb-3">
+                                <div className="search-pill" style={{ flex: 1 }}>
+                                    <Search size={16} />
+                                    <input
+                                        type="text"
+                                        placeholder="Buscar paciente en la bolsa..."
+                                        value={walletSearchTerm}
+                                        onChange={(e) => setWalletSearchTerm(e.target.value)}
+                                    />
+                                </div>
+                                <button
+                                    type="button"
+                                    className="calendar-btn-pill calendar-btn-primary"
+                                    style={{ padding: '0.45rem 1rem', fontSize: '0.85rem' }}
+                                    onClick={() => {
+                                        if (patients.length > 0) {
+                                            setSelectedWalletPatient({ id: patients[0].id, name: `${patients[0].firstName} ${patients[0].lastName}` });
+                                        }
+                                        setNewCreditAmount('');
+                                        setNewCreditCategory('Ingreso Beca MEC');
+                                        setNewCreditMethod('Transferencia');
+                                        setNewCreditDate(selectedDate);
+                                        setNewCreditNotes('');
+                                        setIsAddCreditModalOpen(true);
+                                    }}
+                                >
+                                    + Registrar Ingreso Beca / Saldo
+                                </button>
+                            </div>
+
+                            {/* Table of Patients */}
+                            {(() => {
+                                const filtered = patientsWithBalanceList.filter(p =>
+                                    !walletSearchTerm.trim() || p.name.toLowerCase().includes(walletSearchTerm.toLowerCase().trim())
+                                );
+
+                                if (filtered.length === 0) {
+                                    return (
+                                        <div className="empty-state p-6 text-center text-sm text-secondary">
+                                            {walletSearchTerm ? 'No se encontraron pacientes que coincidan con la búsqueda.' : 'No hay pacientes con movimientos de saldo o beca todavía.'}
+                                        </div>
+                                    );
+                                }
+
+                                return (
+                                    <div className="table-responsive rounded-xl border border-gray-100 overflow-hidden shadow-sm" style={{ maxHeight: '350px', overflowY: 'auto' }}>
+                                        <table className="w-full text-sm" style={{ borderCollapse: 'collapse', width: '100%' }}>
+                                            <thead className="bg-gray-50 border-b border-gray-200 text-xs font-semibold text-gray-600 uppercase sticky top-0">
+                                                <tr>
+                                                    <th className="p-3 text-left">Paciente</th>
+                                                    <th className="p-3 text-right">Saldo Disponible</th>
+                                                    <th className="p-3 text-right">Total Ingresado</th>
+                                                    <th className="p-3 text-right">Total Consumido</th>
+                                                    <th className="p-3 text-center">Acciones</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody className="divide-y divide-gray-100 bg-white">
+                                                {filtered.map(p => (
+                                                    <tr key={p.id} className="hover:bg-gray-50/80 transition-colors">
+                                                        <td className="p-3 font-semibold text-gray-800">
+                                                            {p.name}
+                                                        </td>
+                                                        <td className="p-3 text-right">
+                                                            <span className={`inline-block px-2.5 py-0.5 rounded-full text-xs font-extrabold ${p.balance > 0 ? 'bg-emerald-100 text-emerald-800' : p.balance < 0 ? 'bg-red-100 text-red-800' : 'bg-gray-100 text-gray-600'}`}>
+                                                                {p.balance.toFixed(2)}€
+                                                            </span>
+                                                        </td>
+                                                        <td className="p-3 text-right text-emerald-700 font-semibold">
+                                                            +{p.totalDeposited.toFixed(2)}€
+                                                        </td>
+                                                        <td className="p-3 text-right text-blue-700 font-semibold">
+                                                            -{p.totalConsumed.toFixed(2)}€
+                                                        </td>
+                                                        <td className="p-3 text-center">
+                                                            <button
+                                                                type="button"
+                                                                className="btn-link"
+                                                                style={{ fontSize: '0.8rem', color: '#047857', fontWeight: 700, border: 'none', background: 'none', cursor: 'pointer' }}
+                                                                onClick={() => {
+                                                                    setSelectedWalletPatient({ id: p.id, name: p.name });
+                                                                    setNewCreditAmount('');
+                                                                    setNewCreditCategory('Ingreso Beca MEC');
+                                                                    setNewCreditMethod('Transferencia');
+                                                                    setNewCreditDate(selectedDate);
+                                                                    setNewCreditNotes('');
+                                                                    setIsAddCreditModalOpen(true);
+                                                                }}
+                                                            >
+                                                                + Añadir Saldo
+                                                            </button>
+                                                        </td>
+                                                    </tr>
+                                                ))}
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                );
+                            })()}
+                        </div>
+                        <div className="modal-footer">
+                            <button className="btn-secondary" onClick={() => setIsWalletModalOpen(false)}>Cerrar</button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Modal para ingresar saldo/beca desde Facturación */}
+            {isAddCreditModalOpen && selectedWalletPatient && (
+                <div className="modal-overlay" style={{ zIndex: 11000 }}>
+                    <div className="modal-content" style={{ maxWidth: '480px' }}>
+                        <div className="modal-header">
+                            <div className="flex items-center gap-2">
+                                <Wallet size={20} style={{ color: '#047857' }} />
+                                <h3>Ingresar Beca / Saldo en Monedero</h3>
+                            </div>
+                            <button className="btn-icon-round" onClick={() => setIsAddCreditModalOpen(false)}>
+                                <X size={20} />
+                            </button>
+                        </div>
+                        <div style={{ padding: '1.25rem', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                            <div className="form-group">
+                                <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 700, color: '#334155', marginBottom: '4px' }}>
+                                    Paciente *
+                                </label>
+                                <select
+                                    style={{ width: '100%', padding: '0.55rem 0.75rem', borderRadius: '8px', border: '1px solid #cbd5e1' }}
+                                    value={selectedWalletPatient.id}
+                                    onChange={(e) => {
+                                        const p = patients.find(pat => pat.id === e.target.value);
+                                        if (p) setSelectedWalletPatient({ id: p.id, name: `${p.firstName} ${p.lastName}` });
+                                    }}
+                                >
+                                    {patients.map(p => (
+                                        <option key={p.id} value={p.id}>{p.firstName} {p.lastName}</option>
+                                    ))}
+                                </select>
+                            </div>
+
+                            <div className="form-group">
+                                <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 700, color: '#334155', marginBottom: '4px' }}>
+                                    Importe a Ingresar (€) *
+                                </label>
+                                <input
+                                    type="number"
+                                    step="0.01"
+                                    min="1"
+                                    required
+                                    style={{ width: '100%', padding: '0.6rem 0.8rem', fontSize: '1.2rem', fontWeight: 700, color: '#047857', border: '2px solid #cbd5e1', borderRadius: '8px' }}
+                                    placeholder="Ej: 300.00"
+                                    value={newCreditAmount}
+                                    onChange={e => setNewCreditAmount(e.target.value)}
+                                />
+                            </div>
+
+                            <div className="form-group">
+                                <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 700, color: '#334155', marginBottom: '4px' }}>
+                                    Concepto / Tipo de Ingreso *
+                                </label>
+                                <select
+                                    style={{ width: '100%', padding: '0.55rem 0.75rem', borderRadius: '8px', border: '1px solid #cbd5e1' }}
+                                    value={newCreditCategory}
+                                    onChange={e => setNewCreditCategory(e.target.value)}
+                                >
+                                    <option value="Ingreso Beca MEC">Beca MEC / NEAE</option>
+                                    <option value="Anticipo mensualidad">Anticipo Mensualidad (Varias sesiones)</option>
+                                    <option value="Bono sesiones">Bono de Sesiones por adelantado</option>
+                                    <option value="Ingreso Beca">Otro Ingreso de Beca</option>
+                                    <option value="Anticipo">Otro Anticipo a cuenta</option>
+                                </select>
+                            </div>
+
+                            <div className="form-group">
+                                <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 700, color: '#334155', marginBottom: '4px' }}>
+                                    Forma de Pago Recibida *
+                                </label>
+                                <select
+                                    style={{ width: '100%', padding: '0.55rem 0.75rem', borderRadius: '8px', border: '1px solid #cbd5e1' }}
+                                    value={newCreditMethod}
+                                    onChange={e => setNewCreditMethod(e.target.value as any)}
+                                >
+                                    <option value="Transferencia">🏦 Transferencia Bancaria</option>
+                                    <option value="Tarjeta">💳 Tarjeta (Datáfono)</option>
+                                    <option value="Efectivo">💵 Efectivo</option>
+                                </select>
+                            </div>
+
+                            <div className="form-group">
+                                <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 700, color: '#334155', marginBottom: '4px' }}>
+                                    Fecha del Ingreso en Caja *
+                                </label>
+                                <input
+                                    type="date"
+                                    required
+                                    style={{ width: '100%', padding: '0.55rem 0.75rem', borderRadius: '8px', border: '1px solid #cbd5e1' }}
+                                    value={newCreditDate}
+                                    onChange={e => setNewCreditDate(e.target.value)}
+                                />
+                            </div>
+
+                            <div className="form-group">
+                                <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 700, color: '#334155', marginBottom: '4px' }}>
+                                    Observaciones / Notas (Opcional)
+                                </label>
+                                <input
+                                    type="text"
+                                    style={{ width: '100%', padding: '0.55rem 0.75rem', borderRadius: '8px', border: '1px solid #cbd5e1' }}
+                                    placeholder="Ej: Beca concedida curso 2026-27"
+                                    value={newCreditNotes}
+                                    onChange={e => setNewCreditNotes(e.target.value)}
+                                />
+                            </div>
+
+                            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.75rem', paddingTop: '0.75rem', borderTop: '1px solid #e2e8f0' }}>
+                                <button
+                                    type="button"
+                                    className="btn-secondary"
+                                    onClick={() => setIsAddCreditModalOpen(false)}
+                                >
+                                    Cancelar
+                                </button>
+                                <button
+                                    type="button"
+                                    className="calendar-btn-pill calendar-btn-primary"
+                                    disabled={isSavingCredit || !newCreditAmount || Number(newCreditAmount) <= 0}
+                                    onClick={handleSaveWalletCredit}
+                                >
+                                    <CheckCheck size={16} />
+                                    <span>{isSavingCredit ? 'Guardando...' : 'Confirmar Ingreso en Monedero'}</span>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
+
 
             {/* Modal de Cobro Agrupado de Sesiones Pendientes */}
             {isBatchPayModalOpen && (
@@ -3311,6 +3724,18 @@ const BillingView: React.FC = () => {
                                         <option value="Tarjeta">Tarjeta (Datáfono)</option>
                                         <option value="Transferencia">Transferencia</option>
                                         <option value="Fin de mes">Fin de mes</option>
+                                        {(() => {
+                                            const batchPBal = (batchPayPatientId && patientBalances.get(batchPayPatientId)?.balance) ||
+                                                (batchPayPatientName && patientBalances.get(batchPayPatientName.toLowerCase().trim())?.balance) || 0;
+                                            if (batchPBal > 0) {
+                                                return (
+                                                    <option value="Saldo a favor">
+                                                        🟢 Saldo a favor / Beca (Disponible: {batchPBal.toFixed(2)}€)
+                                                    </option>
+                                                );
+                                            }
+                                            return null;
+                                        })()}
                                     </select>
                                 </div>
                                 <div>
@@ -3413,6 +3838,24 @@ const BillingView: React.FC = () => {
                                                         >
                                                             <Layers size={14} />
                                                         </button>
+                                                        {(() => {
+                                                            const pBalBd = (t.patientId && patientBalances.get(t.patientId)?.balance) ||
+                                                                (t.patientName && patientBalances.get(t.patientName.toLowerCase().trim())?.balance) || 0;
+                                                            if (pBalBd >= t.amount && t.amount > 0) {
+                                                                return (
+                                                                    <button
+                                                                        disabled={isBusy}
+                                                                        style={isBusy ? { opacity: 0.5, cursor: 'not-allowed' } : { backgroundColor: '#ecfdf5', borderColor: '#a7f3d0', color: '#047857', fontWeight: 700 }}
+                                                                        className="btn-payment-method"
+                                                                        onClick={() => t._rawAppt ? handleChargeAppointment(t._rawAppt, 'Saldo a favor') : handlePayment(t.id, 'Saldo a favor')}
+                                                                        title={`Cobrar con Saldo a favor / Beca (Disponible: ${pBalBd.toFixed(0)}€)`}
+                                                                    >
+                                                                        <Coins size={14} />
+                                                                    </button>
+                                                                );
+                                                            }
+                                                            return null;
+                                                        })()}
                                                         <button
                                                             disabled={isBusy}
                                                             style={isBusy ? { opacity: 0.5, cursor: 'not-allowed' } : undefined}

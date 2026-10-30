@@ -8,12 +8,14 @@ import { type Appointment } from '../calendar/types';
 import { getTherapists } from '../therapists/service';
 import { type Therapist } from '../therapists/types';
 import Card from '../../components/ui/Card';
-import { User, Users, Phone, Mail, Search, UserPlus, X, Calendar, ClipboardList, FileText, Upload, Activity, Download, Send, ShieldCheck, ShieldAlert, Star, Trash2, Heart, ChevronDown, ChevronUp, AlertCircle, MessageSquare, Repeat, CheckCheck, Clock } from 'lucide-react';
+import { User, Users, Phone, Mail, Search, UserPlus, X, Calendar, ClipboardList, FileText, Upload, Activity, Download, Send, ShieldCheck, ShieldAlert, Star, Trash2, Heart, ChevronDown, ChevronUp, AlertCircle, MessageSquare, Repeat, CheckCheck, Clock, Wallet, Coins, PlusCircle, ArrowDown, ArrowUp } from 'lucide-react';
 import { format, parseISO, isValid, isAfter } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { useToast } from '../../hooks/useToast';
 import PrintPortal from '../../components/ui/PrintPortal';
 import ConsentDocument from './ConsentDocument';
+import { getTransactions, addPatientCredit, deletePatientCredit, computePatientBalances, isAdvanceDeposit, isSaldoConsumption } from '../billing/service';
+import { type Transaction, type PatientBalanceInfo } from '../billing/types';
 // import html2canvas from 'html2canvas'; // Unused
 // import jsPDF from 'jspdf'; // Unused
 import './PatientList.css';
@@ -26,7 +28,7 @@ const PatientList: React.FC = () => {
     const [searchTerm, setSearchTerm] = useState('');
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [selectedPatient, setSelectedPatient] = useState<Partial<Patient> | null>(null);
-    const [activeTab, setActiveTab] = useState<'general' | 'appointments' | 'files' | 'history'>('general');
+    const [activeTab, setActiveTab] = useState<'general' | 'appointments' | 'files' | 'history' | 'wallet'>('general');
     const [patientAppointments, setPatientAppointments] = useState<Appointment[]>([]);
     const [isPendingHistoryExpanded, setIsPendingHistoryExpanded] = useState(false);
     const [isConsentModalOpen, setIsConsentModalOpen] = useState(false);
@@ -38,6 +40,17 @@ const PatientList: React.FC = () => {
     const [therapists, setTherapists] = useState<Therapist[]>([]);
     const [processingStep, setProcessingStep] = useState<string>('');
     const [patientDeleteConfirm, setPatientDeleteConfirm] = useState<{ isOpen: boolean; patient: Patient | null }>({ isOpen: false, patient: null });
+
+    // Patient Wallet / Monedero / Becas states
+    const [allTransactions, setAllTransactions] = useState<Transaction[]>([]);
+    const [patientBalances, setPatientBalances] = useState<Map<string, PatientBalanceInfo>>(new Map());
+    const [isAddCreditModalOpen, setIsAddCreditModalOpen] = useState(false);
+    const [newCreditAmount, setNewCreditAmount] = useState<string>('');
+    const [newCreditMethod, setNewCreditMethod] = useState<'Transferencia' | 'Tarjeta' | 'Efectivo'>('Transferencia');
+    const [newCreditCategory, setNewCreditCategory] = useState<string>('Ingreso Beca MEC');
+    const [newCreditDate, setNewCreditDate] = useState<string>(format(new Date(), 'yyyy-MM-dd'));
+    const [newCreditNotes, setNewCreditNotes] = useState<string>('');
+    const [isSavingCredit, setIsSavingCredit] = useState(false);
 
     // Appointment management states
     const [selectedApptIds, setSelectedApptIds] = useState<Set<string>>(new Set());
@@ -243,12 +256,69 @@ const PatientList: React.FC = () => {
     // Canvas signature state
     const [drawing, setDrawing] = useState(false);
 
+    const loadTransactions = async () => {
+        try {
+            const txs = await getTransactions();
+            setAllTransactions(txs);
+            setPatientBalances(computePatientBalances(txs));
+        } catch (e) {
+            console.error("Error loading transactions for wallet:", e);
+        }
+    };
+
     const fetchData = () => {
         setLoading(true);
         getPatients().then((data) => {
             setPatients(data);
             setLoading(false);
         });
+        loadTransactions();
+    };
+
+    const handleSavePatientCredit = async () => {
+        if (!selectedPatient?.id || !newCreditAmount || Number(newCreditAmount) <= 0) {
+            showToast("Introduce un importe válido", "error");
+            return;
+        }
+
+        setIsSavingCredit(true);
+        try {
+            await addPatientCredit({
+                patientId: selectedPatient.id,
+                patientName: `${selectedPatient.firstName || ''} ${selectedPatient.lastName || ''}`.trim(),
+                amount: Number(newCreditAmount),
+                method: newCreditMethod,
+                category: newCreditCategory,
+                paymentDate: newCreditDate ? new Date(newCreditDate).toISOString() : new Date().toISOString(),
+                notes: newCreditNotes.trim() || undefined
+            });
+
+            showToast("¡Ingreso de beca/saldo guardado correctamente!", "success");
+            setIsAddCreditModalOpen(false);
+            setNewCreditAmount('');
+            setNewCreditNotes('');
+            await loadTransactions();
+        } catch (error) {
+            console.error("Error adding credit:", error);
+            showToast("No se pudo guardar el ingreso. Inténtalo de nuevo.", "error");
+        } finally {
+            setIsSavingCredit(false);
+        }
+    };
+
+    const handleDeleteCreditMovement = async (txId: string) => {
+        if (!window.confirm("¿Seguro que deseas eliminar este ingreso de saldo/beca? Esta acción revertirá el saldo del paciente.")) {
+            return;
+        }
+
+        try {
+            await deletePatientCredit(txId);
+            showToast("Ingreso eliminado correctamente", "info");
+            await loadTransactions();
+        } catch (error) {
+            console.error("Error deleting credit tx:", error);
+            showToast("Error al eliminar el movimiento de saldo", "error");
+        }
     };
 
     useEffect(() => {
@@ -981,9 +1051,17 @@ const PatientList: React.FC = () => {
                                 <span className="patient-name">{patient.firstName} {patient.lastName}</span>
                                 <span className="patient-age">{calculateAge(patient.birthDate)} años</span>
                             </div>
-                            <span className={`status-badge ${getStatusClass(patient.status)}`}>
-                                {patient.status}
-                            </span>
+                            <div className="flex flex-col items-end gap-1">
+                                <span className={`status-badge ${getStatusClass(patient.status)}`}>
+                                    {patient.status}
+                                </span>
+                                {(patientBalances.get(patient.id)?.balance || 0) > 0 && (
+                                    <span className="patient-balance-pill" title={`Saldo a favor disponible: ${patientBalances.get(patient.id)!.balance.toFixed(2)}€`}>
+                                        <Wallet size={12} />
+                                        {patientBalances.get(patient.id)!.balance.toFixed(0)}€ Saldo
+                                    </span>
+                                )}
+                            </div>
                         </div>
 
                         <div className="patient-details">
@@ -1056,9 +1134,9 @@ const PatientList: React.FC = () => {
             {isModalOpen && selectedPatient && (
                 <div className="modal-overlay">
                     <div
-                        className={`modal-content ${activeTab === 'appointments' || activeTab === 'history' ? 'large' : ''}`}
+                        className={`modal-content ${activeTab === 'appointments' || activeTab === 'history' || activeTab === 'wallet' ? 'large' : ''}`}
                         style={{
-                            maxWidth: activeTab === 'appointments' || activeTab === 'history' ? '960px' : '680px',
+                            maxWidth: activeTab === 'appointments' || activeTab === 'history' || activeTab === 'wallet' ? '960px' : '680px',
                             width: '95%',
                             transition: 'max-width 0.25s cubic-bezier(0.4, 0, 0.2, 1)'
                         }}
@@ -1085,6 +1163,18 @@ const PatientList: React.FC = () => {
                                         }}
                                     >
                                         Citas
+                                    </button>
+                                    <button
+                                        className={`tab-btn flex items-center gap-1.5 ${activeTab === 'wallet' ? 'active' : ''}`}
+                                        onClick={() => setActiveTab('wallet')}
+                                    >
+                                        <Wallet size={15} />
+                                        <span>Beca / Monedero</span>
+                                        {selectedPatient.id && (patientBalances.get(selectedPatient.id)?.balance || 0) > 0 && (
+                                            <span style={{ fontSize: '0.72rem', padding: '1px 6px', borderRadius: '9999px', backgroundColor: '#dcfce7', color: '#166534', fontWeight: 700, marginLeft: '4px' }}>
+                                                {patientBalances.get(selectedPatient.id)!.balance.toFixed(0)}€
+                                            </span>
+                                        )}
                                     </button>
                                     <button className={`tab-btn ${activeTab === 'history' ? 'active' : ''}`} onClick={() => setActiveTab('history')}>Historia Clínica</button>
                                     <button className={`tab-btn ${activeTab === 'files' ? 'active' : ''}`} onClick={() => setActiveTab('files')}>Archivos</button>
@@ -1899,6 +1989,263 @@ const PatientList: React.FC = () => {
                                     )}
                                 </div>
                             )}
+
+                            {activeTab === 'wallet' && selectedPatient?.id && (() => {
+                                const pBalance = patientBalances.get(selectedPatient.id) || { balance: 0, totalDeposited: 0, totalConsumed: 0 };
+                                const pFullName = `${selectedPatient.firstName || ''} ${selectedPatient.lastName || ''}`.toLowerCase().trim();
+                                const movements = allTransactions
+                                    .filter(t => (t.patientId && t.patientId === selectedPatient.id) || (t.patientName && t.patientName.toLowerCase().trim() === pFullName))
+                                    .filter(t => isAdvanceDeposit(t.category, t.status) || isSaldoConsumption(t.method, t.category, t.status))
+                                    .sort((a, b) => (b.date || '').localeCompare(a.date || ''));
+
+                                return (
+                                    <div className="wallet-tab-content">
+                                        {/* Summary Cards */}
+                                        <div className="wallet-summary-grid">
+                                            <div className="wallet-card primary">
+                                                <div className="wallet-card-header">
+                                                    <Wallet size={20} />
+                                                    <span>Saldo Disponible</span>
+                                                </div>
+                                                <div className="wallet-card-amount">
+                                                    {pBalance.balance.toFixed(2)}€
+                                                </div>
+                                                <div className="wallet-card-subtitle">
+                                                    {pBalance.balance > 0 ? 'Fondos a favor para sesiones de este paciente' : 'Sin saldo a favor'}
+                                                </div>
+                                            </div>
+
+                                            <div className="wallet-card secondary">
+                                                <div className="wallet-card-header">
+                                                    <ArrowDown size={18} className="text-emerald-600" />
+                                                    <span>Total Becas / Anticipos</span>
+                                                </div>
+                                                <div className="wallet-card-amount" style={{ color: '#047857' }}>
+                                                    +{pBalance.totalDeposited.toFixed(2)}€
+                                                </div>
+                                                <div className="wallet-card-subtitle">
+                                                    Ingresos registrados por la familia o becas
+                                                </div>
+                                            </div>
+
+                                            <div className="wallet-card secondary">
+                                                <div className="wallet-card-header">
+                                                    <ArrowUp size={18} className="text-blue-600" />
+                                                    <span>Total Consumido</span>
+                                                </div>
+                                                <div className="wallet-card-amount" style={{ color: '#2563eb' }}>
+                                                    -{pBalance.totalConsumed.toFixed(2)}€
+                                                </div>
+                                                <div className="wallet-card-subtitle">
+                                                    Sesiones clínicas pagadas con su saldo
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        {/* Action Bar */}
+                                        <div className="wallet-action-bar flex justify-between items-center my-4">
+                                            <h4 className="font-bold text-gray-800 flex items-center gap-2 m-0" style={{ fontSize: '0.95rem' }}>
+                                                <Coins size={18} className="text-amber-500" />
+                                                Historial de Movimientos del Monedero
+                                            </h4>
+                                            <button
+                                                type="button"
+                                                className="calendar-btn-pill calendar-btn-primary"
+                                                style={{ padding: '0.45rem 1rem', fontSize: '0.85rem' }}
+                                                onClick={() => {
+                                                    setNewCreditAmount('');
+                                                    setNewCreditMethod('Transferencia');
+                                                    setNewCreditCategory('Ingreso Beca MEC');
+                                                    setNewCreditDate(format(new Date(), 'yyyy-MM-dd'));
+                                                    setNewCreditNotes('');
+                                                    setIsAddCreditModalOpen(true);
+                                                }}
+                                            >
+                                                <PlusCircle size={16} />
+                                                <span>+ Ingresar Beca / Saldo</span>
+                                            </button>
+                                        </div>
+
+                                        {/* Movements Table */}
+                                        {movements.length === 0 ? (
+                                            <div className="empty-state p-8 text-center bg-gray-50 rounded-xl border border-dashed border-gray-200">
+                                                <Wallet size={36} className="mx-auto text-gray-300 mb-2" />
+                                                <p className="text-gray-500 font-medium">Este paciente aún no tiene movimientos de saldo o beca.</p>
+                                                <p className="text-xs text-gray-400 mt-1">Pulsa en <strong>"+ Ingresar Beca / Saldo"</strong> para añadir un anticipo o beca recibida.</p>
+                                            </div>
+                                        ) : (
+                                            <div className="table-responsive rounded-xl border border-gray-100 overflow-hidden shadow-sm">
+                                                <table className="wallet-table w-full text-sm" style={{ borderCollapse: 'collapse', width: '100%' }}>
+                                                    <thead className="bg-gray-50 border-b border-gray-200 text-xs font-semibold text-gray-600 uppercase">
+                                                        <tr>
+                                                            <th className="p-3 text-left">Fecha</th>
+                                                            <th className="p-3 text-left">Concepto</th>
+                                                            <th className="p-3 text-left">Forma de Pago</th>
+                                                            <th className="p-3 text-right">Importe</th>
+                                                            <th className="p-3 text-center">Acciones</th>
+                                                        </tr>
+                                                    </thead>
+                                                    <tbody className="divide-y divide-gray-100 bg-white">
+                                                        {movements.map(m => {
+                                                            const isDeposit = isAdvanceDeposit(m.category, m.status);
+                                                            return (
+                                                                <tr key={m.id} className="hover:bg-gray-50/80 transition-colors">
+                                                                    <td className="p-3 font-medium text-gray-700">
+                                                                        {m.date ? format(parseISO(m.date), 'dd/MM/yyyy') : '-'}
+                                                                    </td>
+                                                                    <td className="p-3">
+                                                                        <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-bold ${isDeposit ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : 'bg-blue-50 text-blue-700 border border-blue-200'}`}>
+                                                                            {isDeposit ? '🟢 ' : '🔵 '}
+                                                                            {m.category || (isDeposit ? 'Ingreso Beca' : 'Sesión Terapia')}
+                                                                        </span>
+                                                                    </td>
+                                                                    <td className="p-3 text-gray-600">
+                                                                        {m.method || (isDeposit ? 'Transferencia' : 'Saldo a favor')}
+                                                                    </td>
+                                                                    <td className={`p-3 text-right font-bold ${isDeposit ? 'text-emerald-600' : 'text-blue-600'}`} style={{ color: isDeposit ? '#047857' : '#2563eb' }}>
+                                                                        {isDeposit ? `+${m.amount.toFixed(2)}€` : `-${m.amount.toFixed(2)}€`}
+                                                                    </td>
+                                                                    <td className="p-3 text-center">
+                                                                        {isDeposit ? (
+                                                                            <button
+                                                                                type="button"
+                                                                                className="btn-icon text-red-500 hover:text-red-700 p-1"
+                                                                                style={{ border: 'none', background: 'none', cursor: 'pointer', color: '#ef4444' }}
+                                                                                title="Eliminar ingreso"
+                                                                                onClick={() => handleDeleteCreditMovement(m.id)}
+                                                                            >
+                                                                                <Trash2 size={16} />
+                                                                            </button>
+                                                                        ) : (
+                                                                            <span className="text-xs text-gray-400">Sesión cita</span>
+                                                                        )}
+                                                                    </td>
+                                                                </tr>
+                                                            );
+                                                        })}
+                                                    </tbody>
+                                                </table>
+                                            </div>
+                                        )}
+                                    </div>
+                                );
+                            })()}
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Modal para ingresar saldo o beca */}
+            {isAddCreditModalOpen && selectedPatient && (
+                <div className="modal-overlay" style={{ zIndex: 9999 }}>
+                    <div className="modal-content" style={{ maxWidth: '480px' }}>
+                        <div className="modal-header">
+                            <div className="flex items-center gap-2">
+                                <Wallet size={20} style={{ color: '#047857' }} />
+                                <h3>Ingresar Saldo / Beca en Monedero</h3>
+                            </div>
+                            <button className="btn-icon-round" onClick={() => setIsAddCreditModalOpen(false)}>
+                                <X size={20} />
+                            </button>
+                        </div>
+                        <div style={{ padding: '1.25rem', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                            <div style={{ padding: '0.75rem', backgroundColor: '#ecfdf5', border: '1px solid #a7f3d0', borderRadius: '10px', fontSize: '0.8rem', color: '#065f46' }}>
+                                Ingreso a favor de <strong>{selectedPatient.firstName} {selectedPatient.lastName}</strong>.
+                                Este importe computará en caja hoy como cobrado real por la forma de pago elegida, y permitirá pagar futuras sesiones descontando de este saldo.
+                            </div>
+
+                            <div className="form-group">
+                                <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 700, color: '#334155', marginBottom: '4px' }}>
+                                    Importe a Ingresar (€) *
+                                </label>
+                                <input
+                                    type="number"
+                                    step="0.01"
+                                    min="1"
+                                    required
+                                    style={{ width: '100%', padding: '0.6rem 0.8rem', fontSize: '1.2rem', fontWeight: 700, color: '#047857', border: '2px solid #cbd5e1', borderRadius: '8px' }}
+                                    placeholder="Ej: 300.00"
+                                    value={newCreditAmount}
+                                    onChange={e => setNewCreditAmount(e.target.value)}
+                                />
+                            </div>
+
+                            <div className="form-group">
+                                <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 700, color: '#334155', marginBottom: '4px' }}>
+                                    Concepto / Tipo de Ingreso *
+                                </label>
+                                <select
+                                    style={{ width: '100%', padding: '0.55rem 0.75rem', borderRadius: '8px', border: '1px solid #cbd5e1' }}
+                                    value={newCreditCategory}
+                                    onChange={e => setNewCreditCategory(e.target.value)}
+                                >
+                                    <option value="Ingreso Beca MEC">Beca MEC / NEAE</option>
+                                    <option value="Anticipo mensualidad">Anticipo Mensualidad (Varias sesiones)</option>
+                                    <option value="Bono sesiones">Bono de Sesiones por adelantado</option>
+                                    <option value="Ingreso Beca">Otro Ingreso de Beca</option>
+                                    <option value="Anticipo">Otro Anticipo a cuenta</option>
+                                </select>
+                            </div>
+
+                            <div className="form-group">
+                                <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 700, color: '#334155', marginBottom: '4px' }}>
+                                    Forma de Pago Recibida *
+                                </label>
+                                <select
+                                    style={{ width: '100%', padding: '0.55rem 0.75rem', borderRadius: '8px', border: '1px solid #cbd5e1' }}
+                                    value={newCreditMethod}
+                                    onChange={e => setNewCreditMethod(e.target.value as any)}
+                                >
+                                    <option value="Transferencia">🏦 Transferencia Bancaria</option>
+                                    <option value="Tarjeta">💳 Tarjeta (Datáfono)</option>
+                                    <option value="Efectivo">💵 Efectivo</option>
+                                </select>
+                            </div>
+
+                            <div className="form-group">
+                                <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 700, color: '#334155', marginBottom: '4px' }}>
+                                    Fecha del Ingreso *
+                                </label>
+                                <input
+                                    type="date"
+                                    required
+                                    style={{ width: '100%', padding: '0.55rem 0.75rem', borderRadius: '8px', border: '1px solid #cbd5e1' }}
+                                    value={newCreditDate}
+                                    onChange={e => setNewCreditDate(e.target.value)}
+                                />
+                            </div>
+
+                            <div className="form-group">
+                                <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 700, color: '#334155', marginBottom: '4px' }}>
+                                    Observaciones / Notas (Opcional)
+                                </label>
+                                <input
+                                    type="text"
+                                    style={{ width: '100%', padding: '0.55rem 0.75rem', borderRadius: '8px', border: '1px solid #cbd5e1' }}
+                                    placeholder="Ej: Beca concedida curso 2026-27"
+                                    value={newCreditNotes}
+                                    onChange={e => setNewCreditNotes(e.target.value)}
+                                />
+                            </div>
+
+                            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.75rem', paddingTop: '0.75rem', borderTop: '1px solid #e2e8f0' }}>
+                                <button
+                                    type="button"
+                                    className="btn-secondary"
+                                    onClick={() => setIsAddCreditModalOpen(false)}
+                                >
+                                    Cancelar
+                                </button>
+                                <button
+                                    type="button"
+                                    className="calendar-btn-pill calendar-btn-primary"
+                                    disabled={isSavingCredit || !newCreditAmount || Number(newCreditAmount) <= 0}
+                                    onClick={handleSavePatientCredit}
+                                >
+                                    <CheckCheck size={16} />
+                                    <span>{isSavingCredit ? 'Guardando...' : 'Confirmar Ingreso en Monedero'}</span>
+                                </button>
+                            </div>
                         </div>
                     </div>
                 </div>

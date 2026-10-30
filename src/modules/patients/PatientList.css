@@ -1324,4 +1324,105 @@
     color: #0369a1;
     text-decoration: underline;
 }
+
+/* Patient Wallet / Monedero / Becas Styles */
+.patient-balance-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 0.2rem 0.6rem;
+    border-radius: 9999px;
+    font-size: 0.75rem;
+    font-weight: 700;
+    background: #ecfdf5;
+    color: #047857;
+    border: 1px solid #a7f3d0;
+}
+
+.patient-balance-pill.negative {
+    background: #fef2f2;
+    color: #b91c1c;
+    border-color: #fecaca;
+}
+
+.wallet-summary-grid {
+    display: grid;
+    grid-template-columns: 1.2fr 1fr 1fr;
+    gap: 1rem;
+    margin-bottom: 1.5rem;
+}
+
+@media (max-width: 768px) {
+    .wallet-summary-grid {
+        grid-template-columns: 1fr;
+    }
+}
+
+.wallet-card {
+    padding: 1.25rem;
+    border-radius: 14px;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    border: 1px solid #e2e8f0;
+    background: #ffffff;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+}
+
+.wallet-card.primary {
+    background: linear-gradient(135deg, #065f46 0%, #047857 100%);
+    color: #ffffff;
+    border: none;
+    box-shadow: 0 4px 12px rgba(4, 120, 87, 0.25);
+}
+
+.wallet-card.primary .wallet-card-header {
+    color: rgba(255, 255, 255, 0.85);
+}
+
+.wallet-card.primary .wallet-card-subtitle {
+    color: rgba(255, 255, 255, 0.75);
+}
+
+.wallet-card-header {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: #64748b;
+    margin-bottom: 0.5rem;
+}
+
+.wallet-card-amount {
+    font-size: 1.85rem;
+    font-weight: 800;
+    line-height: 1.2;
+    margin-bottom: 0.35rem;
+}
+
+.wallet-card.primary .wallet-card-amount {
+    color: #ffffff;
+}
+
+.wallet-card-subtitle {
+    font-size: 0.75rem;
+    color: #94a3b8;
+}
+
+.wallet-action-bar {
+    background: #f8fafc;
+    padding: 0.75rem 1rem;
+    border-radius: 12px;
+    border: 1px solid #e2e8f0;
+}
+
+.wallet-table th {
+    font-size: 0.75rem;
+    letter-spacing: 0.03em;
+}
+
+.wallet-table tr {
+    transition: background-color 0.15s ease;
+}
 

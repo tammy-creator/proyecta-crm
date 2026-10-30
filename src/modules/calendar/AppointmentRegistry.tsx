@@ -27,7 +27,7 @@ import {
     Filter
 } from 'lucide-react';
 import { getAppointments, updateAppointment, subscribeToCalendarSync } from './service';
-import { getTransactions, createTransaction, updateTransaction, isNonClinicalSession } from '../billing/service';
+import { getTransactions, createTransaction, updateTransaction, isNonClinicalSession, computePatientBalances } from '../billing/service';
 import { type Transaction } from '../billing/types';
 import { type Appointment, type AppointmentStatus } from './types';
 import { classifyAppointment, type PatientLookupItem } from './appointmentClassifier';
@@ -218,6 +218,10 @@ const AppointmentRegistry: React.FC = () => {
             .replace(/\s+/g, ' ')
             .trim();
     };
+
+    const patientBalances = React.useMemo(() => {
+        return computePatientBalances(transactions);
+    }, [transactions]);
 
     const classifiedAppointments = React.useMemo(() => {
         return appointments.map(appt => ({
@@ -463,6 +467,16 @@ const AppointmentRegistry: React.FC = () => {
                 const effectiveAmount = (appt.price != null && appt.price > 0)
                     ? appt.price
                     : (existingTx?.amount && existingTx.amount > 0 ? existingTx.amount : 60);
+
+                if (method === 'Saldo a favor') {
+                    const pBal = (effectivePatientId && patientBalances.get(effectivePatientId)?.balance) ||
+                        (appt.patientName && patientBalances.get(appt.patientName.toLowerCase().trim())?.balance) || 0;
+                    const wasAlreadySaldo = existingTx?.method === 'Saldo a favor';
+                    if (!wasAlreadySaldo && pBal < effectiveAmount) {
+                        showToast(`⚠️ Saldo insuficiente: el paciente dispone de ${pBal.toFixed(2)}€ y la sesión es de ${effectiveAmount.toFixed(2)}€. Ingresa primero la beca o anticipo en su ficha.`, 'error');
+                        return;
+                    }
+                }
 
                 if (existingTx) {
                     await updateTransaction({
@@ -910,9 +924,13 @@ const AppointmentRegistry: React.FC = () => {
                                             if (isRole('ADMIN')) {
                                                 const currentMethod = payInfo?.method || 'PENDIENTE';
                                                 const isPaid = payInfo?.isPaid || false;
+                                                const patBal = (appt.patientId && patientBalances.get(appt.patientId)?.balance) ||
+                                                    (appt.patientName && patientBalances.get(appt.patientName.toLowerCase().trim())?.balance) || 0;
+                                                const isCurrentSaldo = currentMethod === 'Saldo a favor';
+
                                                 return (
                                                     <select
-                                                        className={`registry-payment-select ${isPaid ? 'paid' : 'unpaid'} ${currentMethod === 'Fin de mes' ? 'delayed' : ''}`}
+                                                        className={`registry-payment-select ${isPaid ? 'paid' : 'unpaid'} ${currentMethod === 'Fin de mes' ? 'delayed' : ''} ${isCurrentSaldo ? 'saldo' : ''}`}
                                                         value={currentMethod}
                                                         onChange={(e) => handlePaymentChange(appt, e.target.value)}
                                                     >
@@ -921,6 +939,11 @@ const AppointmentRegistry: React.FC = () => {
                                                         <option value="Efectivo">💵 Efectivo</option>
                                                         <option value="Transferencia">🏦 Transferencia</option>
                                                         <option value="Fin de mes">{isPaid ? '📅 Fin de mes (Cobrado)' : '📅 Fin de mes (Pendiente)'}</option>
+                                                        {(isCurrentSaldo || patBal > 0) && (
+                                                            <option value="Saldo a favor">
+                                                                🟢 Saldo a favor / Beca {patBal > 0 ? `(Disp: ${patBal.toFixed(0)}€)` : ''}
+                                                            </option>
+                                                        )}
                                                     </select>
                                                 );
                                             }
@@ -932,6 +955,7 @@ const AppointmentRegistry: React.FC = () => {
                                                         {payInfo.method === 'Efectivo' && <Wallet size={14} />}
                                                         {payInfo.method === 'Transferencia' && <Send size={14} />}
                                                         {payInfo.method === 'Fin de mes' && <CalendarClock size={14} />}
+                                                        {payInfo.method === 'Saldo a favor' && <Wallet size={14} className="text-emerald-700" />}
                                                         {payInfo.label}
                                                     </div>
                                                 );

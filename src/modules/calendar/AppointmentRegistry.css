@@ -610,6 +610,13 @@
     border-color: #a7f3d0;
 }
 
+.registry-payment-select.saldo {
+    background-color: #f0fdf4;
+    color: #15803d;
+    border-color: #86efac;
+    font-weight: 700;
+}
+
 .registry-payment-select:hover {
     transform: translateY(-1px);
     box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);

@@ -400,7 +400,7 @@
 /* --- Modal & Form Improvements --- */
 .patient-detail-modal,
 .modal-content.large {
-    max-width: 960px;
+    max-width: 1040px;
     width: 95%;
     height: 85vh;
     min-height: 620px;
@@ -1029,13 +1029,17 @@
     border-radius: 12px;
     border: 1px solid #e2e8f0;
     background: white;
-    overflow: hidden;
+    overflow-x: auto;
+    overflow-y: hidden;
+    -webkit-overflow-scrolling: touch;
     box-shadow: 0 1px 3px rgba(0, 0, 0, 0.03);
     margin-top: 0.75rem;
+    width: 100%;
 }
 
 .patient-appt-table {
     width: 100%;
+    min-width: 680px;
     border-collapse: separate;
     border-spacing: 0;
     text-align: left;
@@ -1047,7 +1051,7 @@
 }
 
 .patient-appt-table th {
-    padding: 0.75rem 1rem;
+    padding: 0.65rem 0.75rem;
     font-size: 0.72rem;
     font-weight: 700;
     text-transform: uppercase;
@@ -1058,7 +1062,7 @@
 }
 
 .patient-appt-table td {
-    padding: 0.85rem 1rem;
+    padding: 0.65rem 0.75rem;
     border-bottom: 1px solid #f1f5f9;
     color: #1e293b;
     vertical-align: middle;
@@ -1450,5 +1454,11 @@
 
 .wallet-table tr {
     transition: background-color 0.15s ease;
+}
+
+.table-responsive {
+    width: 100%;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
 }
 

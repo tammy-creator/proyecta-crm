@@ -1594,7 +1594,7 @@ const PatientList: React.FC = () => {
                                             <table className="patient-appt-table">
                                                 <thead>
                                                     <tr>
-                                                        <th style={{ width: '40px', textAlign: 'center' }}>
+                                                        <th style={{ width: '38px', textAlign: 'center', padding: '0.65rem 0.25rem' }}>
                                                             <input
                                                                 type="checkbox"
                                                                 className="appt-checkbox"
@@ -1603,12 +1603,12 @@ const PatientList: React.FC = () => {
                                                                 title={allFilteredSelected ? 'Deseleccionar todas las mostradas' : 'Seleccionar todas las citas mostradas'}
                                                             />
                                                         </th>
-                                                        <th style={{ minWidth: '160px' }}>Fecha y Horario</th>
-                                                        <th style={{ minWidth: '180px' }}>Terapeuta</th>
-                                                        <th style={{ minWidth: '150px' }}>Tipo de Sesión</th>
-                                                        <th style={{ minWidth: '160px' }}>Recurrencia / Serie</th>
-                                                        <th style={{ minWidth: '110px' }}>Estado</th>
-                                                        <th style={{ width: '45px', textAlign: 'center' }}>Acción</th>
+                                                        <th style={{ minWidth: '135px' }}>Fecha y Horario</th>
+                                                        <th style={{ minWidth: '140px' }}>Terapeuta</th>
+                                                        <th style={{ minWidth: '120px' }}>Tipo de Sesión</th>
+                                                        <th style={{ minWidth: '135px' }}>Recurrencia / Serie</th>
+                                                        <th style={{ minWidth: '95px' }}>Estado</th>
+                                                        <th style={{ width: '40px', textAlign: 'center', padding: '0.65rem 0.25rem' }}>Acción</th>
                                                     </tr>
                                                 </thead>
                                                 <tbody>
@@ -1624,7 +1624,7 @@ const PatientList: React.FC = () => {
                                                                 key={appt.id}
                                                                 className={isSelected ? 'row-selected' : ''}
                                                             >
-                                                                <td style={{ textAlign: 'center' }}>
+                                                                <td style={{ textAlign: 'center', padding: '0.65rem 0.25rem' }}>
                                                                     <input
                                                                         type="checkbox"
                                                                         className="appt-checkbox"
@@ -1706,7 +1706,7 @@ const PatientList: React.FC = () => {
                                                                         {appt.status}
                                                                     </span>
                                                                 </td>
-                                                                <td style={{ textAlign: 'center' }}>
+                                                                <td style={{ textAlign: 'center', padding: '0.65rem 0.25rem' }}>
                                                                     <button
                                                                         type="button"
                                                                         className="appt-action-delete"

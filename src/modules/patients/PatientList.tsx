@@ -2132,8 +2132,8 @@ const PatientList: React.FC = () => {
 
             {/* Modal para ingresar saldo o beca */}
             {isAddCreditModalOpen && selectedPatient && (
-                <div className="modal-overlay" style={{ zIndex: 9999 }}>
-                    <div className="modal-content" style={{ maxWidth: '480px' }}>
+                <div className="modal-overlay" style={{ zIndex: 25000, backgroundColor: 'rgba(0, 0, 0, 0.6)', backdropFilter: 'blur(4px)' }}>
+                    <div className="modal-content" style={{ maxWidth: '480px', width: '90%', borderRadius: '16px' }}>
                         <div className="modal-header">
                             <div className="flex items-center gap-2">
                                 <Wallet size={20} style={{ color: '#047857' }} />

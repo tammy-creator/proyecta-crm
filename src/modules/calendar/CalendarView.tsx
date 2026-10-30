@@ -32,7 +32,7 @@ import {
     startOfDay
 } from 'date-fns';
 import { es } from 'date-fns/locale';
-import { ChevronLeft, ChevronRight, Plus, X, User, UserPlus, Rocket, Puzzle, AlertTriangle, Clock as ClockIcon, DollarSign, Mic, Square, Info, Search, ArrowLeft, CheckCircle2, Repeat, FileText, CalendarClock } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Plus, X, User, UserPlus, Users, Rocket, Puzzle, AlertTriangle, Clock as ClockIcon, DollarSign, Mic, Square, Info, Search, ArrowLeft, CheckCircle2, Repeat, FileText, CalendarClock } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { getAppointments, createAppointment, createAppointmentsBatch, updateAppointment, deleteAppointment, checkAppointmentConflict, checkBatchAppointmentConflicts, subscribeToCalendarSync } from './service';
 import { getPatients, getWaitingList } from '../patients/service';
@@ -155,6 +155,11 @@ const CalendarView: React.FC<CalendarViewProps> = ({ mode: initialMode, therapis
     const [isQuickPatientModalOpen, setIsQuickPatientModalOpen] = useState(false);
     const [quickPatientName, setQuickPatientName] = useState('');
     const [isSpecialScheduleModalOpen, setIsSpecialScheduleModalOpen] = useState(false);
+    const [isGroupSession, setIsGroupSession] = useState(false);
+    const [selectedGroupPatients, setSelectedGroupPatients] = useState<Patient[]>([]);
+    const [groupPatientSearch, setGroupPatientSearch] = useState('');
+    const [showGroupPatientSuggestions, setShowGroupPatientSuggestions] = useState(false);
+    const [groupMembers, setGroupMembers] = useState<Appointment[]>([]);
 
     // Si no se pasa modo, se controla con viewMode
     const effectiveMode = initialMode || (viewMode === 'day' ? 'TODAY_MULTI' : 'WEEKLY_SINGLE');
@@ -191,15 +196,24 @@ const CalendarView: React.FC<CalendarViewProps> = ({ mode: initialMode, therapis
         // Actualizar estado local de pacientes
         setPatients(prev => [newPatient, ...prev]);
 
-        // Seleccionar el nuevo paciente en la cita actual
-        setSelectedAppt({
-            ...selectedAppt,
-            patientId: newPatient.id,
-            patientName: `${newPatient.firstName} ${newPatient.lastName}`
-        });
+        if (isGroupSession) {
+            setSelectedGroupPatients(prev => {
+                if (prev.some(p => p.id === newPatient.id)) return prev;
+                return [...prev, newPatient];
+            });
+            setGroupPatientSearch('');
+            setShowGroupPatientSuggestions(false);
+        } else {
+            // Seleccionar el nuevo paciente en la cita actual
+            setSelectedAppt({
+                ...selectedAppt,
+                patientId: newPatient.id,
+                patientName: `${newPatient.firstName} ${newPatient.lastName}`
+            });
 
-        setPatientSearch(`${newPatient.firstName} ${newPatient.lastName}`);
-        setShowPatientSuggestions(false);
+            setPatientSearch(`${newPatient.firstName} ${newPatient.lastName}`);
+            setShowPatientSuggestions(false);
+        }
     };
 
     // Helper to calculate statuses
@@ -651,9 +665,30 @@ const CalendarView: React.FC<CalendarViewProps> = ({ mode: initialMode, therapis
         setIsRecording(false);
         setIsRecordingNotes(false);
         isSavingRef.current = false;
+        setGroupPatientSearch('');
+        setShowGroupPatientSuggestions(false);
+
         if (appt) {
             setSelectedAppt(appt);
             setPatientSearch(appt.patientName || '');
+            const isGroup = appt.type === 'Sesión Grupal' || !!appt.isGroup || !!appt.recurrence?.isGroup;
+            setIsGroupSession(isGroup);
+
+            if (isGroup) {
+                const companions = appointments.filter(a =>
+                    a.id !== appt.id &&
+                    a.therapistId === appt.therapistId &&
+                    a.start === appt.start &&
+                    a.status !== 'Cancelada' &&
+                    (a.type === 'Sesión Grupal' || a.recurrence?.isGroup === true || (appt.recurrence?.groupId && a.recurrence?.groupId === appt.recurrence?.groupId))
+                );
+                setGroupMembers(companions);
+                const currentPatient = patients.find(p => p.id === appt.patientId);
+                setSelectedGroupPatients(currentPatient ? [currentPatient] : []);
+            } else {
+                setGroupMembers([]);
+                setSelectedGroupPatients([]);
+            }
         } else {
             const startBase = startOfDay(date || new Date());
             const hours = (date || new Date()).getHours();
@@ -669,6 +704,10 @@ const CalendarView: React.FC<CalendarViewProps> = ({ mode: initialMode, therapis
 
             const startBaseDate = parseISO(startStr);
             const baseDayNum = isValid(startBaseDate) ? (getDay(startBaseDate) === 0 ? 7 : getDay(startBaseDate)) : 1;
+
+            setIsGroupSession(false);
+            setSelectedGroupPatients([]);
+            setGroupMembers([]);
 
             setSelectedAppt({
                 therapistId,
@@ -688,6 +727,95 @@ const CalendarView: React.FC<CalendarViewProps> = ({ mode: initialMode, therapis
             setPatientSearch('');
         }
         setIsModalOpen(true);
+    };
+
+    const handleToggleGroupSession = (enabled: boolean) => {
+        setIsGroupSession(enabled);
+        if (enabled) {
+            const groupService = services.find(s => s.name.toLowerCase().includes('grupal'));
+            const currentPatient = patients.find(p => p.id === selectedAppt?.patientId);
+            if (currentPatient && !selectedGroupPatients.some(p => p.id === currentPatient.id)) {
+                setSelectedGroupPatients([currentPatient]);
+            }
+            if (selectedAppt) {
+                setSelectedAppt({
+                    ...selectedAppt,
+                    type: groupService?.name || 'Sesión Grupal',
+                    serviceId: groupService?.id || selectedAppt.serviceId,
+                    price: groupService?.price ?? selectedAppt.price ?? 25,
+                    isGroup: true
+                });
+            }
+        } else {
+            if (selectedGroupPatients.length > 0) {
+                const first = selectedGroupPatients[0];
+                setSelectedAppt(prev => prev ? {
+                    ...prev,
+                    patientId: first.id,
+                    patientName: `${first.firstName} ${first.lastName}`.trim(),
+                    isGroup: false
+                } : null);
+                setPatientSearch(`${first.firstName} ${first.lastName}`.trim());
+            } else if (selectedAppt) {
+                setSelectedAppt({
+                    ...selectedAppt,
+                    isGroup: false
+                });
+            }
+        }
+    };
+
+    const handleRemoveGroupPatient = (patientId: string) => {
+        setSelectedGroupPatients(prev => prev.filter(p => p.id !== patientId));
+    };
+
+    const handleAddGroupPatient = (patient: Patient) => {
+        if (!selectedGroupPatients.some(p => p.id === patient.id)) {
+            setSelectedGroupPatients(prev => [...prev, patient]);
+        }
+        setGroupPatientSearch('');
+        setShowGroupPatientSuggestions(false);
+    };
+
+    const handleAddPatientToExistingGroup = (baseAppt: Partial<Appointment>) => {
+        setIsCancelling(false);
+        setIsSaving(false);
+        isSavingRef.current = false;
+        setIsGroupSession(true);
+        setSelectedGroupPatients([]);
+        setGroupPatientSearch('');
+        const companions = appointments.filter(a => 
+            a.therapistId === baseAppt.therapistId &&
+            a.start === baseAppt.start &&
+            a.status !== 'Cancelada' &&
+            (a.type === 'Sesión Grupal' || a.recurrence?.isGroup === true || (baseAppt.recurrence?.groupId && a.recurrence?.groupId === baseAppt.recurrence?.groupId))
+        );
+        setGroupMembers(companions);
+
+        const groupService = services.find(s => s.name.toLowerCase().includes('grupal'));
+
+        setSelectedAppt({
+            therapistId: baseAppt.therapistId,
+            therapistName: baseAppt.therapistName,
+            start: baseAppt.start,
+            end: baseAppt.end,
+            status: 'Programada',
+            patientId: '',
+            patientName: '',
+            serviceId: baseAppt.serviceId || groupService?.id,
+            type: baseAppt.type || 'Sesión Grupal',
+            price: baseAppt.price ?? groupService?.price ?? 25,
+            notes: baseAppt.notes,
+            isGroup: true,
+            groupId: baseAppt.recurrence?.groupId || baseAppt.groupId || crypto.randomUUID(),
+            recurrence: {
+                frequency: 'weekly',
+                days: [isValid(parseISO(baseAppt.start!)) ? (getDay(parseISO(baseAppt.start!)) === 0 ? 7 : getDay(parseISO(baseAppt.start!))) : 1],
+                groupId: baseAppt.recurrence?.groupId || baseAppt.groupId || crypto.randomUUID(),
+                isGroup: true
+            }
+        });
+        setPatientSearch('');
     };
 
     const getRecurrenceSummary = (appt: Partial<Appointment> | null) => {
@@ -764,6 +892,22 @@ const CalendarView: React.FC<CalendarViewProps> = ({ mode: initialMode, therapis
                 finalAppt.serviceId = undefined;
                 finalAppt.patientName = finalAppt.patientName || 'HORARIO BLOQUEADO';
                 finalAppt.type = 'Bloqueo';
+                finalAppt.isGroup = false;
+            } else if (isGroupSession && !finalAppt.id) {
+                // Validación para creación de sesión grupal
+                if (selectedGroupPatients.length === 0) {
+                    showToast("Debes seleccionar al menos un paciente para la sesión grupal.", "error");
+                    return;
+                }
+                const t = therapists.find(t => t.id === finalAppt.therapistId);
+                if (t) finalAppt.therapistName = (t.fullName ?? '').replace(/\s+/g, ' ').trim();
+
+                if (finalAppt.serviceId) {
+                    const s = services.find(s => s.id === finalAppt.serviceId);
+                    if (s) finalAppt.type = s.name;
+                }
+                if (!finalAppt.type) finalAppt.type = 'Sesión Grupal';
+                finalAppt.isGroup = true;
             } else {
                 const p = patients.find(p => p.id === finalAppt.patientId);
                 if (p) finalAppt.patientName = `${p.firstName} ${p.lastName}`.replace(/\s+/g, ' ').trim();
@@ -774,6 +918,10 @@ const CalendarView: React.FC<CalendarViewProps> = ({ mode: initialMode, therapis
                 if (finalAppt.serviceId) {
                     const s = services.find(s => s.id === finalAppt.serviceId);
                     if (s) finalAppt.type = s.name;
+                }
+                if (isGroupSession) {
+                    finalAppt.isGroup = true;
+                    if (!finalAppt.type) finalAppt.type = 'Sesión Grupal';
                 }
             }
 
@@ -790,7 +938,9 @@ const CalendarView: React.FC<CalendarViewProps> = ({ mode: initialMode, therapis
                         therapistId: finalAppt.therapistId,
                         start: finalAppt.start,
                         end: finalAppt.end,
-                        excludeAppointmentId: finalAppt.id
+                        excludeAppointmentId: finalAppt.id,
+                        isGroupSession: isGroupSession || finalAppt.isGroup || finalAppt.type === 'Sesión Grupal',
+                        groupId: finalAppt.groupId || finalAppt.recurrence?.groupId
                     });
 
                     if (conflict.hasConflict) {
@@ -814,7 +964,116 @@ const CalendarView: React.FC<CalendarViewProps> = ({ mode: initialMode, therapis
                     (finalAppt.recurrence.days && finalAppt.recurrence.days.length > 1)
                 );
 
-                if (hasRecurrence) {
+                if (isGroupSession) {
+                    // Creación masiva para sesión grupal
+                    if (hasRecurrence) {
+                        const startBase = parseISO(finalAppt.start!);
+                        const endBase = parseISO(finalAppt.end!);
+                        const duration = differenceInMinutes(endBase, startBase);
+
+                        const isBiweekly = finalAppt.recurrence?.frequency === 'biweekly';
+                        const weekStep = isBiweekly ? 2 : 1;
+
+                        const baseDayNum = getDay(startBase) === 0 ? 7 : getDay(startBase);
+                        const selectedDays = (finalAppt.recurrence?.days && finalAppt.recurrence.days.length > 0)
+                            ? finalAppt.recurrence.days
+                            : [baseDayNum];
+
+                        let limitDate: Date;
+                        if (finalAppt.recurrence?.until) {
+                            limitDate = parseISO(finalAppt.recurrence.until);
+                        } else {
+                            const weeks = finalAppt.recurrence?.weeks || 1;
+                            limitDate = addWeeks(startBase, weeks - 1);
+                        }
+
+                        const finalLimit = endOfDay(limitDate);
+                        const startOfFirstWeek = startOfWeek(startBase, { weekStartsOn: 1 });
+
+                        const occurrences: { start: Date; end: Date }[] = [];
+                        let currentWeekStart = startOfFirstWeek;
+                        while (isBefore(currentWeekStart, finalLimit) || isSameDay(currentWeekStart, finalLimit)) {
+                            for (const dayIndex of selectedDays) {
+                                const targetDate = addDays(currentWeekStart, (dayIndex - 1));
+
+                                if ((isSameDay(targetDate, startBase) || isAfter(targetDate, startBase)) &&
+                                    (isBefore(targetDate, finalLimit) || isSameDay(targetDate, finalLimit))) {
+
+                                    const newStart = setMinutes(setHours(targetDate, startBase.getHours()), startBase.getMinutes());
+                                    const newEnd = addMinutes(newStart, duration);
+                                    occurrences.push({ start: newStart, end: newEnd });
+                                }
+                            }
+                            currentWeekStart = addWeeks(currentWeekStart, weekStep);
+                        }
+
+                        if (occurrences.length === 0) {
+                            occurrences.push({ start: startBase, end: endBase });
+                        }
+
+                        const conflict = await checkBatchAppointmentConflicts({
+                            therapistId: finalAppt.therapistId!,
+                            slots: occurrences.map(occ => ({
+                                start: formatISO(occ.start),
+                                end: formatISO(occ.end)
+                            })),
+                            isGroupSession: true
+                        });
+
+                        if (conflict.hasConflict) {
+                            showToast(conflict.message || `⚠️ Conflicto en la serie: ya existe una cita para esta terapeuta en ese horario.`, "error");
+                            fetchData();
+                            return;
+                        }
+
+                        const appointmentsToCreate: Omit<Appointment, 'id'>[] = [];
+                        for (const occ of occurrences) {
+                            const slotGroupId = crypto.randomUUID();
+                            for (const patient of selectedGroupPatients) {
+                                appointmentsToCreate.push({
+                                    ...finalAppt as Omit<Appointment, 'id'>,
+                                    patientId: patient.id,
+                                    patientName: `${patient.firstName} ${patient.lastName}`.replace(/\s+/g, ' ').trim(),
+                                    start: formatISO(occ.start),
+                                    end: formatISO(occ.end),
+                                    type: finalAppt.type || 'Sesión Grupal',
+                                    price: finalAppt.price,
+                                    isGroup: true,
+                                    groupId: slotGroupId,
+                                    recurrence: { 
+                                        weeks: finalAppt.recurrence?.weeks,
+                                        until: finalAppt.recurrence?.until,
+                                        frequency: finalAppt.recurrence?.frequency || 'weekly',
+                                        originalId: 'SERIE',
+                                        groupId: slotGroupId,
+                                        isGroup: true
+                                    }
+                                });
+                            }
+                        }
+
+                        await createAppointmentsBatch(appointmentsToCreate);
+                        showToast(`📅 Serie grupal de ${appointmentsToCreate.length} citas creada con éxito para ${selectedGroupPatients.length} pacientes`, 'success');
+                    } else {
+                        const groupId = crypto.randomUUID();
+                        const appointmentsToCreate: Omit<Appointment, 'id'>[] = selectedGroupPatients.map(patient => ({
+                            ...finalAppt as Omit<Appointment, 'id'>,
+                            patientId: patient.id,
+                            patientName: `${patient.firstName} ${patient.lastName}`.replace(/\s+/g, ' ').trim(),
+                            type: finalAppt.type || 'Sesión Grupal',
+                            price: finalAppt.price,
+                            isGroup: true,
+                            groupId,
+                            recurrence: {
+                                groupId,
+                                isGroup: true
+                            }
+                        }));
+
+                        await createAppointmentsBatch(appointmentsToCreate);
+                        showToast(`👥 Sesión grupal de ${selectedGroupPatients.length} pacientes agendada con éxito a las ${format(parseISO(finalAppt.start!), 'HH:mm')}`, 'success');
+                    }
+                } else if (hasRecurrence) {
                     const startBase = parseISO(finalAppt.start!);
                     const endBase = parseISO(finalAppt.end!);
                     const duration = differenceInMinutes(endBase, startBase);
@@ -1355,7 +1614,9 @@ const CalendarView: React.FC<CalendarViewProps> = ({ mode: initialMode, therapis
             therapistId: updatedAppt.therapistId,
             start: updatedAppt.start,
             end: updatedAppt.end,
-            excludeAppointmentId: appt.id
+            excludeAppointmentId: appt.id,
+            isGroupSession: updatedAppt.type === 'Sesión Grupal' || updatedAppt.isGroup || updatedAppt.recurrence?.isGroup,
+            groupId: updatedAppt.groupId || updatedAppt.recurrence?.groupId
         });
 
         if (conflict.hasConflict) {
@@ -1996,6 +2257,9 @@ const CalendarView: React.FC<CalendarViewProps> = ({ mode: initialMode, therapis
                                                         <div className="appt-patient-name" style={{ color: styleConfig.text }}>
                                                             {appt.status === 'Bloqueada' ? (appt.patientName || 'HORARIO BLOQUEADO') : appt.patientName}
                                                             {isPaid && <span className="appt-paid-badge" title="Cita Cobrada">€</span>}
+                                                            {(appt.type === 'Sesión Grupal' || appt.isGroup || appt.recurrence?.isGroup) && (
+                                                                <span className="text-[10px] ml-1 text-indigo-600 font-bold" title="Sesión Grupal">👥</span>
+                                                            )}
                                                         </div>
                                                     </div>
                                                     <div className="appt-time-type">
@@ -2007,9 +2271,15 @@ const CalendarView: React.FC<CalendarViewProps> = ({ mode: initialMode, therapis
                                                     </div>
                                                     <div className="appt-service-type" style={{
                                                         fontSize: totalCols > 1 ? '0.6rem' : '0.65rem',
-                                                        opacity: 0.9
+                                                        opacity: 0.9,
+                                                        display: 'flex',
+                                                        alignItems: 'center',
+                                                        gap: '4px'
                                                     }}>
-                                                        {appt.type}
+                                                        {(appt.type === 'Sesión Grupal' || appt.isGroup || appt.recurrence?.isGroup) && (
+                                                            <span className="text-[8px] font-bold text-indigo-700 bg-indigo-50/90 px-1 rounded border border-indigo-200">Grupal</span>
+                                                        )}
+                                                        <span className="truncate">{appt.type}</span>
                                                     </div>
                                                     {appt.notes && !isShortBlock && (
                                                         <div className="text-[9px] truncate opacity-85 italic flex items-center gap-1 mt-0.5" title={`Notas: ${appt.notes}`}>
@@ -2046,6 +2316,11 @@ const CalendarView: React.FC<CalendarViewProps> = ({ mode: initialMode, therapis
                                                                 </b>
                                                             </div>
                                                             <div className="tooltip-badge">{appt.type}</div>
+                                                            {(appt.type === 'Sesión Grupal' || appt.isGroup || appt.recurrence?.isGroup) && (
+                                                                <div className="tooltip-detail" style={{ color: '#4f46e5', fontWeight: 600 }}>
+                                                                    <Users size={12} /> Sesión Grupal (Mismo Horario)
+                                                                </div>
+                                                            )}
                                                             {appt.notes && (
                                                                 <div className="tooltip-detail" style={{ alignItems: 'flex-start', marginTop: '4px', borderTop: '1px dashed #e2e8f0', paddingTop: '4px' }}>
                                                                     <FileText size={12} style={{ flexShrink: 0, marginTop: '2px', color: '#d97706' }} />
@@ -2205,129 +2480,322 @@ const CalendarView: React.FC<CalendarViewProps> = ({ mode: initialMode, therapis
                                 <form className="modal-form" onSubmit={handleSave} id="appointment-form">
                                     <div className="form-grid">
                                         <div className="form-group" style={{ gridColumn: 'span 2' }}>
-                                            <div className="flex items-center justify-between p-3 bg-gray-50 rounded-xl border border-dashed mb-2">
-                                                <div className="flex items-center gap-2">
-                                                    <div className={`p-2 rounded-lg ${selectedAppt.status === 'Bloqueada' ? 'bg-slate-200 text-slate-700' : 'bg-blue-50 text-blue-600'}`}>
-                                                        <Puzzle size={18} />
+                                            <div className="grid grid-cols-1 md:grid-cols-2 gap-2 mb-2">
+                                                <div className="flex items-center justify-between p-2.5 bg-gray-50 rounded-xl border border-dashed border-gray-300">
+                                                    <div className="flex items-center gap-2">
+                                                        <div className={`p-1.5 rounded-lg ${selectedAppt.status === 'Bloqueada' ? 'bg-slate-200 text-slate-700' : 'bg-blue-50 text-blue-600'}`}>
+                                                            <Puzzle size={16} />
+                                                        </div>
+                                                        <div>
+                                                            <div className="text-xs font-bold">Bloquear horario</div>
+                                                            <div className="text-[10px] text-gray-500">Impide agendar citas</div>
+                                                        </div>
                                                     </div>
-                                                    <div>
-                                                        <div className="text-sm font-bold">Bloquear este horario</div>
-                                                        <div className="text-xs text-gray-500">Impide que se agenden citas en este bloque</div>
-                                                    </div>
-                                                </div>
-                                                <label className="relative inline-flex items-center cursor-pointer">
-                                                    <input
-                                                        type="checkbox"
-                                                        className="sr-only peer"
-                                                        checked={selectedAppt.status === 'Bloqueada'}
-                                                        onChange={e => {
-                                                            const isBlocked = e.target.checked;
-                                                            setSelectedAppt({
-                                                                ...selectedAppt,
-                                                                status: isBlocked ? 'Bloqueada' : 'Programada',
-                                                                patientId: isBlocked ? undefined : '',
-                                                                patientName: isBlocked ? 'HORARIO BLOQUEADO' : '',
-                                                                type: isBlocked ? 'Bloqueo' : 'Terapia'
-                                                            });
-                                                        }}
-                                                    />
-                                                    <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-slate-600"></div>
-                                                </label>
-                                            </div>
-                                        </div>
-                                        {selectedAppt.status !== ('Bloqueada' as any) && (
-                                            <div className="form-group" style={{ position: 'relative' }}>
-                                                <label><User size={12} className="mr-1" /> Paciente</label>
-                                                <input
-                                                    type="text"
-                                                    placeholder="Buscar paciente..."
-                                                    value={patientSearch}
-                                                    required={selectedAppt.status !== ('Bloqueada' as any)}
-                                                    onFocus={() => setShowPatientSuggestions(true)}
-                                                    onBlur={() => setTimeout(() => setShowPatientSuggestions(false), 200)}
-                                                    onChange={e => {
-                                                        setPatientSearch(e.target.value);
-                                                        setShowPatientSuggestions(true);
-                                                        // Reset patientId if search doesn't match exactly
-                                                        if (selectedAppt.patientId) {
-                                                            setSelectedAppt({ ...selectedAppt, patientId: '', patientName: e.target.value });
-                                                        }
-                                                    }}
-                                                    style={{ height: '36px', padding: '0 0.75rem', borderRadius: '8px', border: '1px solid #ddd', width: '100%', fontSize: '0.85rem' }}
-                                                />
-                                                {showPatientSuggestions && patientSearch && (
-                                                    <div style={{
-                                                        position: 'absolute',
-                                                        top: '100%',
-                                                        left: 0,
-                                                        right: 0,
-                                                        backgroundColor: 'white',
-                                                        border: '1px solid #ddd',
-                                                        borderRadius: '8px',
-                                                        boxShadow: '0 4px 6px rgba(0,0,0,0.1)',
-                                                        zIndex: 1000,
-                                                        marginTop: '4px',
-                                                        maxHeight: '200px',
-                                                        overflowY: 'auto'
-                                                    }}>
-                                                        {patients
-                                                            .filter(p => {
-                                                                const fullName = `${p.firstName} ${p.lastName}`.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().replace(/\s+/g, ' ').trim();
-                                                                const search = patientSearch.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().replace(/\s+/g, ' ').trim();
-                                                                const tokens = search.split(' ').filter(Boolean);
-                                                                return fullName.includes(search) || (tokens.length > 0 && tokens.every(t => fullName.includes(t)));
-                                                            })
-                                                            .slice(0, 6)
-                                                            .map(p => {
-                                                                const cleanName = `${p.firstName} ${p.lastName}`.replace(/\s+/g, ' ').trim();
-                                                                return (
-                                                                <div
-                                                                    key={p.id}
-                                                                    onClick={() => {
-                                                                        setSelectedAppt({ ...selectedAppt, patientId: p.id, patientName: cleanName });
-                                                                        setPatientSearch(cleanName);
-                                                                        setShowPatientSuggestions(false);
-                                                                    }}
-                                                                    style={{
-                                                                        padding: '0.5rem 0.75rem',
-                                                                        cursor: 'pointer',
-                                                                        fontSize: '0.85rem',
-                                                                        borderBottom: '1px solid #f0f0f0'
-                                                                    }}
-                                                                    onMouseEnter={e => e.currentTarget.style.backgroundColor = '#f8fafc'}
-                                                                    onMouseLeave={e => e.currentTarget.style.backgroundColor = 'transparent'}
-                                                                >
-                                                                    <div style={{ fontWeight: 'bold', color: '#1e293b' }}>{p.firstName} {p.lastName}</div>
-                                                                    <div style={{ fontSize: '0.75rem', color: '#64748b' }}>{p.email || 'Sin email'}</div>
-                                                                </div>
-                                                            );
-                                                        })}
-                                                        {patientSearch && (
-                                                            <div
-                                                                onClick={() => handleOpenQuickPatientModal(patientSearch)}
-                                                                style={{
-                                                                    padding: '0.75rem',
-                                                                    cursor: 'pointer',
-                                                                    fontSize: '0.85rem',
-                                                                    backgroundColor: '#f0f9ff',
-                                                                    color: '#0369a1',
-                                                                    display: 'flex',
-                                                                    alignItems: 'center',
-                                                                    gap: '8px',
-                                                                    fontWeight: '600',
-                                                                    borderTop: '1px solid #bae6fd'
-                                                                }}
-                                                                onMouseEnter={e => e.currentTarget.style.backgroundColor = '#e0f2fe'}
-                                                                onMouseLeave={e => e.currentTarget.style.backgroundColor = '#f0f9ff'}
-                                                            >
-                                                                <UserPlus size={16} />
-                                                                Crear nuevo: "{patientSearch}"
-                                                            </div>
-                                                        )}
-                                                    </div>
-                                                )}
-                                            </div>
-                                        )}
+                                                    <label className="relative inline-flex items-center cursor-pointer">
+                                                        <input
+                                                             type="checkbox"
+                                                             className="sr-only peer"
+                                                             checked={selectedAppt.status === 'Bloqueada'}
+                                                             onChange={e => {
+                                                                 const isBlocked = e.target.checked;
+                                                                 setSelectedAppt({
+                                                                     ...selectedAppt,
+                                                                     status: isBlocked ? 'Bloqueada' : 'Programada',
+                                                                     patientId: isBlocked ? undefined : '',
+                                                                     patientName: isBlocked ? 'HORARIO BLOQUEADO' : '',
+                                                                     type: isBlocked ? 'Bloqueo' : 'Terapia',
+                                                                     isGroup: false
+                                                                 });
+                                                                 if (isBlocked) setIsGroupSession(false);
+                                                             }}
+                                                         />
+                                                         <div className="w-9 h-5 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-slate-600"></div>
+                                                     </label>
+                                                 </div>
+
+                                                 {selectedAppt.status !== 'Bloqueada' && (
+                                                     <div className="flex items-center justify-between p-2.5 bg-indigo-50/70 rounded-xl border border-dashed border-indigo-200">
+                                                         <div className="flex items-center gap-2">
+                                                             <div className={`p-1.5 rounded-lg ${isGroupSession ? 'bg-indigo-600 text-white' : 'bg-white text-indigo-600 border border-indigo-100'}`}>
+                                                                 <Users size={16} />
+                                                             </div>
+                                                             <div>
+                                                                 <div className="text-xs font-bold text-gray-900 flex items-center gap-1.5">
+                                                                     Sesión Grupal
+                                                                     {isGroupSession && (
+                                                                         <span className="text-[9px] font-bold px-1.5 py-0.2 rounded-full bg-indigo-100 text-indigo-700">
+                                                                             {selectedAppt.id ? (groupMembers.length + 1) : selectedGroupPatients.length} {((selectedAppt.id ? groupMembers.length + 1 : selectedGroupPatients.length) === 1) ? 'niño' : 'niños'}
+                                                                         </span>
+                                                                     )}
+                                                                 </div>
+                                                                 <div className="text-[10px] text-gray-500">Múltiples alumnos a la misma hora</div>
+                                                             </div>
+                                                         </div>
+                                                         <label className="relative inline-flex items-center cursor-pointer">
+                                                             <input
+                                                                 type="checkbox"
+                                                                 className="sr-only peer"
+                                                                 checked={isGroupSession}
+                                                                 onChange={e => handleToggleGroupSession(e.target.checked)}
+                                                             />
+                                                             <div className="w-9 h-5 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-indigo-600"></div>
+                                                         </label>
+                                                     </div>
+                                                 )}
+                                             </div>
+                                         </div>
+
+                                         {/* Banner de integrantes para citas grupales ya creadas */}
+                                         {selectedAppt.id && isGroupSession && groupMembers.length > 0 && (
+                                             <div className="p-3 bg-indigo-50/80 border border-indigo-200 rounded-xl mb-2" style={{ gridColumn: 'span 2' }}>
+                                                 <div className="flex items-center justify-between mb-2">
+                                                     <div className="flex items-center gap-1.5 text-xs font-bold text-indigo-900">
+                                                         <Users size={14} className="text-indigo-600" />
+                                                         Sesión Grupal compartida ({groupMembers.length + 1} alumnos a esta hora)
+                                                     </div>
+                                                     <button
+                                                         type="button"
+                                                         onClick={() => handleAddPatientToExistingGroup(selectedAppt)}
+                                                         className="text-xs bg-indigo-600 hover:bg-indigo-700 text-white font-semibold px-2.5 py-1 rounded-lg flex items-center gap-1 shadow-sm transition-all"
+                                                     >
+                                                         <Plus size={12} /> Añadir alumno a este grupo
+                                                     </button>
+                                                 </div>
+                                                 <div className="flex flex-wrap gap-1.5">
+                                                     <span className="px-2.5 py-1 bg-indigo-600 text-white rounded-lg text-xs font-semibold flex items-center gap-1 shadow-xs">
+                                                         <User size={12} /> {selectedAppt.patientName} (Esta cita)
+                                                     </span>
+                                                     {groupMembers.map(m => (
+                                                         <button
+                                                             key={m.id}
+                                                             type="button"
+                                                             onClick={() => handleOpenModal(m)}
+                                                             className="px-2.5 py-1 bg-white border border-indigo-200 hover:border-indigo-400 text-indigo-900 rounded-lg text-xs font-medium flex items-center gap-1.5 cursor-pointer shadow-xs transition-all hover:bg-indigo-50/50"
+                                                             title="Ver ficha de este alumno"
+                                                         >
+                                                             <User size={12} className="text-indigo-500" />
+                                                             <span>{m.patientName}</span>
+                                                             <span className="text-[10px] text-gray-500 font-normal">({m.status})</span>
+                                                         </button>
+                                                     ))}
+                                                 </div>
+                                             </div>
+                                         )}
+                                         {selectedAppt.status !== ('Bloqueada' as any) && (
+                                             isGroupSession && !selectedAppt.id ? (
+                                                 // MODO MULTI-PACIENTE (NUEVA SESIÓN GRUPAL)
+                                                 <div className="form-group" style={{ gridColumn: 'span 2', position: 'relative' }}>
+                                                     <div className="flex items-center justify-between mb-1.5">
+                                                         <label className="flex items-center gap-1.5 font-bold text-xs text-indigo-900 m-0">
+                                                             <Users size={13} className="text-indigo-600" /> Alumnos de la Sesión Grupal ({selectedGroupPatients.length})
+                                                         </label>
+                                                         <span className="text-[11px] text-indigo-600 font-medium">
+                                                             Cada alumno tendrá su cita a las {getModalStartTime()} para su recordatorio WhatsApp
+                                                         </span>
+                                                     </div>
+
+                                                     {/* Chips de alumnos ya añadidos */}
+                                                     <div className="flex flex-wrap gap-1.5 p-2 bg-indigo-50/40 rounded-xl border border-indigo-200 min-h-[44px] mb-2 items-center">
+                                                         {selectedGroupPatients.length === 0 ? (
+                                                             <span className="text-xs text-indigo-400 italic px-1">
+                                                                 No hay alumnos añadidos aún. Busca abajo para añadir alumnos al grupo.
+                                                             </span>
+                                                         ) : (
+                                                             selectedGroupPatients.map(p => (
+                                                                 <span
+                                                                     key={p.id}
+                                                                     className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-bold bg-white text-indigo-900 border border-indigo-300 shadow-xs"
+                                                                 >
+                                                                     <User size={12} className="text-indigo-600" />
+                                                                     <span>{p.firstName} {p.lastName}</span>
+                                                                     <button
+                                                                         type="button"
+                                                                         onClick={() => handleRemoveGroupPatient(p.id)}
+                                                                         className="text-gray-400 hover:text-red-600 ml-1 rounded-full p-0.5 transition-colors"
+                                                                         title="Quitar de este grupo"
+                                                                     >
+                                                                         <X size={12} />
+                                                                     </button>
+                                                                 </span>
+                                                             ))
+                                                         )}
+                                                     </div>
+
+                                                     {/* Buscador de alumnos para añadir */}
+                                                     <div style={{ position: 'relative' }}>
+                                                         <input
+                                                             type="text"
+                                                             placeholder="Buscar alumno y añadir al grupo..."
+                                                             value={groupPatientSearch}
+                                                             onFocus={() => setShowGroupPatientSuggestions(true)}
+                                                             onBlur={() => setTimeout(() => setShowGroupPatientSuggestions(false), 200)}
+                                                             onChange={e => {
+                                                                 setGroupPatientSearch(e.target.value);
+                                                                 setShowGroupPatientSuggestions(true);
+                                                             }}
+                                                             style={{ height: '36px', padding: '0 0.75rem', borderRadius: '8px', border: '1px solid #c7d2fe', width: '100%', fontSize: '0.85rem' }}
+                                                         />
+                                                         {showGroupPatientSuggestions && groupPatientSearch && (
+                                                             <div style={{
+                                                                 position: 'absolute',
+                                                                 top: '100%',
+                                                                 left: 0,
+                                                                 right: 0,
+                                                                 backgroundColor: 'white',
+                                                                 border: '1px solid #ddd',
+                                                                 borderRadius: '8px',
+                                                                 boxShadow: '0 4px 6px rgba(0,0,0,0.1)',
+                                                                 zIndex: 1000,
+                                                                 marginTop: '4px',
+                                                                 maxHeight: '200px',
+                                                                 overflowY: 'auto'
+                                                             }}>
+                                                                 {patients
+                                                                     .filter(p => !selectedGroupPatients.some(sel => sel.id === p.id))
+                                                                     .filter(p => {
+                                                                         const fullName = `${p.firstName} ${p.lastName}`.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().replace(/\s+/g, ' ').trim();
+                                                                         const search = groupPatientSearch.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().replace(/\s+/g, ' ').trim();
+                                                                         const tokens = search.split(' ').filter(Boolean);
+                                                                         return fullName.includes(search) || (tokens.length > 0 && tokens.every(t => fullName.includes(t)));
+                                                                     })
+                                                                     .slice(0, 6)
+                                                                     .map(p => (
+                                                                         <div
+                                                                             key={p.id}
+                                                                             onClick={() => handleAddGroupPatient(p)}
+                                                                             style={{
+                                                                                 padding: '0.5rem 0.75rem',
+                                                                                 cursor: 'pointer',
+                                                                                 fontSize: '0.85rem',
+                                                                                 borderBottom: '1px solid #f0f0f0'
+                                                                             }}
+                                                                             onMouseEnter={e => e.currentTarget.style.backgroundColor = '#f8fafc'}
+                                                                             onMouseLeave={e => e.currentTarget.style.backgroundColor = 'transparent'}
+                                                                         >
+                                                                             <div style={{ fontWeight: 'bold', color: '#1e293b' }}>+ {p.firstName} {p.lastName}</div>
+                                                                             <div style={{ fontSize: '0.75rem', color: '#64748b' }}>{p.email || 'Sin email'}</div>
+                                                                         </div>
+                                                                     ))}
+                                                                 {groupPatientSearch && (
+                                                                     <div
+                                                                         onClick={() => handleOpenQuickPatientModal(groupPatientSearch)}
+                                                                         style={{
+                                                                             padding: '0.75rem',
+                                                                             cursor: 'pointer',
+                                                                             fontSize: '0.85rem',
+                                                                             backgroundColor: '#f0f9ff',
+                                                                             color: '#0369a1',
+                                                                             display: 'flex',
+                                                                             alignItems: 'center',
+                                                                             gap: '8px',
+                                                                             fontWeight: '600',
+                                                                             borderTop: '1px solid #bae6fd'
+                                                                         }}
+                                                                         onMouseEnter={e => e.currentTarget.style.backgroundColor = '#e0f2fe'}
+                                                                         onMouseLeave={e => e.currentTarget.style.backgroundColor = '#f0f9ff'}
+                                                                     >
+                                                                         <UserPlus size={16} />
+                                                                         Crear nuevo y añadir al grupo: "{groupPatientSearch}"
+                                                                     </div>
+                                                                 )}
+                                                             </div>
+                                                         )}
+                                                     </div>
+                                                 </div>
+                                             ) : (
+                                                 // MODO UN SOLO PACIENTE
+                                                 <div className="form-group" style={{ position: 'relative' }}>
+                                                     <label><User size={12} className="mr-1" /> Paciente</label>
+                                                     <input
+                                                         type="text"
+                                                         placeholder="Buscar paciente..."
+                                                         value={patientSearch}
+                                                         required={selectedAppt.status !== ('Bloqueada' as any)}
+                                                         onFocus={() => setShowPatientSuggestions(true)}
+                                                         onBlur={() => setTimeout(() => setShowPatientSuggestions(false), 200)}
+                                                         onChange={e => {
+                                                             setPatientSearch(e.target.value);
+                                                             setShowPatientSuggestions(true);
+                                                             if (selectedAppt.patientId) {
+                                                                 setSelectedAppt({ ...selectedAppt, patientId: '', patientName: e.target.value });
+                                                             }
+                                                         }}
+                                                         style={{ height: '36px', padding: '0 0.75rem', borderRadius: '8px', border: '1px solid #ddd', width: '100%', fontSize: '0.85rem' }}
+                                                     />
+                                                     {showPatientSuggestions && patientSearch && (
+                                                         <div style={{
+                                                             position: 'absolute',
+                                                             top: '100%',
+                                                             left: 0,
+                                                             right: 0,
+                                                             backgroundColor: 'white',
+                                                             border: '1px solid #ddd',
+                                                             borderRadius: '8px',
+                                                             boxShadow: '0 4px 6px rgba(0,0,0,0.1)',
+                                                             zIndex: 1000,
+                                                             marginTop: '4px',
+                                                             maxHeight: '200px',
+                                                             overflowY: 'auto'
+                                                         }}>
+                                                             {patients
+                                                                 .filter(p => {
+                                                                     const fullName = `${p.firstName} ${p.lastName}`.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().replace(/\s+/g, ' ').trim();
+                                                                     const search = patientSearch.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().replace(/\s+/g, ' ').trim();
+                                                                     const tokens = search.split(' ').filter(Boolean);
+                                                                     return fullName.includes(search) || (tokens.length > 0 && tokens.every(t => fullName.includes(t)));
+                                                                 })
+                                                                 .slice(0, 6)
+                                                                 .map(p => {
+                                                                     const cleanName = `${p.firstName} ${p.lastName}`.replace(/\s+/g, ' ').trim();
+                                                                     return (
+                                                                     <div
+                                                                         key={p.id}
+                                                                         onClick={() => {
+                                                                             setSelectedAppt({ ...selectedAppt, patientId: p.id, patientName: cleanName });
+                                                                             setPatientSearch(cleanName);
+                                                                             setShowPatientSuggestions(false);
+                                                                         }}
+                                                                         style={{
+                                                                             padding: '0.5rem 0.75rem',
+                                                                             cursor: 'pointer',
+                                                                             fontSize: '0.85rem',
+                                                                             borderBottom: '1px solid #f0f0f0'
+                                                                         }}
+                                                                         onMouseEnter={e => e.currentTarget.style.backgroundColor = '#f8fafc'}
+                                                                         onMouseLeave={e => e.currentTarget.style.backgroundColor = 'transparent'}
+                                                                     >
+                                                                         <div style={{ fontWeight: 'bold', color: '#1e293b' }}>{p.firstName} {p.lastName}</div>
+                                                                         <div style={{ fontSize: '0.75rem', color: '#64748b' }}>{p.email || 'Sin email'}</div>
+                                                                     </div>
+                                                                 );
+                                                             })}
+                                                             {patientSearch && (
+                                                                 <div
+                                                                     onClick={() => handleOpenQuickPatientModal(patientSearch)}
+                                                                     style={{
+                                                                         padding: '0.75rem',
+                                                                         cursor: 'pointer',
+                                                                         fontSize: '0.85rem',
+                                                                         backgroundColor: '#f0f9ff',
+                                                                         color: '#0369a1',
+                                                                         display: 'flex',
+                                                                         alignItems: 'center',
+                                                                         gap: '8px',
+                                                                         fontWeight: '600',
+                                                                         borderTop: '1px solid #bae6fd'
+                                                                     }}
+                                                                     onMouseEnter={e => e.currentTarget.style.backgroundColor = '#e0f2fe'}
+                                                                     onMouseLeave={e => e.currentTarget.style.backgroundColor = '#f0f9ff'}
+                                                                 >
+                                                                     <UserPlus size={16} />
+                                                                     Crear nuevo: "{patientSearch}"
+                                                                 </div>
+                                                             )}
+                                                         </div>
+                                                     )}
+                                                 </div>
+                                             )
+                                         )}
                                         <div className="form-group" style={{ gridColumn: selectedAppt.status === 'Bloqueada' ? 'span 2' : 'auto' }}>
                                             <label><User size={12} className="mr-1" /> Terapeuta</label>
                                             <div className="flex items-center gap-2">
@@ -2393,7 +2861,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({ mode: initialMode, therapis
                                         )}
                                         {selectedAppt.status !== 'Bloqueada' && (
                                             <div className="form-group">
-                                                <label>Precio Sesión (€)</label>
+                                                <label>{isGroupSession ? 'Precio por Alumno (€)' : 'Precio Sesión (€)'}</label>
                                                 <input
                                                     type="number"
                                                     step="0.01"

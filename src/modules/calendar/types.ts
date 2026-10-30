@@ -15,12 +15,16 @@ export interface Appointment {
     notes?: string;
     sessionDiary?: string; // Diario de sesión obligatorio
     isPaid?: boolean;      // Estado de cobro para alertas
+    groupId?: string;      // Identificador de grupo para sesiones grupales
+    isGroup?: boolean;     // Indica si la cita forma parte de una sesión grupal
     recurrence?: {
         weeks?: number;
         days?: number[];       // [1, 2, 3...] para Lunes, Martes...
         until?: string;        // Fecha límite
         originalId?: string;
         frequency?: 'weekly' | 'biweekly'; // 'weekly' (semanal) o 'biweekly' (quincenal / cada 15 días)
+        groupId?: string;      // Identificador de grupo en recurrencias
+        isGroup?: boolean;     // Flag de grupo en recurrencias
     };
     cancellationReason?: string; // Motivo de cancelación
     voiceNoteUrl?: string; // Almacén de audio o referencia

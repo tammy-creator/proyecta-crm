@@ -201,11 +201,15 @@ export async function checkAppointmentConflict({
     start,
     end,
     excludeAppointmentId,
+    isGroupSession,
+    groupId,
 }: {
     therapistId: string;
     start: string; // ISO string
     end: string;   // ISO string
     excludeAppointmentId?: string;
+    isGroupSession?: boolean;
+    groupId?: string;
 }): Promise<ConflictCheckResult> {
     if (!therapistId || !start || !end) {
         return { hasConflict: false };
@@ -214,7 +218,7 @@ export async function checkAppointmentConflict({
     try {
         let query = supabase
             .from('appointments')
-            .select('id, patient_name, therapist_name, start_time, end_time, status')
+            .select('id, patient_name, therapist_name, start_time, end_time, status, type, recurrence')
             .eq('therapist_id', therapistId)
             .neq('status', 'Cancelada')
             .lt('start_time', end)
@@ -232,24 +236,40 @@ export async function checkAppointmentConflict({
         }
 
         if (data && data.length > 0) {
-            const conflict = data[0];
-            const startStr = format(parseISO(conflict.start_time), 'HH:mm');
-            const endStr = format(parseISO(conflict.end_time), 'HH:mm');
-            const patientName = conflict.patient_name ? conflict.patient_name.trim() : 'otro paciente';
-            const therapistName = conflict.therapist_name ? conflict.therapist_name.trim() : 'La terapeuta';
+            // Si es una sesión grupal, descartamos las citas que ya formen parte de una sesión grupal
+            const activeConflicts = isGroupSession
+                ? data.filter(existing => {
+                    const isExistingGroup = existing.type === 'Sesión Grupal' || 
+                                           existing.recurrence?.isGroup === true || 
+                                           (groupId && existing.recurrence?.groupId === groupId);
+                    // Solo es conflicto si NO es grupal (ej. cita individual o bloqueo)
+                    return !isExistingGroup;
+                })
+                : data;
 
-            return {
-                hasConflict: true,
-                conflictingAppointment: {
-                    id: conflict.id,
-                    patientName: conflict.patient_name,
-                    therapistName: conflict.therapist_name,
-                    start: conflict.start_time,
-                    end: conflict.end_time,
-                    status: conflict.status
-                },
-                message: `${therapistName} ya tiene una cita reservada de ${startStr} a ${endStr} (${patientName}). No es posible duplicar el horario.`
-            };
+            if (activeConflicts.length > 0) {
+                const conflict = activeConflicts[0];
+                const startStr = format(parseISO(conflict.start_time), 'HH:mm');
+                const endStr = format(parseISO(conflict.end_time), 'HH:mm');
+                const patientName = conflict.patient_name ? conflict.patient_name.trim() : 'otro paciente';
+                const therapistName = conflict.therapist_name ? conflict.therapist_name.trim() : 'La terapeuta';
+
+                const isBlocked = conflict.status === 'Bloqueada';
+                const detail = isBlocked ? 'un bloqueo de horario' : `a ${patientName} (${conflict.type || 'Cita individual'})`;
+
+                return {
+                    hasConflict: true,
+                    conflictingAppointment: {
+                        id: conflict.id,
+                        patientName: conflict.patient_name,
+                        therapistName: conflict.therapist_name,
+                        start: conflict.start_time,
+                        end: conflict.end_time,
+                        status: conflict.status
+                    },
+                    message: `${therapistName} ya tiene ${detail} de ${startStr} a ${endStr}. No es posible superponer la cita.`
+                };
+            }
         }
 
         return { hasConflict: false };
@@ -262,9 +282,13 @@ export async function checkAppointmentConflict({
 export async function checkBatchAppointmentConflicts({
     therapistId,
     slots,
+    isGroupSession,
+    groupId,
 }: {
     therapistId: string;
     slots: { start: string; end: string }[];
+    isGroupSession?: boolean;
+    groupId?: string;
 }): Promise<ConflictCheckResult> {
     if (!therapistId || !slots || slots.length === 0) {
         return { hasConflict: false };
@@ -280,7 +304,7 @@ export async function checkBatchAppointmentConflicts({
 
         const { data, error } = await supabase
             .from('appointments')
-            .select('id, patient_name, therapist_name, start_time, end_time, status')
+            .select('id, patient_name, therapist_name, start_time, end_time, status, type, recurrence')
             .eq('therapist_id', therapistId)
             .neq('status', 'Cancelada')
             .lt('start_time', maxEnd)
@@ -292,11 +316,21 @@ export async function checkBatchAppointmentConflicts({
         }
 
         if (data && data.length > 0) {
+            // Filtrar conflictos si es sesión grupal
+            const relevantData = isGroupSession
+                ? data.filter(existing => {
+                    const isExistingGroup = existing.type === 'Sesión Grupal' || 
+                                           existing.recurrence?.isGroup === true || 
+                                           (groupId && existing.recurrence?.groupId === groupId);
+                    return !isExistingGroup;
+                })
+                : data;
+
             for (const slot of slots) {
                 const sStart = new Date(slot.start).getTime();
                 const sEnd = new Date(slot.end).getTime();
 
-                const conflict = data.find(existing => {
+                const conflict = relevantData.find(existing => {
                     const eStart = new Date(existing.start_time).getTime();
                     const eEnd = new Date(existing.end_time).getTime();
                     return eStart < sEnd && eEnd > sStart;
@@ -319,7 +353,7 @@ export async function checkBatchAppointmentConflicts({
                             end: conflict.end_time,
                             status: conflict.status
                         },
-                        message: `⚠️ Conflicto en la serie semanal: el día ${dateFormatted} ${therapistName} ya tiene una cita de ${startStr} a ${endStr} (${patientName}).`
+                        message: `⚠️ Conflicto en la serie: el día ${dateFormatted} ${therapistName} ya tiene una cita de ${startStr} a ${endStr} (${patientName}).`
                     };
                 }
             }

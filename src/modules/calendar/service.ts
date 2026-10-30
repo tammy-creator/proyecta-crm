@@ -20,7 +20,26 @@ const mapAppointment = (row: any): Appointment => ({
     voiceNoteUrl: row.voice_note_url,
     notificacionRecordatorioEnviada: row.notificacion_recordatorio_enviada,
     recurrence: row.recurrence,
+    groupId: row.recurrence?.groupId,
+    isGroup: row.recurrence?.isGroup ?? (row.type === 'Sesión Grupal'),
 });
+
+const buildRecurrencePayload = (appointment: Partial<Appointment>) => {
+    if (appointment.recurrence) {
+        return {
+            ...appointment.recurrence,
+            groupId: appointment.groupId || appointment.recurrence.groupId,
+            isGroup: appointment.isGroup ?? appointment.recurrence.isGroup ?? (appointment.type === 'Sesión Grupal')
+        };
+    }
+    if (appointment.isGroup || appointment.groupId || appointment.type === 'Sesión Grupal') {
+        return {
+            groupId: appointment.groupId || null,
+            isGroup: true
+        };
+    }
+    return null;
+};
 
 
 export const getAppointments = async (start: Date, end: Date, therapistId?: string): Promise<Appointment[]> => {
@@ -107,7 +126,7 @@ export const createAppointment = async (appointment: Omit<Appointment, 'id'>): P
             is_paid: appointment.isPaid ?? false,
             cancellation_reason: appointment.cancellationReason,
             voice_note_url: appointment.voiceNoteUrl,
-            recurrence: appointment.recurrence ?? null,
+            recurrence: buildRecurrencePayload(appointment),
             notificacion_recordatorio_enviada: appointment.notificacionRecordatorioEnviada ?? false,
             price: appointment.price ?? null,
         })
@@ -147,7 +166,7 @@ export const createAppointmentsBatch = async (appointments: Omit<Appointment, 'i
         is_paid: appointment.isPaid ?? false,
         cancellation_reason: appointment.cancellationReason,
         voice_note_url: appointment.voiceNoteUrl,
-        recurrence: appointment.recurrence ?? null,
+        recurrence: buildRecurrencePayload(appointment),
         notificacion_recordatorio_enviada: appointment.notificacionRecordatorioEnviada ?? false,
         price: appointment.price ?? null,
     }));
@@ -195,7 +214,7 @@ export const updateAppointment = async (appointment: Appointment): Promise<Appoi
             is_paid: appointment.isPaid ?? false,
             cancellation_reason: appointment.cancellationReason,
             voice_note_url: appointment.voiceNoteUrl,
-            recurrence: appointment.recurrence ?? null,
+            recurrence: buildRecurrencePayload(appointment),
             notificacion_recordatorio_enviada: appointment.notificacionRecordatorioEnviada ?? false,
             price: appointment.price ?? null,
         })

@@ -1675,3 +1675,10 @@
     border-color: #bfdbfe;
     color: #2563eb;
 }
+
+/* Sesiones Grupales */
+.appt-group-badge {
+    font-size: 0.75rem;
+    line-height: 1;
+    margin-left: 0.25rem;
+}

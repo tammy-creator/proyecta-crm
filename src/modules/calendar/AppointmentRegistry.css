@@ -660,3 +660,84 @@
         flex: 1;
     }
 }
+
+/* Enhanced Stats Pills */
+.stat-pill.stat-success {
+    background: #f0fdf4;
+    border-color: #bbf7d0;
+}
+.stat-pill.stat-warning {
+    background: #fffbeb;
+    border-color: #fde68a;
+}
+.stat-pill.stat-alert {
+    background: #fff7ed;
+    border-color: #fed7aa;
+    transition: all 0.2s;
+}
+.stat-pill.stat-alert:hover {
+    background: #ffedd5;
+    border-color: #f97316;
+}
+.stat-pill.active-pill {
+    outline: 2px solid #ea580c;
+    box-shadow: 0 0 0 4px rgba(234, 88, 12, 0.15);
+}
+
+/* Category Navigation Tabs */
+.registry-category-tabs {
+    display: flex;
+    gap: 0.5rem;
+    margin-bottom: 1rem;
+    overflow-x: auto;
+    padding-bottom: 4px;
+}
+.category-tab {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.5rem 1rem;
+    border-radius: 10px;
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: #64748b;
+    background: #ffffff;
+    border: 1px solid #e2e8f0;
+    cursor: pointer;
+    transition: all 0.2s;
+    white-space: nowrap;
+}
+.category-tab:hover {
+    background: #f8fafc;
+    color: #1e293b;
+    border-color: #cbd5e1;
+}
+.category-tab.active {
+    background: #1A5F7A;
+    color: #ffffff;
+    border-color: #1A5F7A;
+    box-shadow: 0 2px 6px rgba(26, 95, 122, 0.25);
+}
+.category-tab.tab-alert {
+    color: #c2410c;
+    border-color: #fed7aa;
+    background: #fffaf5;
+}
+.category-tab.tab-alert:hover {
+    background: #ffedd5;
+    border-color: #f97316;
+}
+.category-tab.tab-alert.active {
+    background: #ea580c;
+    color: #ffffff;
+    border-color: #ea580c;
+    box-shadow: 0 2px 6px rgba(234, 88, 12, 0.25);
+}
+
+/* Row highlighting */
+.row-possible-patient {
+    background-color: #fffdfa !important;
+}
+.row-possible-patient:hover {
+    background-color: #fff8f0 !important;
+}

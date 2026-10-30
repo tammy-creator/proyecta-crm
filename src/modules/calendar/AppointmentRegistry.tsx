@@ -22,12 +22,15 @@ import {
     CreditCard,
     Wallet,
     Send,
-    CalendarClock
+    CalendarClock,
+    AlertCircle,
+    Filter
 } from 'lucide-react';
 import { getAppointments, updateAppointment, subscribeToCalendarSync } from './service';
 import { getTransactions, createTransaction, updateTransaction, isNonClinicalSession } from '../billing/service';
 import { type Transaction } from '../billing/types';
 import { type Appointment, type AppointmentStatus } from './types';
+import { classifyAppointment, type PatientLookupItem } from './appointmentClassifier';
 import { useAuth } from '../../context/AuthContext';
 import { useToast } from '../../hooks/useToast';
 import Card from '../../components/ui/Card';
@@ -41,8 +44,10 @@ const AppointmentRegistry: React.FC = () => {
     const [loading, setLoading] = useState(true);
     const [appointments, setAppointments] = useState<Appointment[]>([]);
     const [transactions, setTransactions] = useState<Transaction[]>([]);
+    const [patientsList, setPatientsList] = useState<PatientLookupItem[]>([]);
 
     // Filters
+    const [viewCategory, setViewCategory] = useState<'CLINICAL' | 'POSSIBLE_PATIENT' | 'ABSENCE_NOTICE' | 'OPERATIONAL_BLOCK' | 'ALL'>('CLINICAL');
     const [startDate, setStartDate] = useState(format(new Date(), 'yyyy-MM-dd'));
     const [endDate, setEndDate] = useState(format(new Date(), 'yyyy-MM-dd'));
     const [searchTerm, setSearchTerm] = useState('');
@@ -92,11 +97,20 @@ const AppointmentRegistry: React.FC = () => {
             const effectiveTherapistId = isRole('THERAPIST') ? user?.therapistId : undefined;
             const effectiveTherapistName = isRole('THERAPIST') ? user?.name : undefined;
 
-            const [data, txData] = await Promise.all([
+            const [data, txData, patientsRes] = await Promise.all([
                 getAppointments(start, end, effectiveTherapistId),
-                getTransactions(effectiveTherapistName)
+                getTransactions(effectiveTherapistName),
+                supabase.from('patients').select('id, first_name, last_name')
             ]);
 
+            const pList: PatientLookupItem[] = (patientsRes.data || []).map(p => ({
+                id: p.id,
+                firstName: p.first_name,
+                lastName: p.last_name,
+                name: `${p.first_name || ''} ${p.last_name || ''}`.trim()
+            }));
+
+            setPatientsList(pList);
             setAppointments(data);
             setTransactions(txData);
         } catch (error) {
@@ -108,6 +122,11 @@ const AppointmentRegistry: React.FC = () => {
     };
 
     const getPaymentInfo = (appt: Appointment) => {
+        // Bloqueos y sesiones no asistenciales nunca tienen pago pendiente
+        if (isNonClinicalSession(appt.patientName, appt.type, appt.status)) {
+            return null;
+        }
+
         const tx = transactions.find(t => t.appointmentId === appt.id);
         if (tx) {
             let label = tx.method || (tx.status === 'Pagado' ? 'Pagado' : 'Pendiente');
@@ -200,51 +219,159 @@ const AppointmentRegistry: React.FC = () => {
             .trim();
     };
 
-    const filteredAppointments = appointments.filter(appt => {
-        // Search term (Patient, Therapist, Type, or Notes)
-        const normalizedSearch = normalizeSearchText(searchTerm);
-        let matchesSearch = true;
+    const classifiedAppointments = React.useMemo(() => {
+        return appointments.map(appt => ({
+            appt,
+            classification: classifyAppointment(appt, patientsList)
+        }));
+    }, [appointments, patientsList]);
 
-        if (normalizedSearch) {
-            const searchTokens = normalizedSearch.split(' ').filter(Boolean);
-            const patientNorm = normalizeSearchText(appt.patientName);
-            const therapistNorm = normalizeSearchText(appt.therapistName);
-            const typeNorm = normalizeSearchText(appt.type);
-            const notesNorm = normalizeSearchText(appt.notes);
-            const combined = `${patientNorm} ${therapistNorm} ${typeNorm} ${notesNorm}`;
+    const stats = React.useMemo(() => {
+        let clinicalCount = 0;
+        let totalPaidAmount = 0;
+        let totalPaidCount = 0;
+        let totalPendingAmount = 0;
+        let totalPendingCount = 0;
+        let possiblePatientsCount = 0;
+        let absenceCount = 0;
+        let operationalCount = 0;
 
-            // Coincide si coincide la frase completa o si todas las palabras buscadas están presentes
-            matchesSearch = combined.includes(normalizedSearch) || searchTokens.every(token => combined.includes(token));
+        classifiedAppointments.forEach(({ appt, classification }) => {
+            if (classification.category === 'POSSIBLE_PATIENT') {
+                possiblePatientsCount++;
+            } else if (classification.category === 'ABSENCE_NOTICE') {
+                absenceCount++;
+            } else if (classification.category === 'OPERATIONAL_BLOCK') {
+                operationalCount++;
+            } else if (classification.category === 'CLINICAL') {
+                clinicalCount++;
+                const payInfo = getPaymentInfo(appt);
+                const tx = transactions.find(t => t.appointmentId === appt.id);
+                const effectiveAmount = (appt.price != null && appt.price > 0) ? appt.price : (tx?.amount && tx.amount > 0 ? tx.amount : 0);
+
+                if (payInfo?.isPaid) {
+                    totalPaidCount++;
+                    totalPaidAmount += effectiveAmount;
+                } else if (appt.status !== 'Cancelada') {
+                    totalPendingCount++;
+                    totalPendingAmount += effectiveAmount;
+                }
+            }
+        });
+
+        return {
+            clinicalCount,
+            totalPaidAmount,
+            totalPaidCount,
+            totalPendingAmount,
+            totalPendingCount,
+            possiblePatientsCount,
+            absenceCount,
+            operationalCount
+        };
+    }, [classifiedAppointments, transactions]);
+
+    const handleConvertToAppointment = async (appt: Appointment, detectedPatientName?: string, detectedPatientId?: string) => {
+        try {
+            let patientId = detectedPatientId;
+            let patientName = detectedPatientName || appt.patientName;
+
+            if (!patientId && patientName) {
+                const normTarget = normalizeSearchText(patientName);
+                const matched = patientsList.find(p => normalizeSearchText(p.name) === normTarget);
+                if (matched) {
+                    patientId = matched.id;
+                    patientName = matched.name;
+                }
+            }
+
+            if (!patientId) {
+                handleViewInCalendar(appt);
+                showToast("Abriendo en la agenda para asignar paciente formal", "info");
+                return;
+            }
+
+            const now = new Date();
+            const end = parseISO(appt.end);
+            const status: AppointmentStatus = now >= end ? 'Finalizada' : 'Programada';
+
+            await updateAppointment({
+                ...appt,
+                patientId,
+                patientName,
+                status,
+                type: 'Sesión Psicología',
+                price: appt.price && appt.price > 0 ? appt.price : 40
+            });
+
+            setAppointments(prev => prev.map(a => a.id === appt.id ? {
+                ...a,
+                patientId,
+                patientName,
+                status,
+                type: 'Sesión Psicología',
+                price: a.price && a.price > 0 ? a.price : 40
+            } : a));
+
+            showToast(`Bloqueo formalizado como cita para ${patientName}`, 'success');
+        } catch (error) {
+            console.error("Error converting block to appointment:", error);
+            showToast("Error al formalizar la cita", "error");
         }
+    };
 
-        // Status filter
-        const effectiveStatus = getEffectiveStatus(appt);
-        const matchesStatus = statusFilter === 'ALL' || effectiveStatus === statusFilter;
+    const filteredAppointments = React.useMemo(() => {
+        return classifiedAppointments.filter(({ appt, classification }) => {
+            // Category view filter
+            if (viewCategory === 'CLINICAL' && classification.category !== 'CLINICAL') return false;
+            if (viewCategory === 'POSSIBLE_PATIENT' && classification.category !== 'POSSIBLE_PATIENT') return false;
+            if (viewCategory === 'ABSENCE_NOTICE' && classification.category !== 'ABSENCE_NOTICE' && classification.category !== 'CANCELLED') return false;
+            if (viewCategory === 'OPERATIONAL_BLOCK' && classification.category !== 'OPERATIONAL_BLOCK') return false;
 
-        // Therapist filter
-        const matchesTherapist = therapistFilter === 'ALL' || appt.therapistId === therapistFilter;
+            // Search term (Patient, Therapist, Type, Notes or detectedPatientName)
+            const normalizedSearch = normalizeSearchText(searchTerm);
+            if (normalizedSearch) {
+                const searchTokens = normalizedSearch.split(' ').filter(Boolean);
+                const patientNorm = normalizeSearchText(appt.patientName);
+                const detectedNorm = normalizeSearchText(classification.detectedPatientName);
+                const therapistNorm = normalizeSearchText(appt.therapistName);
+                const typeNorm = normalizeSearchText(appt.type);
+                const notesNorm = normalizeSearchText(appt.notes);
+                const combined = `${patientNorm} ${detectedNorm} ${therapistNorm} ${typeNorm} ${notesNorm}`;
 
-        // Payment filter
-        const payInfo = getPaymentInfo(appt);
-        let matchesPayment = paymentFilter === 'ALL';
-        if (paymentFilter === 'PAGADO') {
-            matchesPayment = !!payInfo?.isPaid;
-        } else if (paymentFilter === 'PENDIENTE') {
-            matchesPayment = !!(payInfo && !payInfo.isPaid);
-        } else if (paymentFilter === 'PENDIENTE_COTEJO') {
-            matchesPayment = payInfo?.method === 'Tarjeta' && !payInfo?.isReconciled;
-        } else if (paymentFilter === 'COTEJADO') {
-            matchesPayment = !!payInfo?.isReconciled;
-        } else if (paymentFilter !== 'ALL') {
-            matchesPayment = payInfo?.method === paymentFilter;
-        }
+                const matchesSearch = combined.includes(normalizedSearch) || searchTokens.every(token => combined.includes(token));
+                if (!matchesSearch) return false;
+            }
 
-        return matchesSearch && matchesStatus && matchesTherapist && matchesPayment;
-    }).sort((a, b) => a.start.localeCompare(b.start)); // Oldest first
+            // Status filter
+            const effectiveStatus = getEffectiveStatus(appt);
+            if (statusFilter !== 'ALL' && effectiveStatus !== statusFilter) return false;
+
+            // Therapist filter
+            if (therapistFilter !== 'ALL' && appt.therapistId !== therapistFilter) return false;
+
+            // Payment filter
+            const payInfo = getPaymentInfo(appt);
+            if (paymentFilter === 'PAGADO' && !payInfo?.isPaid) return false;
+            if (paymentFilter === 'PENDIENTE' && (!payInfo || payInfo.isPaid)) return false;
+            if (paymentFilter === 'PENDIENTE_COTEJO' && (payInfo?.method !== 'Tarjeta' || payInfo?.isReconciled)) return false;
+            if (paymentFilter === 'COTEJADO' && !payInfo?.isReconciled) return false;
+            if (paymentFilter !== 'ALL' && !['PAGADO', 'PENDIENTE', 'PENDIENTE_COTEJO', 'COTEJADO'].includes(paymentFilter)) {
+                if (payInfo?.method !== paymentFilter) return false;
+            }
+
+            return true;
+        }).sort((a, b) => a.appt.start.localeCompare(b.appt.start));
+    }, [classifiedAppointments, viewCategory, searchTerm, statusFilter, therapistFilter, paymentFilter, transactions]);
 
 
 
     const handleAmountChange = async (appt: Appointment, newAmount: number) => {
+        if (isNonClinicalSession(appt.patientName, appt.type, appt.status)) {
+            showToast("Esta cita o bloqueo es de tipo no asistencial y no admite importe.", "info");
+            return;
+        }
+
         const payInfo = getPaymentInfo(appt);
         if (payInfo?.isReconciled) {
             showToast("🔒 No se puede modificar el importe: cita ya cotejada con ticket o banco.", "info");
@@ -316,8 +443,8 @@ const AppointmentRegistry: React.FC = () => {
                     }
                 }
 
-                if (isNonClinicalSession(appt.patientName, appt.type)) {
-                    showToast("Esta cita es de trabajo no asistencial y no requiere cobro", 'info');
+                if (isNonClinicalSession(appt.patientName, appt.type, appt.status)) {
+                    showToast("Esta cita o bloqueo es de tipo no asistencial y no requiere cobro", 'info');
                     return;
                 }
 
@@ -437,11 +564,69 @@ const AppointmentRegistry: React.FC = () => {
                 </div>
 
                 <div className="registry-stats">
-                    <div className="stat-pill">
-                        <span className="stat-label">Total en rango:</span>
-                        <span className="stat-value">{filteredAppointments.length}</span>
+                    <div className="stat-pill" title="Sesiones clínicas de pacientes">
+                        <span className="stat-label">Citas Asistenciales:</span>
+                        <span className="stat-value">{stats.clinicalCount}</span>
                     </div>
+                    <div className="stat-pill stat-success" title="Total recaudado en el rango">
+                        <span className="stat-label">Cobradas:</span>
+                        <span className="stat-value text-emerald-600 font-extrabold">{stats.totalPaidAmount}€ <small className="text-xs font-normal text-slate-500">({stats.totalPaidCount})</small></span>
+                    </div>
+                    <div className="stat-pill stat-warning" title="Total pendiente de cobro en sesiones asistenciales">
+                        <span className="stat-label">Pendientes:</span>
+                        <span className="stat-value text-amber-600 font-extrabold">{stats.totalPendingAmount}€ <small className="text-xs font-normal text-slate-500">({stats.totalPendingCount})</small></span>
+                    </div>
+                    {stats.possiblePatientsCount > 0 && (
+                        <div
+                            className={`stat-pill stat-alert cursor-pointer ${viewCategory === 'POSSIBLE_PATIENT' ? 'active-pill' : ''}`}
+                            onClick={() => setViewCategory(prev => prev === 'POSSIBLE_PATIENT' ? 'CLINICAL' : 'POSSIBLE_PATIENT')}
+                            title="Haz clic para ver los bloqueos con pacientes detectados pendientes de formalizar"
+                        >
+                            <AlertCircle size={16} className="text-amber-500 flex-shrink-0" />
+                            <span className="stat-label text-amber-900 font-bold">Citas en Bloqueo:</span>
+                            <span className="stat-value text-amber-700">{stats.possiblePatientsCount}</span>
+                        </div>
+                    )}
                 </div>
+            </div>
+
+            {/* Selector de Pestañas de Categoría */}
+            <div className="registry-category-tabs">
+                <button
+                    className={`category-tab ${viewCategory === 'CLINICAL' ? 'active' : ''}`}
+                    onClick={() => setViewCategory('CLINICAL')}
+                >
+                    <Stethoscope size={16} />
+                    <span>Citas Asistenciales ({stats.clinicalCount})</span>
+                </button>
+                <button
+                    className={`category-tab tab-alert ${viewCategory === 'POSSIBLE_PATIENT' ? 'active' : ''}`}
+                    onClick={() => setViewCategory('POSSIBLE_PATIENT')}
+                >
+                    <AlertCircle size={16} />
+                    <span>Posibles Citas en Bloqueos ({stats.possiblePatientsCount})</span>
+                </button>
+                <button
+                    className={`category-tab ${viewCategory === 'ABSENCE_NOTICE' ? 'active' : ''}`}
+                    onClick={() => setViewCategory('ABSENCE_NOTICE')}
+                >
+                    <AlertTriangle size={16} />
+                    <span>Avisos de Falta / Canceladas ({stats.absenceCount})</span>
+                </button>
+                <button
+                    className={`category-tab ${viewCategory === 'OPERATIONAL_BLOCK' ? 'active' : ''}`}
+                    onClick={() => setViewCategory('OPERATIONAL_BLOCK')}
+                >
+                    <Lock size={16} />
+                    <span>Bloqueos Operativos / Vacaciones ({stats.operationalCount})</span>
+                </button>
+                <button
+                    className={`category-tab ${viewCategory === 'ALL' ? 'active' : ''}`}
+                    onClick={() => setViewCategory('ALL')}
+                >
+                    <Filter size={16} />
+                    <span>Todas ({appointments.length})</span>
+                </button>
             </div>
 
             <Card className="registry-filters-card">
@@ -450,7 +635,7 @@ const AppointmentRegistry: React.FC = () => {
                         <Search size={16} className="text-slate-400" />
                         <input
                             type="text"
-                            placeholder="Buscar paciente, descripción..."
+                            placeholder="Buscar paciente, descripción o texto de bloqueo..."
                             value={searchTerm}
                             onChange={e => setSearchTerm(e.target.value)}
                         />
@@ -489,7 +674,7 @@ const AppointmentRegistry: React.FC = () => {
                     <div className="filter-group-inline">
                         <label>Estado</label>
                         <select value={statusFilter} onChange={e => setStatusFilter(e.target.value)}>
-                            <option value="ALL">Todos</option>
+                            <option value="ALL">Todos los estados</option>
                             <option value="Programada">Programada</option>
                             <option value="En Sesión">En Sesión</option>
                             <option value="Finalizada">Finalizada</option>
@@ -545,26 +730,70 @@ const AppointmentRegistry: React.FC = () => {
                                     <div className="empty-state-icon">
                                         <Search size={48} />
                                     </div>
-                                    <h3>No se encontraron citas</h3>
-                                    <p className="text-secondary">Prueba a ajustar los filtros o el rango de fechas.</p>
+                                    <h3>No se encontraron registros</h3>
+                                    <p className="text-secondary">Prueba a cambiar de pestaña o ajustar el rango de fechas.</p>
                                 </td>
                             </tr>
                         ) : (
-                            filteredAppointments.map(appt => {
+                            filteredAppointments.map(({ appt, classification }) => {
                                 const payInfo = getPaymentInfo(appt);
                                 const isReconciled = !!payInfo?.isReconciled;
+                                const isCancelled = appt.status === 'Cancelada' || classification.category === 'CANCELLED';
+                                const isOperational = classification.category === 'OPERATIONAL_BLOCK';
+                                const isAbsence = classification.category === 'ABSENCE_NOTICE';
+                                const isPossiblePatient = classification.category === 'POSSIBLE_PATIENT';
 
                                 return (
-                                <tr key={appt.id} className={appt.status === 'Cancelada' ? 'row-cancelled' : ''}>
+                                <tr key={appt.id} className={isCancelled ? 'row-cancelled' : (isPossiblePatient ? 'row-possible-patient' : '')}>
                                     <td className="cell-datetime">
                                         <div className="date-main">{format(parseISO(appt.start), 'dd/MM/yyyy')}</div>
                                         <div className="time-sub">{format(parseISO(appt.start), 'HH:mm')} - {format(parseISO(appt.end), 'HH:mm')}</div>
                                     </td>
                                     <td className="cell-patient">
-                                        {appt.status === 'Bloqueada' ? (
-                                            <div className="flex items-center gap-2 text-slate-500 font-medium">
-                                                <Lock size={14} />
-                                                <span>{appt.patientName || 'Horario bloqueado'}</span>
+                                        {isPossiblePatient ? (
+                                            <div className="flex flex-col gap-1">
+                                                <div className="flex items-center gap-1.5 text-amber-900 font-semibold text-sm">
+                                                    <AlertCircle size={15} className="text-amber-500 flex-shrink-0" />
+                                                    <span>"{appt.patientName}"</span>
+                                                </div>
+                                                <div className="flex items-center gap-2 flex-wrap">
+                                                    {classification.detectedPatientName && (
+                                                        <span className="text-[11px] bg-amber-50 text-amber-800 border border-amber-200 px-2 py-0.5 rounded-full font-semibold">
+                                                            👤 Paciente: {classification.detectedPatientName}
+                                                        </span>
+                                                    )}
+                                                    {isRole('ADMIN') && (
+                                                        <button
+                                                            className="text-[11px] bg-primary text-white hover:bg-primary-dark px-2.5 py-0.5 rounded-full font-medium transition-all shadow-sm"
+                                                            onClick={() => handleConvertToAppointment(appt, classification.detectedPatientName, classification.detectedPatientId)}
+                                                            title="Formalizar este bloqueo como cita asistencial"
+                                                        >
+                                                            + Formalizar Cita
+                                                        </button>
+                                                    )}
+                                                </div>
+                                            </div>
+                                        ) : isAbsence ? (
+                                            <div className="flex flex-col gap-0.5">
+                                                <div className="flex items-center gap-1.5 text-slate-600 font-medium text-sm">
+                                                    <span className="badge badge-warning text-[10px]">Falta / No viene</span>
+                                                    <span className="line-through">{appt.patientName}</span>
+                                                </div>
+                                                {classification.detectedPatientName && (
+                                                    <span className="text-xs text-slate-400">Alumno: {classification.detectedPatientName}</span>
+                                                )}
+                                            </div>
+                                        ) : isOperational ? (
+                                            <div className="flex items-center gap-2 text-slate-400 font-medium">
+                                                <Lock size={14} className="text-slate-400 flex-shrink-0" />
+                                                <span className="italic">{appt.patientName || 'Bloqueo operativo'}</span>
+                                            </div>
+                                        ) : isCancelled ? (
+                                            <div className="flex items-center gap-2 text-slate-400">
+                                                <div className="patient-avatar-small opacity-50">
+                                                    {appt.patientName?.charAt(0)}
+                                                </div>
+                                                <span className="line-through">{appt.patientName}</span>
                                             </div>
                                         ) : (
                                             <div className="flex items-center gap-2">
@@ -579,36 +808,48 @@ const AppointmentRegistry: React.FC = () => {
                                         <div className="text-sm font-medium">{appt.therapistName}</div>
                                     </td>
                                     <td>
-                                        <div className="service-tag">{appt.type}</div>
+                                        <div className="service-tag">{isPossiblePatient ? 'Bloqueo (Posible Cita)' : appt.type}</div>
                                     </td>
                                     <td>
-                                        {isRole('ADMIN') && !isReconciled ? (
-                                            <div className="flex items-center gap-1">
-                                                <input
-                                                    key={`amt-${appt.id}-${appt.price ?? 'def'}`}
-                                                    type="number"
-                                                    className="registry-amount-input"
-                                                    defaultValue={appt.price != null ? appt.price : 60}
-                                                    onBlur={(e) => handleAmountChange(appt, Number(e.target.value))}
-                                                />
-                                                <span className="text-secondary text-xs">€</span>
-                                            </div>
+                                        {isOperational ? (
+                                            <span className="text-slate-400 text-xs italic">-</span>
+                                        ) : isCancelled || isAbsence ? (
+                                            <span className="text-slate-400 text-xs font-semibold">0 €</span>
+                                        ) : isPossiblePatient ? (
+                                            <span className="text-amber-700 text-xs font-semibold">
+                                                {appt.price != null && appt.price > 0 ? `${appt.price}€` : 'Por fijar'}
+                                            </span>
                                         ) : (
-                                            <div
-                                                className="flex items-center gap-1.5"
-                                                title={isReconciled ? "🔒 Cita cotejada: importe bloqueado para edición. Modifícalo desde Facturación -> Cotejo." : undefined}
-                                            >
-                                                <span className="font-bold">{appt.price != null ? appt.price : 60}€</span>
-                                                {isReconciled && (
-                                                    <span className="text-emerald-600 flex items-center" title="🔒 Importe bloqueado: cita ya cotejada">
-                                                        <Lock size={12} />
+                                            isRole('ADMIN') && !isReconciled ? (
+                                                <div className="flex items-center gap-1">
+                                                    <input
+                                                        key={`amt-${appt.id}-${appt.price ?? 'def'}`}
+                                                        type="number"
+                                                        className="registry-amount-input"
+                                                        defaultValue={appt.price != null ? appt.price : (appt.type === 'Sesión Grupal' ? 25 : 40)}
+                                                        onBlur={(e) => handleAmountChange(appt, Number(e.target.value))}
+                                                    />
+                                                    <span className="text-secondary text-xs">€</span>
+                                                </div>
+                                            ) : (
+                                                <div
+                                                    className="flex items-center gap-1.5"
+                                                    title={isReconciled ? "🔒 Cita cotejada: importe bloqueado para edición. Modifícalo desde Facturación -> Cotejo." : undefined}
+                                                >
+                                                    <span className="font-bold">
+                                                        {appt.price != null ? appt.price : (appt.type === 'Sesión Grupal' ? 25 : 40)}€
                                                     </span>
-                                                )}
-                                            </div>
+                                                    {isReconciled && (
+                                                        <span className="text-emerald-600 flex items-center" title="🔒 Importe bloqueado: cita ya cotejada">
+                                                            <Lock size={12} />
+                                                        </span>
+                                                    )}
+                                                </div>
+                                            )
                                         )}
                                     </td>
                                     <td>
-                                        {isRole('ADMIN') ? (
+                                        {isRole('ADMIN') && !isOperational ? (
                                             <select
                                                 className={`registry-status-select ${getStatusBadgeClass(getEffectiveStatus(appt))}`}
                                                 value={getEffectiveStatus(appt)}
@@ -630,6 +871,22 @@ const AppointmentRegistry: React.FC = () => {
                                     </td>
                                     <td>
                                         {(() => {
+                                            if (isOperational) {
+                                                return <span className="text-slate-400 text-xs italic">No asistencial</span>;
+                                            }
+
+                                            if (isAbsence) {
+                                                return <span className="text-slate-400 text-xs italic">Sin cobro (No asistió)</span>;
+                                            }
+
+                                            if (isCancelled) {
+                                                return <span className="text-red-500 text-xs font-medium">Cancelada</span>;
+                                            }
+
+                                            if (isPossiblePatient) {
+                                                return <span className="text-amber-700 text-xs font-semibold bg-amber-50 border border-amber-200 px-2 py-0.5 rounded">Reserva por confirmar</span>;
+                                            }
+
                                             if (isReconciled) {
                                                 return (
                                                     <div

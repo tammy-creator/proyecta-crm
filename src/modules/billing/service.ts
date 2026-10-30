@@ -2,18 +2,33 @@ import { supabase } from '../../lib/supabase';
 import { type Transaction, type PaymentMethod } from './types';
 import { markAppointmentPaid, setAppointmentPaidStatus } from '../calendar/service';
 
-export const isNonClinicalSession = (patientName?: string, type?: string): boolean => {
+export const isNonClinicalSession = (patientName?: string, type?: string, status?: string): boolean => {
+    if (status === 'Bloqueada' || status === 'Cancelada') return true;
     const p = (patientName || '').toLowerCase().trim();
     const t = (type || '').toLowerCase().trim();
+    if (t === 'bloqueo' || t === 'bloqueada') return true;
     return (
         p.includes('no asistencial') ||
         p.includes('trabajo no') ||
         p.includes('coordinación') ||
         p.includes('coordinacion') ||
+        p.includes('vacaci') ||
+        p.includes('libre') ||
+        p.includes('bloque') ||
+        p.includes('supervis') ||
+        p.includes('reuni') ||
+        p.includes('formaci') ||
+        p.includes('médico') ||
+        p.includes('medico') ||
+        p.includes('baja') ||
+        p.includes('no viene') ||
+        p.includes('no puede') ||
+        p.includes('descansa') ||
         t.includes('no asistencial') ||
         t.includes('trabajo no') ||
         t.includes('coordinación') ||
-        t.includes('coordinacion')
+        t.includes('coordinacion') ||
+        t.includes('bloqueo')
     );
 };
 

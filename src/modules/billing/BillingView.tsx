@@ -170,14 +170,14 @@ const BillingView: React.FC = () => {
             setTodayAppointments(apptData.filter(a => 
                 a.status !== 'Cancelada' && 
                 a.status !== 'Bloqueada' &&
-                !isNonClinicalSession(a.patientName, a.type)
+                !isNonClinicalSession(a.patientName, a.type, a.status)
             ));
             // Todas las citas reales no pagadas hasta hoy (evitar contar citas futuras como deuda ni bloqueos no asistenciales)
             const now = new Date();
             setHistoricalUnpaidAppointments(unpaidAppts.filter(a =>
                 a.status !== 'Cancelada' &&
                 a.status !== 'Bloqueada' &&
-                !isNonClinicalSession(a.patientName, a.type) &&
+                !isNonClinicalSession(a.patientName, a.type, a.status) &&
                 new Date(a.start) <= now &&
                 isSameMonth(new Date(a.start), now)
             ));
@@ -222,7 +222,7 @@ const BillingView: React.FC = () => {
     // Cobrar o asignar una cita que todavía no tiene transacción
     const handleChargeAppointment = async (appt: Appointment, method: PaymentMethod) => {
         if (chargingApptIds.has(appt.id)) return;
-        if (isNonClinicalSession(appt.patientName, appt.type)) {
+        if (isNonClinicalSession(appt.patientName, appt.type, appt.status)) {
             showToast('Esta cita es de trabajo no asistencial y no genera cobro', 'info');
             return;
         }
@@ -1032,7 +1032,7 @@ const BillingView: React.FC = () => {
         });
         // 2. Citas pasadas no cobradas sin transacción
         historicalUnpaidAppointments
-            .filter(a => !txByApptId.has(a.id) && !isNonClinicalSession(a.patientName, a.type))
+            .filter(a => !txByApptId.has(a.id) && !isNonClinicalSession(a.patientName, a.type, a.status))
             .forEach(a => {
                 const pName = (a.patientName || '').trim();
                 if (!pName) return;

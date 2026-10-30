@@ -240,9 +240,15 @@ export const updateAppointment = async (appointment: Appointment): Promise<Appoi
                 txUpdatePayload.amount = Number(updated.price);
             }
 
-            // 2. Sync category (type of session)
-            if (updated.type && updated.type !== existingTx.category) {
-                txUpdatePayload.category = updated.type;
+            // 2. Sync category (type of session), preserving Saldo a favor tag
+            if (updated.type) {
+                const isSaldo = (existingTx.category || '').includes('[Saldo a favor]') ||
+                    existingTx.method === 'Saldo a favor' ||
+                    (!existingTx.method && existingTx.status === 'Pagado');
+                const cleanExistingCat = (existingTx.category || '').replace(/^\[Saldo a favor\]\s*/, '').trim();
+                if (updated.type !== cleanExistingCat) {
+                    txUpdatePayload.category = isSaldo ? `[Saldo a favor] ${updated.type}` : updated.type;
+                }
             }
 
             // 3. Sync names and date

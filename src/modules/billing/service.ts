@@ -34,7 +34,12 @@ export const isNonClinicalSession = (patientName?: string, type?: string, status
 
 const mapTransaction = (row: any): Transaction => {
     const rawCategory = row.category ?? '';
-    const isSaldoAFavor = rawCategory.startsWith('[Saldo a favor]') || rawCategory === 'Saldo a favor' || row.method === 'Saldo a favor';
+    const isSaldoAFavor =
+        rawCategory.startsWith('[Saldo a favor]') ||
+        rawCategory.includes('[Saldo a favor]') ||
+        rawCategory === 'Saldo a favor' ||
+        row.method === 'Saldo a favor' ||
+        (!row.method && row.status === 'Pagado' && row.appointment_id);
     const cleanCategory = rawCategory.replace(/^\[Saldo a favor\]\s*/, '').trim();
 
     return {

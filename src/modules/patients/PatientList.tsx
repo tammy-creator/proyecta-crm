@@ -373,6 +373,7 @@ const PatientList: React.FC = () => {
     const handleOpenModal = async (patient?: Patient) => {
         setActiveTab('general');
         setApptFilter('future');
+        loadTransactions();
         if (patient?.id) {
             // Recuperar siempre de la BD para asegurar datos frescos
             try {
@@ -1161,7 +1162,10 @@ const PatientList: React.FC = () => {
                                     </button>
                                     <button
                                         className={`tab-btn flex items-center gap-1.5 ${activeTab === 'wallet' ? 'active' : ''}`}
-                                        onClick={() => setActiveTab('wallet')}
+                                        onClick={() => {
+                                            setActiveTab('wallet');
+                                            loadTransactions();
+                                        }}
                                     >
                                         <Wallet size={15} />
                                         <span>Beca / Monedero</span>

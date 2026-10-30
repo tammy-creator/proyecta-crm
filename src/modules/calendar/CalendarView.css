@@ -440,6 +440,132 @@
     animation: fadeIn 0.18s ease;
 }
 
+/* Chips para Motivos de Bloqueo Rápido */
+.block-chips-wrapper {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-top: 8px;
+}
+
+.block-reason-chip {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 5px 12px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    border-radius: 9999px;
+    border: 1px solid #cbd5e1;
+    background-color: #f8fafc;
+    color: #475569;
+    cursor: pointer;
+    transition: all 0.15s ease;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+    line-height: 1.3;
+}
+
+.block-reason-chip:hover {
+    background-color: #e2e8f0;
+    color: #0f172a;
+    border-color: #94a3b8;
+    transform: translateY(-1px);
+}
+
+.block-reason-chip.active {
+    background-color: #334155;
+    color: #ffffff;
+    border-color: #334155;
+    font-weight: 700;
+    box-shadow: 0 2px 4px rgba(51, 65, 85, 0.25);
+}
+
+/* Caja de Sesión Grupal Optimizada */
+.group-session-box {
+    background: #f8faff;
+    border: 1px solid #c7d2fe;
+    border-radius: 12px;
+    padding: 12px 14px;
+    margin-bottom: 0.75rem;
+}
+
+.group-session-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 8px;
+}
+
+.group-session-title {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 0.8rem;
+    font-weight: 700;
+    color: #312e81;
+}
+
+.group-session-badge {
+    background: #e0e7ff;
+    color: #3730a3;
+    font-size: 0.7rem;
+    font-weight: 700;
+    padding: 2px 8px;
+    border-radius: 9999px;
+}
+
+.group-chips-container {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    background: #ffffff;
+    border: 1px solid #e0e7ff;
+    border-radius: 8px;
+    padding: 6px 8px;
+    min-height: 40px;
+    align-items: center;
+    margin-bottom: 8px;
+}
+
+.group-patient-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 3px 8px 3px 10px;
+    font-size: 0.75rem;
+    font-weight: 700;
+    background: #eef2ff;
+    color: #3730a3;
+    border: 1px solid #c7d2fe;
+    border-radius: 6px;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.03);
+}
+
+.group-chip-remove {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: none;
+    background: transparent;
+    color: #94a3b8;
+    cursor: pointer;
+    padding: 2px;
+    border-radius: 4px;
+    transition: all 0.15s ease;
+}
+
+.group-chip-remove:hover {
+    color: #dc2626;
+    background: #fee2e2;
+}
+
+.group-empty-hint {
+    font-size: 0.75rem;
+    color: #818cf8;
+    font-style: italic;
+    padding: 2px 4px;
+}
+
 .modal-footer {
     display: flex;
     justify-content: flex-end;

@@ -2628,17 +2628,13 @@ const CalendarView: React.FC<CalendarViewProps> = ({ mode: initialMode, therapis
                                                     placeholder="Ej: Reunión, Formación, Descanso..."
                                                     style={{ height: '38px', padding: '0 0.75rem', borderRadius: '8px', border: '1px solid #cbd5e1', width: '100%', fontSize: '0.85rem' }}
                                                 />
-                                                <div className="flex flex-wrap gap-1 mt-1.5">
+                                                <div className="block-chips-wrapper">
                                                     {COMMON_BLOCK_REASONS.map(reason => (
                                                         <button
                                                             key={reason}
                                                             type="button"
                                                             onClick={() => setSelectedAppt({ ...selectedAppt, patientName: reason })}
-                                                            className={`text-[11px] px-2 py-0.5 rounded-full border transition-all ${
-                                                                selectedAppt.patientName === reason
-                                                                    ? 'bg-slate-700 text-white border-slate-700 font-bold'
-                                                                    : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-100'
-                                                            }`}
+                                                            className={`block-reason-chip ${selectedAppt.patientName === reason ? 'active' : ''}`}
                                                         >
                                                             {reason}
                                                         </button>
@@ -2687,34 +2683,35 @@ const CalendarView: React.FC<CalendarViewProps> = ({ mode: initialMode, therapis
 
                                             {/* Modo Multi-Paciente: Nueva Sesión Grupal */}
                                             {isGroupSession && !selectedAppt.id ? (
-                                                <div className="p-3 bg-indigo-50/50 border border-indigo-200 rounded-xl mb-3">
-                                                    <div className="flex items-center justify-between mb-1.5">
-                                                        <label className="flex items-center gap-1.5 font-bold text-xs text-indigo-900 m-0">
-                                                            <Users size={14} className="text-indigo-600" /> Alumnos de la Sesión Grupal ({selectedGroupPatients.length})
-                                                        </label>
-                                                        <span className="text-[11px] text-indigo-600 font-medium">
-                                                            Cada alumno tendrá su cita individualizada para WhatsApp
+                                                <div className="group-session-box">
+                                                    <div className="group-session-header">
+                                                        <span className="group-session-title">
+                                                            <Users size={15} style={{ color: '#4f46e5' }} />
+                                                            <span>Alumnos en la Sesión Grupal</span>
+                                                            <span className="group-session-badge">
+                                                                {selectedGroupPatients.length} {selectedGroupPatients.length === 1 ? 'alumno' : 'alumnos'}
+                                                            </span>
                                                         </span>
                                                     </div>
 
                                                     {/* Chips de alumnos */}
-                                                    <div className="flex flex-wrap gap-1.5 p-2 bg-white rounded-lg border border-indigo-200 min-h-[42px] mb-2 items-center">
+                                                    <div className="group-chips-container">
                                                         {selectedGroupPatients.length === 0 ? (
-                                                            <span className="text-xs text-indigo-400 italic px-1">
+                                                            <span className="group-empty-hint">
                                                                 No hay alumnos añadidos aún. Busca abajo para añadir alumnos al grupo.
                                                             </span>
                                                         ) : (
                                                             selectedGroupPatients.map(p => (
                                                                 <span
                                                                     key={p.id}
-                                                                    className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-bold bg-indigo-50 text-indigo-900 border border-indigo-200 shadow-2xs"
+                                                                    className="group-patient-chip"
                                                                 >
-                                                                    <User size={12} className="text-indigo-600" />
+                                                                    <User size={12} style={{ color: '#4f46e5' }} />
                                                                     <span>{p.firstName} {p.lastName}</span>
                                                                     <button
                                                                         type="button"
                                                                         onClick={() => handleRemoveGroupPatient(p.id)}
-                                                                        className="text-gray-400 hover:text-red-600 ml-0.5 rounded-full p-0.5 transition-colors"
+                                                                        className="group-chip-remove"
                                                                         title="Quitar del grupo"
                                                                     >
                                                                         <X size={12} />

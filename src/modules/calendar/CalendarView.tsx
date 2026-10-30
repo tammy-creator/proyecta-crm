@@ -32,7 +32,7 @@ import {
     startOfDay
 } from 'date-fns';
 import { es } from 'date-fns/locale';
-import { ChevronLeft, ChevronRight, Plus, X, User, UserPlus, Users, Rocket, Puzzle, AlertTriangle, Clock as ClockIcon, DollarSign, Mic, Square, Info, Search, ArrowLeft, CheckCircle2, Repeat, FileText, CalendarClock } from 'lucide-react';
+import { ChevronLeft, ChevronRight, ChevronDown, ChevronUp, Plus, X, User, UserPlus, Users, Rocket, Puzzle, AlertTriangle, Clock as ClockIcon, DollarSign, Mic, Square, Info, Search, ArrowLeft, CheckCircle2, Repeat, FileText, CalendarClock } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { getAppointments, createAppointment, createAppointmentsBatch, updateAppointment, deleteAppointment, checkAppointmentConflict, checkBatchAppointmentConflicts, subscribeToCalendarSync } from './service';
 import { getPatients, getWaitingList } from '../patients/service';
@@ -160,6 +160,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({ mode: initialMode, therapis
     const [groupPatientSearch, setGroupPatientSearch] = useState('');
     const [showGroupPatientSuggestions, setShowGroupPatientSuggestions] = useState(false);
     const [groupMembers, setGroupMembers] = useState<Appointment[]>([]);
+    const [isRecurrenceOpen, setIsRecurrenceOpen] = useState(false);
 
     // Si no se pasa modo, se controla con viewMode
     const effectiveMode = initialMode || (viewMode === 'day' ? 'TODAY_MULTI' : 'WEEKLY_SINGLE');
@@ -673,6 +674,8 @@ const CalendarView: React.FC<CalendarViewProps> = ({ mode: initialMode, therapis
             setPatientSearch(appt.patientName || '');
             const isGroup = appt.type === 'Sesión Grupal' || !!appt.isGroup || !!appt.recurrence?.isGroup;
             setIsGroupSession(isGroup);
+            const hasRecur = !!(appt.recurrence?.weeks || appt.recurrence?.until || (appt.recurrence?.days && appt.recurrence.days.length > 1));
+            setIsRecurrenceOpen(hasRecur);
 
             if (isGroup) {
                 const companions = appointments.filter(a =>
@@ -708,6 +711,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({ mode: initialMode, therapis
             setIsGroupSession(false);
             setSelectedGroupPatients([]);
             setGroupMembers([]);
+            setIsRecurrenceOpen(false);
 
             setSelectedAppt({
                 therapistId,
@@ -1463,12 +1467,22 @@ const CalendarView: React.FC<CalendarViewProps> = ({ mode: initialMode, therapis
         const newTime = formatISO(setMinutes(setHours(base, h), m));
 
         if (type === 'start') {
-            const newEndTime = formatISO(addMinutes(parseISO(newTime), 60));
+            const currentDuration = selectedAppt.end ? differenceInMinutes(parseISO(selectedAppt.end), base) : 60;
+            const newEndTime = formatISO(addMinutes(parseISO(newTime), currentDuration > 0 ? currentDuration : 60));
             setSelectedAppt({ ...selectedAppt, start: newTime, end: newEndTime });
         } else {
             setSelectedAppt({ ...selectedAppt, end: newTime });
         }
     };
+
+    const handleSetDuration = (durationMinutes: number) => {
+        if (!selectedAppt?.start) return;
+        const start = parseISO(selectedAppt.start);
+        const newEndTime = formatISO(addMinutes(start, durationMinutes));
+        setSelectedAppt({ ...selectedAppt, end: newEndTime });
+    };
+
+    const COMMON_BLOCK_REASONS = ['Reunión', 'Formación', 'Descanso', 'Médico', 'Vacaciones', 'Coordinación'];
 
     // Necesitamos un ref para el intervalo de stop de voz
     const isRecordingRef = React.useRef(isRecording);
@@ -2473,373 +2487,520 @@ const CalendarView: React.FC<CalendarViewProps> = ({ mode: initialMode, therapis
                             </div>
                         ) : (
                             <>
-                                <div className="modal-header">
-                                    <h3>{selectedAppt.id ? 'Detalles de la Cita' : 'Nueva Cita'}</h3>
+                                <div className="modal-header" style={{ marginBottom: '1rem', borderBottom: '1px solid #f1f5f9', paddingBottom: '0.75rem' }}>
+                                    <div>
+                                        <h3 style={{ margin: 0, fontSize: '1.2rem', fontWeight: 700, color: '#0f172a' }}>
+                                            {selectedAppt.id ? 'Detalles de la Cita' : 'Nueva Cita'}
+                                        </h3>
+                                        <p style={{ margin: 0, marginTop: '2px', fontSize: '0.75rem', color: '#64748b' }}>
+                                            {selectedAppt.status === 'Bloqueada' ? 'Bloqueo de horario en la agenda' : (isGroupSession ? 'Sesión de terapia grupal' : 'Cita clínica individual')}
+                                        </p>
+                                    </div>
                                     <button className="btn-icon-round" onClick={() => { setIsModalOpen(false); setIsCancelling(false); }}><X size={20} /></button>
                                 </div>
                                 <form className="modal-form" onSubmit={handleSave} id="appointment-form">
-                                    <div className="form-grid">
-                                        <div className="form-group" style={{ gridColumn: 'span 2' }}>
-                                            <div className="grid grid-cols-1 md:grid-cols-2 gap-2 mb-2">
-                                                <div className="flex items-center justify-between p-2.5 bg-gray-50 rounded-xl border border-dashed border-gray-300">
-                                                    <div className="flex items-center gap-2">
-                                                        <div className={`p-1.5 rounded-lg ${selectedAppt.status === 'Bloqueada' ? 'bg-slate-200 text-slate-700' : 'bg-blue-50 text-blue-600'}`}>
-                                                            <Puzzle size={16} />
-                                                        </div>
-                                                        <div>
-                                                            <div className="text-xs font-bold">Bloquear horario</div>
-                                                            <div className="text-[10px] text-gray-500">Impide agendar citas</div>
-                                                        </div>
-                                                    </div>
-                                                    <label className="relative inline-flex items-center cursor-pointer">
-                                                        <input
-                                                             type="checkbox"
-                                                             className="sr-only peer"
-                                                             checked={selectedAppt.status === 'Bloqueada'}
-                                                             onChange={e => {
-                                                                 const isBlocked = e.target.checked;
-                                                                 setSelectedAppt({
-                                                                     ...selectedAppt,
-                                                                     status: isBlocked ? 'Bloqueada' : 'Programada',
-                                                                     patientId: isBlocked ? undefined : '',
-                                                                     patientName: isBlocked ? 'HORARIO BLOQUEADO' : '',
-                                                                     type: isBlocked ? 'Bloqueo' : 'Terapia',
-                                                                     isGroup: false
-                                                                 });
-                                                                 if (isBlocked) setIsGroupSession(false);
-                                                             }}
-                                                         />
-                                                         <div className="w-9 h-5 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-slate-600"></div>
-                                                     </label>
-                                                 </div>
-
-                                                 {selectedAppt.status !== 'Bloqueada' && (
-                                                     <div className="flex items-center justify-between p-2.5 bg-indigo-50/70 rounded-xl border border-dashed border-indigo-200">
-                                                         <div className="flex items-center gap-2">
-                                                             <div className={`p-1.5 rounded-lg ${isGroupSession ? 'bg-indigo-600 text-white' : 'bg-white text-indigo-600 border border-indigo-100'}`}>
-                                                                 <Users size={16} />
-                                                             </div>
-                                                             <div>
-                                                                 <div className="text-xs font-bold text-gray-900 flex items-center gap-1.5">
-                                                                     Sesión Grupal
-                                                                     {isGroupSession && (
-                                                                         <span className="text-[9px] font-bold px-1.5 py-0.2 rounded-full bg-indigo-100 text-indigo-700">
-                                                                             {selectedAppt.id ? (groupMembers.length + 1) : selectedGroupPatients.length} {((selectedAppt.id ? groupMembers.length + 1 : selectedGroupPatients.length) === 1) ? 'niño' : 'niños'}
-                                                                         </span>
-                                                                     )}
-                                                                 </div>
-                                                                 <div className="text-[10px] text-gray-500">Múltiples alumnos a la misma hora</div>
-                                                             </div>
-                                                         </div>
-                                                         <label className="relative inline-flex items-center cursor-pointer">
-                                                             <input
-                                                                 type="checkbox"
-                                                                 className="sr-only peer"
-                                                                 checked={isGroupSession}
-                                                                 onChange={e => handleToggleGroupSession(e.target.checked)}
-                                                             />
-                                                             <div className="w-9 h-5 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-indigo-600"></div>
-                                                         </label>
-                                                     </div>
-                                                 )}
-                                             </div>
-                                         </div>
-
-                                         {/* Banner de integrantes para citas grupales ya creadas */}
-                                         {selectedAppt.id && isGroupSession && groupMembers.length > 0 && (
-                                             <div className="p-3 bg-indigo-50/80 border border-indigo-200 rounded-xl mb-2" style={{ gridColumn: 'span 2' }}>
-                                                 <div className="flex items-center justify-between mb-2">
-                                                     <div className="flex items-center gap-1.5 text-xs font-bold text-indigo-900">
-                                                         <Users size={14} className="text-indigo-600" />
-                                                         Sesión Grupal compartida ({groupMembers.length + 1} alumnos a esta hora)
-                                                     </div>
-                                                     <button
-                                                         type="button"
-                                                         onClick={() => handleAddPatientToExistingGroup(selectedAppt)}
-                                                         className="text-xs bg-indigo-600 hover:bg-indigo-700 text-white font-semibold px-2.5 py-1 rounded-lg flex items-center gap-1 shadow-sm transition-all"
-                                                     >
-                                                         <Plus size={12} /> Añadir alumno a este grupo
-                                                     </button>
-                                                 </div>
-                                                 <div className="flex flex-wrap gap-1.5">
-                                                     <span className="px-2.5 py-1 bg-indigo-600 text-white rounded-lg text-xs font-semibold flex items-center gap-1 shadow-xs">
-                                                         <User size={12} /> {selectedAppt.patientName} (Esta cita)
-                                                     </span>
-                                                     {groupMembers.map(m => (
-                                                         <button
-                                                             key={m.id}
-                                                             type="button"
-                                                             onClick={() => handleOpenModal(m)}
-                                                             className="px-2.5 py-1 bg-white border border-indigo-200 hover:border-indigo-400 text-indigo-900 rounded-lg text-xs font-medium flex items-center gap-1.5 cursor-pointer shadow-xs transition-all hover:bg-indigo-50/50"
-                                                             title="Ver ficha de este alumno"
-                                                         >
-                                                             <User size={12} className="text-indigo-500" />
-                                                             <span>{m.patientName}</span>
-                                                             <span className="text-[10px] text-gray-500 font-normal">({m.status})</span>
-                                                         </button>
-                                                     ))}
-                                                 </div>
-                                             </div>
-                                         )}
-                                         {selectedAppt.status !== ('Bloqueada' as any) && (
-                                             isGroupSession && !selectedAppt.id ? (
-                                                 // MODO MULTI-PACIENTE (NUEVA SESIÓN GRUPAL)
-                                                 <div className="form-group" style={{ gridColumn: 'span 2', position: 'relative' }}>
-                                                     <div className="flex items-center justify-between mb-1.5">
-                                                         <label className="flex items-center gap-1.5 font-bold text-xs text-indigo-900 m-0">
-                                                             <Users size={13} className="text-indigo-600" /> Alumnos de la Sesión Grupal ({selectedGroupPatients.length})
-                                                         </label>
-                                                         <span className="text-[11px] text-indigo-600 font-medium">
-                                                             Cada alumno tendrá su cita a las {getModalStartTime()} para su recordatorio WhatsApp
-                                                         </span>
-                                                     </div>
-
-                                                     {/* Chips de alumnos ya añadidos */}
-                                                     <div className="flex flex-wrap gap-1.5 p-2 bg-indigo-50/40 rounded-xl border border-indigo-200 min-h-[44px] mb-2 items-center">
-                                                         {selectedGroupPatients.length === 0 ? (
-                                                             <span className="text-xs text-indigo-400 italic px-1">
-                                                                 No hay alumnos añadidos aún. Busca abajo para añadir alumnos al grupo.
-                                                             </span>
-                                                         ) : (
-                                                             selectedGroupPatients.map(p => (
-                                                                 <span
-                                                                     key={p.id}
-                                                                     className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-bold bg-white text-indigo-900 border border-indigo-300 shadow-xs"
-                                                                 >
-                                                                     <User size={12} className="text-indigo-600" />
-                                                                     <span>{p.firstName} {p.lastName}</span>
-                                                                     <button
-                                                                         type="button"
-                                                                         onClick={() => handleRemoveGroupPatient(p.id)}
-                                                                         className="text-gray-400 hover:text-red-600 ml-1 rounded-full p-0.5 transition-colors"
-                                                                         title="Quitar de este grupo"
-                                                                     >
-                                                                         <X size={12} />
-                                                                     </button>
-                                                                 </span>
-                                                             ))
-                                                         )}
-                                                     </div>
-
-                                                     {/* Buscador de alumnos para añadir */}
-                                                     <div style={{ position: 'relative' }}>
-                                                         <input
-                                                             type="text"
-                                                             placeholder="Buscar alumno y añadir al grupo..."
-                                                             value={groupPatientSearch}
-                                                             onFocus={() => setShowGroupPatientSuggestions(true)}
-                                                             onBlur={() => setTimeout(() => setShowGroupPatientSuggestions(false), 200)}
-                                                             onChange={e => {
-                                                                 setGroupPatientSearch(e.target.value);
-                                                                 setShowGroupPatientSuggestions(true);
-                                                             }}
-                                                             style={{ height: '36px', padding: '0 0.75rem', borderRadius: '8px', border: '1px solid #c7d2fe', width: '100%', fontSize: '0.85rem' }}
-                                                         />
-                                                         {showGroupPatientSuggestions && groupPatientSearch && (
-                                                             <div style={{
-                                                                 position: 'absolute',
-                                                                 top: '100%',
-                                                                 left: 0,
-                                                                 right: 0,
-                                                                 backgroundColor: 'white',
-                                                                 border: '1px solid #ddd',
-                                                                 borderRadius: '8px',
-                                                                 boxShadow: '0 4px 6px rgba(0,0,0,0.1)',
-                                                                 zIndex: 1000,
-                                                                 marginTop: '4px',
-                                                                 maxHeight: '200px',
-                                                                 overflowY: 'auto'
-                                                             }}>
-                                                                 {patients
-                                                                     .filter(p => !selectedGroupPatients.some(sel => sel.id === p.id))
-                                                                     .filter(p => {
-                                                                         const fullName = `${p.firstName} ${p.lastName}`.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().replace(/\s+/g, ' ').trim();
-                                                                         const search = groupPatientSearch.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().replace(/\s+/g, ' ').trim();
-                                                                         const tokens = search.split(' ').filter(Boolean);
-                                                                         return fullName.includes(search) || (tokens.length > 0 && tokens.every(t => fullName.includes(t)));
-                                                                     })
-                                                                     .slice(0, 6)
-                                                                     .map(p => (
-                                                                         <div
-                                                                             key={p.id}
-                                                                             onClick={() => handleAddGroupPatient(p)}
-                                                                             style={{
-                                                                                 padding: '0.5rem 0.75rem',
-                                                                                 cursor: 'pointer',
-                                                                                 fontSize: '0.85rem',
-                                                                                 borderBottom: '1px solid #f0f0f0'
-                                                                             }}
-                                                                             onMouseEnter={e => e.currentTarget.style.backgroundColor = '#f8fafc'}
-                                                                             onMouseLeave={e => e.currentTarget.style.backgroundColor = 'transparent'}
-                                                                         >
-                                                                             <div style={{ fontWeight: 'bold', color: '#1e293b' }}>+ {p.firstName} {p.lastName}</div>
-                                                                             <div style={{ fontSize: '0.75rem', color: '#64748b' }}>{p.email || 'Sin email'}</div>
-                                                                         </div>
-                                                                     ))}
-                                                                 {groupPatientSearch && (
-                                                                     <div
-                                                                         onClick={() => handleOpenQuickPatientModal(groupPatientSearch)}
-                                                                         style={{
-                                                                             padding: '0.75rem',
-                                                                             cursor: 'pointer',
-                                                                             fontSize: '0.85rem',
-                                                                             backgroundColor: '#f0f9ff',
-                                                                             color: '#0369a1',
-                                                                             display: 'flex',
-                                                                             alignItems: 'center',
-                                                                             gap: '8px',
-                                                                             fontWeight: '600',
-                                                                             borderTop: '1px solid #bae6fd'
-                                                                         }}
-                                                                         onMouseEnter={e => e.currentTarget.style.backgroundColor = '#e0f2fe'}
-                                                                         onMouseLeave={e => e.currentTarget.style.backgroundColor = '#f0f9ff'}
-                                                                     >
-                                                                         <UserPlus size={16} />
-                                                                         Crear nuevo y añadir al grupo: "{groupPatientSearch}"
-                                                                     </div>
-                                                                 )}
-                                                             </div>
-                                                         )}
-                                                     </div>
-                                                 </div>
-                                             ) : (
-                                                 // MODO UN SOLO PACIENTE
-                                                 <div className="form-group" style={{ position: 'relative' }}>
-                                                     <label><User size={12} className="mr-1" /> Paciente</label>
-                                                     <input
-                                                         type="text"
-                                                         placeholder="Buscar paciente..."
-                                                         value={patientSearch}
-                                                         required={selectedAppt.status !== ('Bloqueada' as any)}
-                                                         onFocus={() => setShowPatientSuggestions(true)}
-                                                         onBlur={() => setTimeout(() => setShowPatientSuggestions(false), 200)}
-                                                         onChange={e => {
-                                                             setPatientSearch(e.target.value);
-                                                             setShowPatientSuggestions(true);
-                                                             if (selectedAppt.patientId) {
-                                                                 setSelectedAppt({ ...selectedAppt, patientId: '', patientName: e.target.value });
-                                                             }
-                                                         }}
-                                                         style={{ height: '36px', padding: '0 0.75rem', borderRadius: '8px', border: '1px solid #ddd', width: '100%', fontSize: '0.85rem' }}
-                                                     />
-                                                     {showPatientSuggestions && patientSearch && (
-                                                         <div style={{
-                                                             position: 'absolute',
-                                                             top: '100%',
-                                                             left: 0,
-                                                             right: 0,
-                                                             backgroundColor: 'white',
-                                                             border: '1px solid #ddd',
-                                                             borderRadius: '8px',
-                                                             boxShadow: '0 4px 6px rgba(0,0,0,0.1)',
-                                                             zIndex: 1000,
-                                                             marginTop: '4px',
-                                                             maxHeight: '200px',
-                                                             overflowY: 'auto'
-                                                         }}>
-                                                             {patients
-                                                                 .filter(p => {
-                                                                     const fullName = `${p.firstName} ${p.lastName}`.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().replace(/\s+/g, ' ').trim();
-                                                                     const search = patientSearch.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().replace(/\s+/g, ' ').trim();
-                                                                     const tokens = search.split(' ').filter(Boolean);
-                                                                     return fullName.includes(search) || (tokens.length > 0 && tokens.every(t => fullName.includes(t)));
-                                                                 })
-                                                                 .slice(0, 6)
-                                                                 .map(p => {
-                                                                     const cleanName = `${p.firstName} ${p.lastName}`.replace(/\s+/g, ' ').trim();
-                                                                     return (
-                                                                     <div
-                                                                         key={p.id}
-                                                                         onClick={() => {
-                                                                             setSelectedAppt({ ...selectedAppt, patientId: p.id, patientName: cleanName });
-                                                                             setPatientSearch(cleanName);
-                                                                             setShowPatientSuggestions(false);
-                                                                         }}
-                                                                         style={{
-                                                                             padding: '0.5rem 0.75rem',
-                                                                             cursor: 'pointer',
-                                                                             fontSize: '0.85rem',
-                                                                             borderBottom: '1px solid #f0f0f0'
-                                                                         }}
-                                                                         onMouseEnter={e => e.currentTarget.style.backgroundColor = '#f8fafc'}
-                                                                         onMouseLeave={e => e.currentTarget.style.backgroundColor = 'transparent'}
-                                                                     >
-                                                                         <div style={{ fontWeight: 'bold', color: '#1e293b' }}>{p.firstName} {p.lastName}</div>
-                                                                         <div style={{ fontSize: '0.75rem', color: '#64748b' }}>{p.email || 'Sin email'}</div>
-                                                                     </div>
-                                                                 );
-                                                             })}
-                                                             {patientSearch && (
-                                                                 <div
-                                                                     onClick={() => handleOpenQuickPatientModal(patientSearch)}
-                                                                     style={{
-                                                                         padding: '0.75rem',
-                                                                         cursor: 'pointer',
-                                                                         fontSize: '0.85rem',
-                                                                         backgroundColor: '#f0f9ff',
-                                                                         color: '#0369a1',
-                                                                         display: 'flex',
-                                                                         alignItems: 'center',
-                                                                         gap: '8px',
-                                                                         fontWeight: '600',
-                                                                         borderTop: '1px solid #bae6fd'
-                                                                     }}
-                                                                     onMouseEnter={e => e.currentTarget.style.backgroundColor = '#e0f2fe'}
-                                                                     onMouseLeave={e => e.currentTarget.style.backgroundColor = '#f0f9ff'}
-                                                                 >
-                                                                     <UserPlus size={16} />
-                                                                     Crear nuevo: "{patientSearch}"
-                                                                 </div>
-                                                             )}
-                                                         </div>
-                                                     )}
-                                                 </div>
-                                             )
-                                         )}
-                                        <div className="form-group" style={{ gridColumn: selectedAppt.status === 'Bloqueada' ? 'span 2' : 'auto' }}>
-                                            <label><User size={12} className="mr-1" /> Terapeuta</label>
-                                            <div className="flex items-center gap-2">
-                                                <select
-                                                    required
-                                                    disabled={!isRole('ADMIN')}
-                                                    value={selectedAppt.therapistId}
-                                                    onChange={e => {
-                                                        const t = therapists.find(th => th.id === e.target.value);
-                                                        setSelectedAppt({ ...selectedAppt, therapistId: e.target.value, therapistName: t?.fullName || '' });
-                                                    }}
-                                                    style={{ flex: 1, height: '36px', padding: '0 0.75rem', borderRadius: '8px', border: '1px solid #ddd', fontSize: '0.85rem' }}
-                                                >
-                                                    <option value="">Seleccionar terapeuta...</option>
-                                                    {(() => {
-                                                        const available = getAvailableTherapists(selectedAppt.start, selectedAppt.end);
-                                                        const singleTId = effectiveTherapistId || (selectedTherapistIds.length === 1 ? selectedTherapistIds[0] : undefined);
-                                                        const filteredOptions = singleTId ? available.filter(t => t.id === singleTId) : available;
-                                                        return filteredOptions.map(t => (
-                                                            <option key={t.id} value={t.id}>{t.fullName}</option>
-                                                        ));
-                                                    })()}
-                                                </select>
-                                                {selectedAppt.therapistId && (
-                                                    <div style={{ width: 28, height: 28, borderRadius: '50%', overflow: 'hidden', flexShrink: 0, border: '1px solid #eee' }}>
-                                                        <img
-                                                            src={getIllustrativeAvatar(therapists.find(t => t.id === selectedAppt.therapistId)!)}
-                                                            alt="Avatar"
-                                                            style={{ width: '100%', height: '100%', objectFit: 'cover' }}
-                                                        />
-                                                    </div>
+                                    {/* Selector Segmentado de Modo (Solo citas nuevas) */}
+                                    {!selectedAppt.id && (
+                                        <div className="appointment-type-selector">
+                                            <button
+                                                type="button"
+                                                className={`type-selector-tab ${!isGroupSession && selectedAppt.status !== 'Bloqueada' ? 'active-individual' : ''}`}
+                                                onClick={() => {
+                                                    if (selectedAppt.status === 'Bloqueada') {
+                                                        setSelectedAppt({
+                                                            ...selectedAppt,
+                                                            status: 'Programada',
+                                                            patientId: '',
+                                                            patientName: '',
+                                                            type: 'Terapia',
+                                                            isGroup: false
+                                                        });
+                                                    }
+                                                    if (isGroupSession) {
+                                                        handleToggleGroupSession(false);
+                                                    }
+                                                }}
+                                            >
+                                                <User size={15} />
+                                                <span>Cita Individual</span>
+                                            </button>
+                                            <button
+                                                type="button"
+                                                className={`type-selector-tab ${isGroupSession && selectedAppt.status !== 'Bloqueada' ? 'active-group' : ''}`}
+                                                onClick={() => {
+                                                    if (selectedAppt.status === 'Bloqueada') {
+                                                        setSelectedAppt({
+                                                            ...selectedAppt,
+                                                            status: 'Programada',
+                                                            patientId: '',
+                                                            patientName: '',
+                                                            isGroup: true
+                                                        });
+                                                    }
+                                                    handleToggleGroupSession(true);
+                                                }}
+                                            >
+                                                <Users size={15} />
+                                                <span>Sesión Grupal</span>
+                                                {isGroupSession && selectedGroupPatients.length > 0 && (
+                                                    <span className="type-badge-count">{selectedGroupPatients.length}</span>
                                                 )}
+                                            </button>
+                                            <button
+                                                type="button"
+                                                className={`type-selector-tab ${selectedAppt.status === 'Bloqueada' ? 'active-block' : ''}`}
+                                                onClick={() => {
+                                                    const wasBlocked = selectedAppt.status === 'Bloqueada';
+                                                    if (!wasBlocked) {
+                                                        setSelectedAppt({
+                                                            ...selectedAppt,
+                                                            status: 'Bloqueada',
+                                                            patientId: undefined,
+                                                            patientName: selectedAppt.patientName && selectedAppt.patientName !== 'HORARIO BLOQUEADO' ? selectedAppt.patientName : 'HORARIO BLOQUEADO',
+                                                            type: 'Bloqueo',
+                                                            isGroup: false
+                                                        });
+                                                        setIsGroupSession(false);
+                                                    }
+                                                }}
+                                            >
+                                                <Puzzle size={15} />
+                                                <span>Bloquear Agenda</span>
+                                            </button>
+                                        </div>
+                                    )}
+
+                                    {/* Indicador de bloqueo para citas existentes */}
+                                    {selectedAppt.id && selectedAppt.status === 'Bloqueada' && (
+                                        <div className="flex items-center gap-2 p-2.5 bg-slate-100 border border-slate-200 rounded-xl mb-3 text-slate-700 font-bold text-xs">
+                                            <Puzzle size={15} className="text-slate-600" />
+                                            <span>Horario Bloqueado en Agenda</span>
+                                        </div>
+                                    )}
+
+                                    {/* SECCIÓN 1: PARTICIPANTES O MOTIVO DE BLOQUEO */}
+                                    {selectedAppt.status === 'Bloqueada' ? (
+                                        <div className="form-grid mb-2.5">
+                                            <div className="form-group">
+                                                <label className="text-xs font-semibold text-gray-700 flex items-center gap-1.5 mb-1">
+                                                    <User size={13} className="text-primary" /> Terapeuta
+                                                </label>
+                                                <div className="flex items-center gap-2">
+                                                    <select
+                                                        required
+                                                        disabled={!isRole('ADMIN')}
+                                                        value={selectedAppt.therapistId}
+                                                        onChange={e => {
+                                                            const t = therapists.find(th => th.id === e.target.value);
+                                                            setSelectedAppt({ ...selectedAppt, therapistId: e.target.value, therapistName: t?.fullName || '' });
+                                                        }}
+                                                        style={{ flex: 1, height: '38px', padding: '0 0.75rem', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '0.85rem' }}
+                                                    >
+                                                        <option value="">Seleccionar terapeuta...</option>
+                                                        {(() => {
+                                                            const available = getAvailableTherapists(selectedAppt.start, selectedAppt.end);
+                                                            const singleTId = effectiveTherapistId || (selectedTherapistIds.length === 1 ? selectedTherapistIds[0] : undefined);
+                                                            const filteredOptions = singleTId ? available.filter(t => t.id === singleTId) : available;
+                                                            return filteredOptions.map(t => (
+                                                                <option key={t.id} value={t.id}>{t.fullName}</option>
+                                                            ));
+                                                        })()}
+                                                    </select>
+                                                    {selectedAppt.therapistId && (
+                                                        <div style={{ width: 32, height: 32, borderRadius: '50%', overflow: 'hidden', flexShrink: 0, border: '1px solid #e2e8f0' }}>
+                                                            <img
+                                                                src={getIllustrativeAvatar(therapists.find(t => t.id === selectedAppt.therapistId)!)}
+                                                                alt="Avatar"
+                                                                style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                                                            />
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            </div>
+
+                                            <div className="form-group">
+                                                <label className="text-xs font-semibold text-gray-700 mb-1 block">Motivo del bloqueo / Título</label>
+                                                <input
+                                                    type="text"
+                                                    required
+                                                    value={selectedAppt.patientName || ''}
+                                                    onChange={e => setSelectedAppt({ ...selectedAppt, patientName: e.target.value })}
+                                                    placeholder="Ej: Reunión, Formación, Descanso..."
+                                                    style={{ height: '38px', padding: '0 0.75rem', borderRadius: '8px', border: '1px solid #cbd5e1', width: '100%', fontSize: '0.85rem' }}
+                                                />
+                                                <div className="flex flex-wrap gap-1 mt-1.5">
+                                                    {COMMON_BLOCK_REASONS.map(reason => (
+                                                        <button
+                                                            key={reason}
+                                                            type="button"
+                                                            onClick={() => setSelectedAppt({ ...selectedAppt, patientName: reason })}
+                                                            className={`text-[11px] px-2 py-0.5 rounded-full border transition-all ${
+                                                                selectedAppt.patientName === reason
+                                                                    ? 'bg-slate-700 text-white border-slate-700 font-bold'
+                                                                    : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-100'
+                                                            }`}
+                                                        >
+                                                            {reason}
+                                                        </button>
+                                                    ))}
+                                                </div>
                                             </div>
                                         </div>
-                                    </div>
-                                    <div className="form-row-3">
-                                        <div className="form-group"><label>Fecha</label><input type="date" required value={getModalDate()} onChange={e => handleModalDateChange(e.target.value)} style={{ height: '36px', fontSize: '0.85rem' }} /></div>
-                                        <div className="form-group"><label>Inicio</label><input type="time" required value={getModalStartTime()} onChange={e => handleModalTimeChange('start', e.target.value)} style={{ height: '36px', fontSize: '0.85rem' }} /></div>
-                                        <div className="form-group"><label>Fin</label><input type="time" required value={getModalEndTime()} onChange={e => handleModalTimeChange('end', e.target.value)} style={{ height: '36px', fontSize: '0.85rem' }} /></div>
-                                    </div>
-                                    <div className="form-grid" style={{ gridTemplateColumns: selectedAppt.status !== 'Bloqueada' ? '1.5fr 1fr 1.2fr' : '1fr 1fr' }}>
-                                        {selectedAppt.status !== 'Bloqueada' && (
-                                            <div className="form-group">
-                                                <label>Servicio Clínico</label>
+                                    ) : (
+                                        <>
+                                            {/* Banner de integrantes para citas grupales ya creadas */}
+                                            {selectedAppt.id && isGroupSession && groupMembers.length > 0 && (
+                                                <div className="p-3 bg-indigo-50/80 border border-indigo-200 rounded-xl mb-3">
+                                                    <div className="flex items-center justify-between mb-2">
+                                                        <div className="flex items-center gap-1.5 text-xs font-bold text-indigo-900">
+                                                            <Users size={14} className="text-indigo-600" />
+                                                            Sesión Grupal ({groupMembers.length + 1} alumnos a esta hora)
+                                                        </div>
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => handleAddPatientToExistingGroup(selectedAppt)}
+                                                            className="text-xs bg-indigo-600 hover:bg-indigo-700 text-white font-semibold px-2.5 py-1 rounded-lg flex items-center gap-1 shadow-sm transition-all"
+                                                        >
+                                                            <Plus size={12} /> Añadir alumno a este grupo
+                                                        </button>
+                                                    </div>
+                                                    <div className="flex flex-wrap gap-1.5">
+                                                        <span className="px-2.5 py-1 bg-indigo-600 text-white rounded-lg text-xs font-semibold flex items-center gap-1 shadow-xs">
+                                                            <User size={12} /> {selectedAppt.patientName} (Esta cita)
+                                                        </span>
+                                                        {groupMembers.map(m => (
+                                                            <button
+                                                                key={m.id}
+                                                                type="button"
+                                                                onClick={() => handleOpenModal(m)}
+                                                                className="px-2.5 py-1 bg-white border border-indigo-200 hover:border-indigo-400 text-indigo-900 rounded-lg text-xs font-medium flex items-center gap-1.5 cursor-pointer shadow-xs transition-all hover:bg-indigo-50/50"
+                                                                title="Ver ficha de este alumno"
+                                                            >
+                                                                <User size={12} className="text-indigo-500" />
+                                                                <span>{m.patientName}</span>
+                                                                <span className="text-[10px] text-gray-500 font-normal">({m.status})</span>
+                                                            </button>
+                                                        ))}
+                                                    </div>
+                                                </div>
+                                            )}
+
+                                            {/* Modo Multi-Paciente: Nueva Sesión Grupal */}
+                                            {isGroupSession && !selectedAppt.id ? (
+                                                <div className="p-3 bg-indigo-50/50 border border-indigo-200 rounded-xl mb-3">
+                                                    <div className="flex items-center justify-between mb-1.5">
+                                                        <label className="flex items-center gap-1.5 font-bold text-xs text-indigo-900 m-0">
+                                                            <Users size={14} className="text-indigo-600" /> Alumnos de la Sesión Grupal ({selectedGroupPatients.length})
+                                                        </label>
+                                                        <span className="text-[11px] text-indigo-600 font-medium">
+                                                            Cada alumno tendrá su cita individualizada para WhatsApp
+                                                        </span>
+                                                    </div>
+
+                                                    {/* Chips de alumnos */}
+                                                    <div className="flex flex-wrap gap-1.5 p-2 bg-white rounded-lg border border-indigo-200 min-h-[42px] mb-2 items-center">
+                                                        {selectedGroupPatients.length === 0 ? (
+                                                            <span className="text-xs text-indigo-400 italic px-1">
+                                                                No hay alumnos añadidos aún. Busca abajo para añadir alumnos al grupo.
+                                                            </span>
+                                                        ) : (
+                                                            selectedGroupPatients.map(p => (
+                                                                <span
+                                                                    key={p.id}
+                                                                    className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-bold bg-indigo-50 text-indigo-900 border border-indigo-200 shadow-2xs"
+                                                                >
+                                                                    <User size={12} className="text-indigo-600" />
+                                                                    <span>{p.firstName} {p.lastName}</span>
+                                                                    <button
+                                                                        type="button"
+                                                                        onClick={() => handleRemoveGroupPatient(p.id)}
+                                                                        className="text-gray-400 hover:text-red-600 ml-0.5 rounded-full p-0.5 transition-colors"
+                                                                        title="Quitar del grupo"
+                                                                    >
+                                                                        <X size={12} />
+                                                                    </button>
+                                                                </span>
+                                                            ))
+                                                        )}
+                                                    </div>
+
+                                                    {/* Buscador de alumnos para la sesión grupal */}
+                                                    <div style={{ position: 'relative' }}>
+                                                        <input
+                                                            type="text"
+                                                            placeholder="Buscar y añadir alumno al grupo..."
+                                                            value={groupPatientSearch}
+                                                            onFocus={() => setShowGroupPatientSuggestions(true)}
+                                                            onBlur={() => setTimeout(() => setShowGroupPatientSuggestions(false), 200)}
+                                                            onChange={e => {
+                                                                setGroupPatientSearch(e.target.value);
+                                                                setShowGroupPatientSuggestions(true);
+                                                            }}
+                                                            style={{ height: '36px', padding: '0 0.75rem', borderRadius: '8px', border: '1px solid #cbd5e1', width: '100%', fontSize: '0.85rem' }}
+                                                        />
+                                                        {showGroupPatientSuggestions && groupPatientSearch && (
+                                                            <div style={{
+                                                                position: 'absolute',
+                                                                top: '100%',
+                                                                left: 0,
+                                                                right: 0,
+                                                                backgroundColor: 'white',
+                                                                border: '1px solid #cbd5e1',
+                                                                borderRadius: '8px',
+                                                                boxShadow: '0 4px 12px rgba(0,0,0,0.12)',
+                                                                zIndex: 1000,
+                                                                marginTop: '4px',
+                                                                maxHeight: '200px',
+                                                                overflowY: 'auto'
+                                                            }}>
+                                                                {patients
+                                                                    .filter(p => !selectedGroupPatients.some(sel => sel.id === p.id))
+                                                                    .filter(p => {
+                                                                        const fullName = `${p.firstName} ${p.lastName}`.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().replace(/\s+/g, ' ').trim();
+                                                                        const search = groupPatientSearch.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().replace(/\s+/g, ' ').trim();
+                                                                        const tokens = search.split(' ').filter(Boolean);
+                                                                        return fullName.includes(search) || (tokens.length > 0 && tokens.every(t => fullName.includes(t)));
+                                                                    })
+                                                                    .slice(0, 6)
+                                                                    .map(p => (
+                                                                        <div
+                                                                            key={p.id}
+                                                                            onClick={() => handleAddGroupPatient(p)}
+                                                                            style={{ padding: '0.5rem 0.75rem', cursor: 'pointer', fontSize: '0.85rem', borderBottom: '1px solid #f1f5f9' }}
+                                                                            onMouseEnter={e => e.currentTarget.style.backgroundColor = '#f8fafc'}
+                                                                            onMouseLeave={e => e.currentTarget.style.backgroundColor = 'transparent'}
+                                                                        >
+                                                                            <div style={{ fontWeight: 'bold', color: '#1e293b' }}>+ {p.firstName} {p.lastName}</div>
+                                                                            <div style={{ fontSize: '0.75rem', color: '#64748b' }}>{p.email || 'Sin email'}</div>
+                                                                        </div>
+                                                                    ))}
+                                                                {groupPatientSearch && (
+                                                                    <div
+                                                                        onClick={() => handleOpenQuickPatientModal(groupPatientSearch)}
+                                                                        style={{
+                                                                            padding: '0.75rem',
+                                                                            cursor: 'pointer',
+                                                                            fontSize: '0.85rem',
+                                                                            backgroundColor: '#f0f9ff',
+                                                                            color: '#0369a1',
+                                                                            display: 'flex',
+                                                                            alignItems: 'center',
+                                                                            gap: '8px',
+                                                                            fontWeight: '600',
+                                                                            borderTop: '1px solid #bae6fd'
+                                                                        }}
+                                                                        onMouseEnter={e => e.currentTarget.style.backgroundColor = '#e0f2fe'}
+                                                                        onMouseLeave={e => e.currentTarget.style.backgroundColor = '#f0f9ff'}
+                                                                    >
+                                                                        <UserPlus size={16} />
+                                                                        Crear nuevo y añadir al grupo: "{groupPatientSearch}"
+                                                                    </div>
+                                                                )}
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                </div>
+                                            ) : null}
+
+                                            {/* Fila Paciente y Terapeuta (para Cita Individual o Cita Grupal existente) */}
+                                            <div className="form-grid mb-2.5">
+                                                {(!isGroupSession || selectedAppt.id) && (
+                                                    <div className="form-group" style={{ position: 'relative' }}>
+                                                        <label className="text-xs font-semibold text-gray-700 flex items-center gap-1 mb-1">
+                                                            <User size={12} className="text-primary" /> Paciente
+                                                        </label>
+                                                        <input
+                                                            type="text"
+                                                            placeholder="Buscar paciente o escribir nuevo..."
+                                                            value={patientSearch}
+                                                            required={selectedAppt.status !== ('Bloqueada' as any)}
+                                                            onFocus={() => setShowPatientSuggestions(true)}
+                                                            onBlur={() => setTimeout(() => setShowPatientSuggestions(false), 200)}
+                                                            onChange={e => {
+                                                                setPatientSearch(e.target.value);
+                                                                setShowPatientSuggestions(true);
+                                                                if (selectedAppt.patientId) {
+                                                                    setSelectedAppt({ ...selectedAppt, patientId: '', patientName: e.target.value });
+                                                                }
+                                                            }}
+                                                            style={{ height: '38px', padding: '0 0.75rem', borderRadius: '8px', border: '1px solid #cbd5e1', width: '100%', fontSize: '0.85rem' }}
+                                                        />
+                                                        {showPatientSuggestions && patientSearch && (
+                                                            <div style={{
+                                                                position: 'absolute',
+                                                                top: '100%',
+                                                                left: 0,
+                                                                right: 0,
+                                                                backgroundColor: 'white',
+                                                                border: '1px solid #cbd5e1',
+                                                                borderRadius: '8px',
+                                                                boxShadow: '0 4px 12px rgba(0,0,0,0.12)',
+                                                                zIndex: 1000,
+                                                                marginTop: '4px',
+                                                                maxHeight: '200px',
+                                                                overflowY: 'auto'
+                                                            }}>
+                                                                {patients
+                                                                    .filter(p => {
+                                                                        const fullName = `${p.firstName} ${p.lastName}`.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().replace(/\s+/g, ' ').trim();
+                                                                        const search = patientSearch.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().replace(/\s+/g, ' ').trim();
+                                                                        const tokens = search.split(' ').filter(Boolean);
+                                                                        return fullName.includes(search) || (tokens.length > 0 && tokens.every(t => fullName.includes(t)));
+                                                                    })
+                                                                    .slice(0, 6)
+                                                                    .map(p => {
+                                                                        const cleanName = `${p.firstName} ${p.lastName}`.replace(/\s+/g, ' ').trim();
+                                                                        return (
+                                                                            <div
+                                                                                key={p.id}
+                                                                                onClick={() => {
+                                                                                    setSelectedAppt({ ...selectedAppt, patientId: p.id, patientName: cleanName });
+                                                                                    setPatientSearch(cleanName);
+                                                                                    setShowPatientSuggestions(false);
+                                                                                }}
+                                                                                style={{ padding: '0.5rem 0.75rem', cursor: 'pointer', fontSize: '0.85rem', borderBottom: '1px solid #f1f5f9' }}
+                                                                                onMouseEnter={e => e.currentTarget.style.backgroundColor = '#f8fafc'}
+                                                                                onMouseLeave={e => e.currentTarget.style.backgroundColor = 'transparent'}
+                                                                            >
+                                                                                <div style={{ fontWeight: 'bold', color: '#1e293b' }}>{p.firstName} {p.lastName}</div>
+                                                                                <div style={{ fontSize: '0.75rem', color: '#64748b' }}>{p.email || 'Sin email'}</div>
+                                                                            </div>
+                                                                        );
+                                                                    })}
+                                                                {patientSearch && (
+                                                                    <div
+                                                                        onClick={() => handleOpenQuickPatientModal(patientSearch)}
+                                                                        style={{
+                                                                            padding: '0.75rem',
+                                                                            cursor: 'pointer',
+                                                                            fontSize: '0.85rem',
+                                                                            backgroundColor: '#f0f9ff',
+                                                                            color: '#0369a1',
+                                                                            display: 'flex',
+                                                                            alignItems: 'center',
+                                                                            gap: '8px',
+                                                                            fontWeight: '600',
+                                                                            borderTop: '1px solid #bae6fd'
+                                                                        }}
+                                                                        onMouseEnter={e => e.currentTarget.style.backgroundColor = '#e0f2fe'}
+                                                                        onMouseLeave={e => e.currentTarget.style.backgroundColor = '#f0f9ff'}
+                                                                    >
+                                                                        <UserPlus size={16} />
+                                                                        Crear nuevo: "{patientSearch}"
+                                                                    </div>
+                                                                )}
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                )}
+
+                                                <div className="form-group" style={{ gridColumn: (isGroupSession && !selectedAppt.id) ? 'span 2' : 'auto' }}>
+                                                    <label className="text-xs font-semibold text-gray-700 flex items-center gap-1 mb-1">
+                                                        <User size={12} className="text-primary" /> Terapeuta
+                                                    </label>
+                                                    <div className="flex items-center gap-2">
+                                                        <select
+                                                            required
+                                                            disabled={!isRole('ADMIN')}
+                                                            value={selectedAppt.therapistId}
+                                                            onChange={e => {
+                                                                const t = therapists.find(th => th.id === e.target.value);
+                                                                setSelectedAppt({ ...selectedAppt, therapistId: e.target.value, therapistName: t?.fullName || '' });
+                                                            }}
+                                                            style={{ flex: 1, height: '38px', padding: '0 0.75rem', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '0.85rem' }}
+                                                        >
+                                                            <option value="">Seleccionar terapeuta...</option>
+                                                            {(() => {
+                                                                const available = getAvailableTherapists(selectedAppt.start, selectedAppt.end);
+                                                                const singleTId = effectiveTherapistId || (selectedTherapistIds.length === 1 ? selectedTherapistIds[0] : undefined);
+                                                                const filteredOptions = singleTId ? available.filter(t => t.id === singleTId) : available;
+                                                                return filteredOptions.map(t => (
+                                                                    <option key={t.id} value={t.id}>{t.fullName}</option>
+                                                                ));
+                                                            })()}
+                                                        </select>
+                                                        {selectedAppt.therapistId && (
+                                                            <div style={{ width: 32, height: 32, borderRadius: '50%', overflow: 'hidden', flexShrink: 0, border: '1px solid #e2e8f0' }}>
+                                                                <img
+                                                                    src={getIllustrativeAvatar(therapists.find(t => t.id === selectedAppt.therapistId)!)}
+                                                                    alt="Avatar"
+                                                                    style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                                                                />
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </>
+                                    )}
+
+                                    {/* SECCIÓN 2: HORARIO (FECHA, INICIO, FIN Y DURACIÓN RÁPIDA) */}
+                                    {(() => {
+                                        const currentDuration = selectedAppt.start && selectedAppt.end
+                                            ? differenceInMinutes(parseISO(selectedAppt.end), parseISO(selectedAppt.start))
+                                            : 60;
+                                        return (
+                                            <div className="form-row-3" style={{ gridTemplateColumns: '2fr 1fr 1fr', gap: '0.75rem', marginBottom: '0.75rem' }}>
+                                                <div className="form-group" style={{ marginBottom: 0 }}>
+                                                    <label className="text-xs font-semibold text-gray-700 flex items-center gap-1.5 mb-1">
+                                                        <CalendarClock size={13} className="text-primary" /> Fecha
+                                                    </label>
+                                                    <input
+                                                        type="date"
+                                                        required
+                                                        value={getModalDate()}
+                                                        onChange={e => handleModalDateChange(e.target.value)}
+                                                        style={{ height: '38px', fontSize: '0.85rem', borderRadius: '8px', border: '1px solid #cbd5e1', padding: '0 0.75rem', width: '100%', boxSizing: 'border-box' }}
+                                                    />
+                                                </div>
+                                                <div className="form-group" style={{ marginBottom: 0 }}>
+                                                    <label className="text-xs font-semibold text-gray-700 flex items-center gap-1.5 mb-1">
+                                                        <ClockIcon size={13} className="text-primary" /> Inicio
+                                                    </label>
+                                                    <input
+                                                        type="time"
+                                                        required
+                                                        value={getModalStartTime()}
+                                                        onChange={e => handleModalTimeChange('start', e.target.value)}
+                                                        style={{ height: '38px', fontSize: '0.85rem', borderRadius: '8px', border: '1px solid #cbd5e1', padding: '0 0.5rem', width: '100%', boxSizing: 'border-box' }}
+                                                    />
+                                                </div>
+                                                <div className="form-group" style={{ marginBottom: 0 }}>
+                                                    <div className="flex items-center justify-between mb-1">
+                                                        <label className="text-xs font-semibold text-gray-700 m-0 flex items-center gap-1">
+                                                            <ClockIcon size={13} className="text-gray-400" /> Fin
+                                                        </label>
+                                                        <div className="flex items-center gap-1">
+                                                            {[30, 45, 60].map(mins => (
+                                                                <button
+                                                                    key={mins}
+                                                                    type="button"
+                                                                    onClick={() => handleSetDuration(mins)}
+                                                                    className={`duration-pill-btn ${currentDuration === mins ? 'active' : ''}`}
+                                                                    title={`Fijar duración de ${mins} minutos`}
+                                                                >
+                                                                    {mins === 60 ? '1h' : `${mins}m`}
+                                                                </button>
+                                                            ))}
+                                                        </div>
+                                                    </div>
+                                                    <input
+                                                        type="time"
+                                                        required
+                                                        value={getModalEndTime()}
+                                                        onChange={e => handleModalTimeChange('end', e.target.value)}
+                                                        style={{ height: '38px', fontSize: '0.85rem', borderRadius: '8px', border: '1px solid #cbd5e1', padding: '0 0.5rem', width: '100%', boxSizing: 'border-box' }}
+                                                    />
+                                                </div>
+                                            </div>
+                                        );
+                                    })()}
+
+                                    {/* SECCIÓN 3: DETALLES CLÍNICOS, PRECIO Y ESTADO */}
+                                    {selectedAppt.status !== 'Bloqueada' && (
+                                        <div className="form-grid" style={{ gridTemplateColumns: '1.4fr 1fr 1.2fr', gap: '0.75rem', marginBottom: '0.75rem' }}>
+                                            <div className="form-group" style={{ marginBottom: 0 }}>
+                                                <label className="text-xs font-semibold text-gray-700 mb-1 block">Servicio Clínico</label>
                                                 <select
                                                     required
                                                     value={selectedAppt.serviceId || ''}
@@ -2852,22 +3013,21 @@ const CalendarView: React.FC<CalendarViewProps> = ({ mode: initialMode, therapis
                                                             price: s ? s.price : undefined
                                                         });
                                                     }}
-                                                    style={{ height: '36px', padding: '0 0.75rem', borderRadius: '8px', border: '1px solid #ddd', width: '100%', fontSize: '0.85rem' }}
+                                                    style={{ height: '38px', padding: '0 0.75rem', borderRadius: '8px', border: '1px solid #cbd5e1', width: '100%', fontSize: '0.85rem' }}
                                                 >
-                                                    <option value="">Seleccionar...</option>
+                                                    <option value="">Seleccionar servicio...</option>
                                                     {services.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
                                                 </select>
                                             </div>
-                                        )}
-                                        {selectedAppt.status !== 'Bloqueada' && (
-                                            <div className="form-group">
-                                                <label>{isGroupSession ? 'Precio por Alumno (€)' : 'Precio Sesión (€)'}</label>
+
+                                            <div className="form-group" style={{ marginBottom: 0 }}>
+                                                <label className="text-xs font-semibold text-gray-700 mb-1 block">{isGroupSession ? 'Precio / Alumno (€)' : 'Precio Sesión (€)'}</label>
                                                 <input
                                                     type="number"
                                                     step="0.01"
                                                     min="0"
                                                     required
-                                                    placeholder="Ej: 60.00"
+                                                    placeholder="Ej: 40.00"
                                                     value={selectedAppt.price !== undefined && selectedAppt.price !== null ? selectedAppt.price : ''}
                                                     onChange={e => {
                                                         const val = e.target.value;
@@ -2876,64 +3036,52 @@ const CalendarView: React.FC<CalendarViewProps> = ({ mode: initialMode, therapis
                                                             price: val === '' ? undefined : Number(val)
                                                         });
                                                     }}
-                                                    style={{ height: '36px', padding: '0 0.75rem', borderRadius: '8px', border: '1px solid #ddd', width: '100%', fontSize: '0.85rem' }}
+                                                    style={{ height: '38px', padding: '0 0.75rem', borderRadius: '8px', border: '1px solid #cbd5e1', width: '100%', fontSize: '0.85rem' }}
                                                 />
                                             </div>
-                                        )}
-                                        <div className="form-group" style={{ gridColumn: selectedAppt.status === 'Bloqueada' ? 'span 2' : 'auto' }}>
-                                            <label>Estado</label>
-                                            <select
-                                                value={selectedAppt.status}
-                                                onChange={e => {
-                                                    const newStatus = e.target.value as any;
-                                                    if (selectedAppt) {
-                                                        const isPaid = newStatus === 'Cobrada' ? true : (newStatus === 'Finalizada' ? false : selectedAppt.isPaid);
-                                                        setSelectedAppt({
-                                                            ...selectedAppt,
-                                                            status: newStatus,
-                                                            isPaid,
-                                                            patientName: newStatus === 'Bloqueada' ? (selectedAppt.patientName || 'HORARIO BLOQUEADO') : selectedAppt.patientName
-                                                        });
-                                                        if (selectedAppt.start) {
-                                                            checkForWaitingListMatches(selectedAppt.start);
+
+                                            <div className="form-group" style={{ marginBottom: 0 }}>
+                                                <label className="text-xs font-semibold text-gray-700 mb-1 block">Estado</label>
+                                                <select
+                                                    value={selectedAppt.status}
+                                                    onChange={e => {
+                                                        const newStatus = e.target.value as any;
+                                                        if (selectedAppt) {
+                                                            const isPaid = newStatus === 'Cobrada' ? true : (newStatus === 'Finalizada' ? false : selectedAppt.isPaid);
+                                                            setSelectedAppt({
+                                                                ...selectedAppt,
+                                                                status: newStatus,
+                                                                isPaid,
+                                                                patientName: newStatus === 'Bloqueada' ? (selectedAppt.patientName || 'HORARIO BLOQUEADO') : selectedAppt.patientName
+                                                            });
+                                                            if (selectedAppt.start) {
+                                                                checkForWaitingListMatches(selectedAppt.start);
+                                                            }
                                                         }
-                                                    }
-                                                }}
-                                                style={{ height: '36px', padding: '0 0.75rem', borderRadius: '8px', border: '1px solid #ddd', width: '100%', fontSize: '0.85rem' }}
-                                            >
-                                                <option value="Programada">Programada</option>
-                                                <option value="En Sesión">En Sesión</option>
-                                                <option value="Finalizada">Finalizada</option>
-                                                <option value="Cobrada">Cobrada</option>
-                                                <option value="Cancelada">Cancelada</option>
-                                                <option value="Ausente">Ausente</option>
-                                                <option value="Bloqueada">🔒 Bloqueada</option>
-                                            </select>
-                                        </div>
-                                        {selectedAppt.status === 'Bloqueada' && (
-                                            <div className="form-group" style={{ gridColumn: 'span 2' }}>
-                                                <label>Motivo del bloqueo / Título</label>
-                                                <input
-                                                    type="text"
-                                                    value={selectedAppt.patientName || ''}
-                                                    onChange={e => setSelectedAppt({ ...selectedAppt, patientName: e.target.value })}
-                                                    placeholder="Ej: Reunión de equipo, Formación, Descanso..."
-                                                    style={{ height: '36px', padding: '0 0.75rem', borderRadius: '8px', border: '1px solid #ddd', width: '100%', fontSize: '0.85rem' }}
-                                                />
+                                                    }}
+                                                    style={{ height: '38px', padding: '0 0.75rem', borderRadius: '8px', border: '1px solid #cbd5e1', width: '100%', fontSize: '0.85rem' }}
+                                                >
+                                                    <option value="Programada">Programada</option>
+                                                    <option value="En Sesión">En Sesión</option>
+                                                    <option value="Finalizada">Finalizada</option>
+                                                    <option value="Cobrada">Cobrada</option>
+                                                    <option value="Cancelada">Cancelada</option>
+                                                    <option value="Ausente">Ausente</option>
+                                                    <option value="Bloqueada">🔒 Bloqueada</option>
+                                                </select>
                                             </div>
-                                        )}
-                                    </div>
+                                        </div>
+                                    )}
 
-
-
+                                    {/* Motivo de Cancelación (Si aplica) */}
                                     {selectedAppt.status === 'Cancelada' && (
-                                        <div className="form-group">
-                                            <label>Motivo de Cancelación</label>
+                                        <div className="form-group mb-3">
+                                            <label className="text-xs font-semibold text-red-700 mb-1 block">Motivo de Cancelación</label>
                                             <select
                                                 required
                                                 value={selectedAppt.cancellationReason || ''}
                                                 onChange={e => setSelectedAppt({ ...selectedAppt, cancellationReason: e.target.value })}
-                                                style={{ padding: '0.75rem', borderRadius: '8px', border: '1px solid #ddd' }}
+                                                style={{ height: '38px', padding: '0 0.75rem', borderRadius: '8px', border: '1px solid #fca5a5', width: '100%', fontSize: '0.85rem' }}
                                             >
                                                 <option value="">Seleccionar motivo...</option>
                                                 <option value="Enfermedad">Enfermedad</option>
@@ -2945,11 +3093,12 @@ const CalendarView: React.FC<CalendarViewProps> = ({ mode: initialMode, therapis
                                         </div>
                                     )}
 
+                                    {/* SECCIÓN 4: NOTAS Y DIARIO */}
                                     {selectedAppt.status !== 'Bloqueada' && (
                                         <div className="form-group notes-group mb-3">
                                             <div className="flex justify-between items-center mb-1">
                                                 <label className="flex items-center gap-1.5 m-0 font-semibold text-xs text-gray-700">
-                                                    <FileText size={14} className="text-secondary" /> Notas de la Cita / Estado de Terapia
+                                                    <FileText size={13} className="text-secondary" /> Notas de la Cita / Estado de Terapia
                                                 </label>
                                                 <button
                                                     type="button"
@@ -2957,28 +3106,25 @@ const CalendarView: React.FC<CalendarViewProps> = ({ mode: initialMode, therapis
                                                     onClick={toggleVoiceNotes}
                                                     title={isRecordingNotes ? 'Detener grabación' : 'Dictar notas por voz'}
                                                 >
-                                                    {isRecordingNotes ? <Square size={14} fill="currentColor" /> : <Mic size={14} />}
+                                                    {isRecordingNotes ? <Square size={13} fill="currentColor" /> : <Mic size={13} />}
                                                     <span>{isRecordingNotes ? 'Grabando...' : 'Dictar'}</span>
                                                 </button>
                                             </div>
                                             <textarea
                                                 value={selectedAppt.notes || ''}
                                                 onChange={e => setSelectedAppt({ ...selectedAppt, notes: e.target.value })}
-                                                placeholder="Indica en qué momento de la terapia se encuentra el paciente o notas para el terapeuta que atienda la sesión..."
+                                                placeholder="Observaciones clínicas o momento de terapia del paciente..."
                                                 rows={2}
-                                                style={{ width: '100%', minHeight: '65px', padding: '0.6rem 0.75rem', borderRadius: '8px', border: '1px solid #ddd', fontFamily: 'inherit', fontSize: '0.85rem' }}
+                                                style={{ width: '100%', minHeight: '58px', padding: '0.5rem 0.75rem', borderRadius: '8px', border: '1px solid #cbd5e1', fontFamily: 'inherit', fontSize: '0.85rem' }}
                                             />
-                                            <p className="text-[10px] text-gray-400 mt-1 italic">
-                                                Visible para cualquier terapeuta que atienda a este paciente para conocer el momento de la terapia.
-                                            </p>
                                         </div>
                                     )}
 
                                     {(selectedAppt.status === 'Finalizada' || selectedAppt.status === 'Cobrada' || (selectedAppt.start && isAfter(new Date(), parseISO(selectedAppt.start)) && selectedAppt.status === 'Programada')) && (
-                                        <div className="form-group diary-group">
+                                        <div className="form-group diary-group mb-3">
                                             <div className="flex justify-between items-center mb-1">
-                                                <label className="flex items-center gap-2 m-0">
-                                                    <Rocket size={14} className="text-secondary" /> Diario de Sesión (Progreso)
+                                                <label className="flex items-center gap-2 m-0 font-semibold text-xs text-emerald-800">
+                                                    <Rocket size={14} className="text-emerald-600" /> Diario de Sesión (Progreso)
                                                 </label>
                                                 <button
                                                     type="button"
@@ -2995,223 +3141,264 @@ const CalendarView: React.FC<CalendarViewProps> = ({ mode: initialMode, therapis
                                                 value={selectedAppt.sessionDiary || ''}
                                                 onChange={e => {
                                                     const updates: any = { sessionDiary: e.target.value };
-                                                    // Si escribe el diario y estaba en Programada, asumimos que se realizó
                                                     if (selectedAppt.status === 'Programada') {
                                                         updates.status = 'Finalizada';
                                                     }
                                                     setSelectedAppt({ ...selectedAppt, ...updates });
                                                 }}
-                                                placeholder="Escribe el progreso de la sesión..."
+                                                placeholder="Escribe el progreso de la sesión realizada..."
                                                 rows={3}
-                                                style={{ width: '100%', minHeight: '80px', padding: '0.75rem', borderRadius: '8px', border: '1px solid #ddd', fontFamily: 'inherit', fontSize: '0.875rem' }}
+                                                style={{ width: '100%', minHeight: '75px', padding: '0.6rem 0.75rem', borderRadius: '8px', border: '1px solid #cbd5e1', fontFamily: 'inherit', fontSize: '0.85rem' }}
                                             />
                                         </div>
                                     )}
 
-                                    {!selectedAppt.id && (
-                                        <div className="recurrence-section p-3.5 bg-gray-50 rounded-xl border border-dashed border-gray-300 mb-4">
-                                            <div className="flex items-center justify-between mb-3">
-                                                <label className="flex items-center gap-2 font-bold text-xs text-secondary uppercase tracking-wider">
-                                                    <Repeat size={14} className="text-primary" /> Configuración de Recurrencia
-                                                </label>
-                                                {(selectedAppt.recurrence?.weeks || selectedAppt.recurrence?.until) && (
-                                                    <span className="text-[10px] font-bold px-2.5 py-0.5 rounded-full bg-indigo-100 text-indigo-700">
-                                                        {selectedAppt.recurrence?.frequency === 'biweekly' ? 'Quincenal (cada 15 días)' : 'Semanal (cada 7 días)'}
-                                                    </span>
-                                                )}
-                                            </div>
-
-                                            {/* Selector de Frecuencia: Semanal vs Quincenal */}
-                                            <div className="recurrence-freq-group flex gap-2 mb-3">
-                                                <button
-                                                    type="button"
-                                                    className={`recurrence-freq-btn flex-1 py-1.5 px-3 rounded-lg text-xs font-bold border transition-all flex items-center justify-center gap-1.5 ${
-                                                        (selectedAppt.recurrence?.frequency || 'weekly') === 'weekly'
-                                                            ? 'bg-primary text-white border-primary shadow-sm'
-                                                            : 'bg-white text-gray-700 border-gray-200 hover:bg-gray-50'
-                                                    }`}
-                                                    onClick={() => setSelectedAppt({
-                                                        ...selectedAppt,
-                                                        recurrence: {
-                                                            ...selectedAppt.recurrence,
-                                                            frequency: 'weekly',
-                                                            weeks: selectedAppt.recurrence?.weeks || 4
-                                                        }
-                                                    })}
-                                                >
-                                                    <Repeat size={13} /> Semanal (cada semana)
-                                                </button>
-                                                <button
-                                                    type="button"
-                                                    className={`recurrence-freq-btn flex-1 py-1.5 px-3 rounded-lg text-xs font-bold border transition-all flex items-center justify-center gap-1.5 ${
-                                                        selectedAppt.recurrence?.frequency === 'biweekly'
-                                                            ? 'bg-primary text-white border-primary shadow-sm'
-                                                            : 'bg-white text-gray-700 border-gray-200 hover:bg-gray-50'
-                                                    }`}
-                                                    onClick={() => setSelectedAppt({
-                                                        ...selectedAppt,
-                                                        recurrence: {
-                                                            ...selectedAppt.recurrence,
-                                                            frequency: 'biweekly',
-                                                            weeks: selectedAppt.recurrence?.weeks || 8
-                                                        }
-                                                    })}
-                                                >
-                                                    <Repeat size={13} /> Quincenal (cada 15 días)
-                                                </button>
-                                            </div>
-
-                                            {/* Selector de días de repetición */}
-                                            <div className="day-selector flex gap-1 mb-2.5">
-                                                {['L', 'M', 'X', 'J', 'V', 'S'].map((day, i) => {
-                                                    const dayNum = i + 1;
-                                                    const startBaseDate = selectedAppt.start ? parseISO(selectedAppt.start) : new Date();
-                                                    const baseDayNum = isValid(startBaseDate) ? (getDay(startBaseDate) === 0 ? 7 : getDay(startBaseDate)) : 1;
-                                                    const activeDays = (selectedAppt.recurrence?.days && selectedAppt.recurrence.days.length > 0)
-                                                        ? selectedAppt.recurrence.days
-                                                        : [baseDayNum];
-                                                    const isSelected = activeDays.includes(dayNum);
-
-                                                    return (
-                                                        <button
-                                                            key={day}
-                                                            type="button"
-                                                            className={`day-btn ${isSelected ? 'active' : ''}`}
-                                                            style={{ width: '28px', height: '28px', fontSize: '0.7rem' }}
-                                                            onClick={() => {
-                                                                const currentDays = (selectedAppt.recurrence?.days && selectedAppt.recurrence.days.length > 0)
-                                                                    ? selectedAppt.recurrence.days
-                                                                    : [baseDayNum];
-                                                                const newDays = isSelected
-                                                                    ? currentDays.filter(d => d !== dayNum)
-                                                                    : [...currentDays, dayNum].sort();
-                                                                setSelectedAppt({
-                                                                    ...selectedAppt,
-                                                                    recurrence: { ...selectedAppt.recurrence, days: newDays }
-                                                                });
-                                                            }}
-                                                        >
-                                                            {day}
-                                                        </button>
-                                                    );
-                                                })}
-                                            </div>
-
-                                            <div className="form-grid">
-                                                <div className="form-group">
-                                                    <label>
-                                                        {selectedAppt.recurrence?.frequency === 'biweekly' ? 'Duración (Semanas)' : 'Repetir (Semanas)'}
-                                                    </label>
-                                                    <input
-                                                        type="number"
-                                                        min="1"
-                                                        max="52"
-                                                        disabled={!!selectedAppt.recurrence?.until}
-                                                        placeholder="Nº"
-                                                        value={selectedAppt.recurrence?.weeks || ''}
-                                                        onChange={e => setSelectedAppt({
-                                                            ...selectedAppt,
-                                                            recurrence: { ...selectedAppt.recurrence, weeks: parseInt(e.target.value) || undefined, until: undefined }
-                                                        })}
-                                                        style={{ height: '34px', padding: '0 0.5rem', borderRadius: '6px', fontSize: '0.85rem' }}
-                                                    />
-                                                </div>
-                                                <div className="form-group">
-                                                    <label>O hasta fecha</label>
-                                                    <input
-                                                        type="date"
-                                                        disabled={!!selectedAppt.recurrence?.weeks && selectedAppt.recurrence.weeks > 0}
-                                                        value={selectedAppt.recurrence?.until || ''}
-                                                        onChange={e => setSelectedAppt({
-                                                            ...selectedAppt,
-                                                            recurrence: { ...selectedAppt.recurrence, until: e.target.value, weeks: undefined }
-                                                        })}
-                                                        style={{ height: '34px', padding: '0 0.5rem', borderRadius: '6px', fontSize: '0.85rem' }}
-                                                    />
-                                                </div>
-                                            </div>
-
-                                            {/* Botones de duración rápida */}
-                                            <div className="flex gap-1.5 mt-2.5 flex-wrap items-center">
-                                                {(selectedAppt.recurrence?.frequency === 'biweekly' ? [
-                                                    { weeks: 4, label: '1 mes (2 citas)' },
-                                                    { weeks: 8, label: '2 meses (4 citas)' },
-                                                    { weeks: 12, label: '3 meses (6 citas)' },
-                                                    { weeks: 24, label: '6 meses (12 citas)' },
-                                                ] : [
-                                                    { weeks: 4, label: '4 semanas (1 mes)' },
-                                                    { weeks: 8, label: '8 semanas (2 meses)' },
-                                                    { weeks: 12, label: '12 semanas (3 meses)' },
-                                                    { weeks: 24, label: '24 semanas (6 meses)' },
-                                                ]).map(preset => (
-                                                    <button
-                                                        key={preset.weeks}
-                                                        type="button"
-                                                        className={`text-[11px] px-2.5 py-1 rounded-full border transition-all ${
-                                                            selectedAppt.recurrence?.weeks === preset.weeks
-                                                                ? 'bg-primary/10 border-primary text-primary font-bold shadow-xs'
-                                                                : 'bg-white border-gray-200 text-gray-600 hover:bg-gray-50'
-                                                        }`}
-                                                        onClick={() => setSelectedAppt({
-                                                            ...selectedAppt,
-                                                            recurrence: {
-                                                                ...selectedAppt.recurrence,
-                                                                weeks: preset.weeks,
-                                                                until: undefined
-                                                            }
-                                                        })}
-                                                    >
-                                                        {preset.label}
-                                                    </button>
-                                                ))}
-
-                                                {(selectedAppt.recurrence?.weeks || selectedAppt.recurrence?.until) && (
-                                                    <button
-                                                        type="button"
-                                                        className="text-[11px] px-2.5 py-1 rounded-full border border-gray-200 text-rose-600 hover:bg-rose-50 transition-all ml-auto font-medium"
-                                                        onClick={() => setSelectedAppt({
+                                    {/* SECCIÓN 5: RECURRENCIA (ACORDEÓN PLEGABLE BAJO DEMANDA) */}
+                                    {!selectedAppt.id && selectedAppt.status !== 'Bloqueada' && (
+                                        <div className="recurrence-accordion mb-3">
+                                            <button
+                                                type="button"
+                                                className={`recurrence-accordion-header ${isRecurrenceOpen ? 'open' : ''}`}
+                                                onClick={() => {
+                                                    const nextState = !isRecurrenceOpen;
+                                                    setIsRecurrenceOpen(nextState);
+                                                    if (!nextState) {
+                                                        setSelectedAppt({
                                                             ...selectedAppt,
                                                             recurrence: {
                                                                 frequency: selectedAppt.recurrence?.frequency || 'weekly',
                                                                 weeks: undefined,
                                                                 until: undefined,
-                                                                days: undefined
+                                                                days: selectedAppt.recurrence?.days
                                                             }
-                                                        })}
-                                                    >
-                                                        Cita única
-                                                    </button>
-                                                )}
-                                            </div>
+                                                        });
+                                                    } else if (!selectedAppt.recurrence?.weeks && !selectedAppt.recurrence?.until) {
+                                                        setSelectedAppt({
+                                                            ...selectedAppt,
+                                                            recurrence: {
+                                                                ...selectedAppt.recurrence,
+                                                                frequency: 'weekly',
+                                                                weeks: 4
+                                                            }
+                                                        });
+                                                    }
+                                                }}
+                                            >
+                                                <div className="flex items-center gap-2">
+                                                    <Repeat size={14} className={isRecurrenceOpen ? 'text-primary' : 'text-gray-500'} />
+                                                    <span className="font-bold text-xs text-gray-800">
+                                                        {isRecurrenceOpen ? 'Configuración de Recurrencia Activa' : '¿Repetir cita semanal o quincenalmente? (Opcional)'}
+                                                    </span>
+                                                    {(selectedAppt.recurrence?.weeks || selectedAppt.recurrence?.until) && (
+                                                        <span className="recurrence-active-badge">
+                                                            {selectedAppt.recurrence?.frequency === 'biweekly' ? 'Quincenal' : 'Semanal'} ({selectedAppt.recurrence?.weeks ? `${selectedAppt.recurrence.weeks} sem` : 'con fecha límite'})
+                                                        </span>
+                                                    )}
+                                                </div>
+                                                <div className="flex items-center gap-1.5 text-xs text-gray-500 font-medium">
+                                                    <span>{isRecurrenceOpen ? 'Ocultar' : 'Configurar'}</span>
+                                                    {isRecurrenceOpen ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+                                                </div>
+                                            </button>
 
-                                            {/* Resumen dinámico en tiempo real */}
-                                            {(() => {
-                                                const summary = getRecurrenceSummary(selectedAppt);
-                                                if (summary) {
-                                                    return (
-                                                        <div className="recurrence-summary mt-3 p-2.5 bg-emerald-50 border border-emerald-200 rounded-lg text-emerald-800 text-[11px] flex items-start gap-2">
-                                                            <CheckCircle2 size={15} className="mt-0.5 shrink-0 text-emerald-600" />
-                                                            <div>
-                                                                <span className="font-bold">Serie {summary.isBiweekly ? 'quincenal' : 'semanal'}: </span>
-                                                                <span>
-                                                                    Se crearán <strong>{summary.count} {summary.count === 1 ? 'cita' : 'citas'}</strong>{' '}
-                                                                    {summary.isBiweekly ? '(cada 15 días / semanas alternas)' : '(cada semana)'} desde el <strong>{summary.firstDate}</strong> hasta el <strong>{summary.lastDate}</strong>.
-                                                                </span>
-                                                            </div>
+                                            {isRecurrenceOpen && (
+                                                <div className="recurrence-accordion-body">
+                                                    {/* Selector de Frecuencia: Semanal vs Quincenal */}
+                                                    <div className="recurrence-freq-group flex gap-2 mb-3">
+                                                        <button
+                                                            type="button"
+                                                            className={`recurrence-freq-btn flex-1 py-1.5 px-3 rounded-lg text-xs font-bold border transition-all flex items-center justify-center gap-1.5 ${
+                                                                (selectedAppt.recurrence?.frequency || 'weekly') === 'weekly'
+                                                                    ? 'bg-primary text-white border-primary shadow-sm'
+                                                                    : 'bg-white text-gray-700 border-gray-200 hover:bg-gray-50'
+                                                            }`}
+                                                            onClick={() => setSelectedAppt({
+                                                                ...selectedAppt,
+                                                                recurrence: {
+                                                                    ...selectedAppt.recurrence,
+                                                                    frequency: 'weekly',
+                                                                    weeks: selectedAppt.recurrence?.weeks || 4
+                                                                }
+                                                            })}
+                                                        >
+                                                            <Repeat size={13} /> Semanal (cada semana)
+                                                        </button>
+                                                        <button
+                                                            type="button"
+                                                            className={`recurrence-freq-btn flex-1 py-1.5 px-3 rounded-lg text-xs font-bold border transition-all flex items-center justify-center gap-1.5 ${
+                                                                selectedAppt.recurrence?.frequency === 'biweekly'
+                                                                    ? 'bg-primary text-white border-primary shadow-sm'
+                                                                    : 'bg-white text-gray-700 border-gray-200 hover:bg-gray-50'
+                                                            }`}
+                                                            onClick={() => setSelectedAppt({
+                                                                ...selectedAppt,
+                                                                recurrence: {
+                                                                    ...selectedAppt.recurrence,
+                                                                    frequency: 'biweekly',
+                                                                    weeks: selectedAppt.recurrence?.weeks || 8
+                                                                }
+                                                            })}
+                                                        >
+                                                            <Repeat size={13} /> Quincenal (cada 15 días)
+                                                        </button>
+                                                    </div>
+
+                                                    {/* Selector de días de repetición */}
+                                                    <div className="day-selector flex gap-1 mb-2.5">
+                                                        {['L', 'M', 'X', 'J', 'V', 'S'].map((day, i) => {
+                                                            const dayNum = i + 1;
+                                                            const startBaseDate = selectedAppt.start ? parseISO(selectedAppt.start) : new Date();
+                                                            const baseDayNum = isValid(startBaseDate) ? (getDay(startBaseDate) === 0 ? 7 : getDay(startBaseDate)) : 1;
+                                                            const activeDays = (selectedAppt.recurrence?.days && selectedAppt.recurrence.days.length > 0)
+                                                                ? selectedAppt.recurrence.days
+                                                                : [baseDayNum];
+                                                            const isSelected = activeDays.includes(dayNum);
+
+                                                            return (
+                                                                <button
+                                                                    key={day}
+                                                                    type="button"
+                                                                    className={`day-btn ${isSelected ? 'active' : ''}`}
+                                                                    style={{ width: '28px', height: '28px', fontSize: '0.7rem' }}
+                                                                    onClick={() => {
+                                                                        const currentDays = (selectedAppt.recurrence?.days && selectedAppt.recurrence.days.length > 0)
+                                                                            ? selectedAppt.recurrence.days
+                                                                            : [baseDayNum];
+                                                                        const newDays = isSelected
+                                                                            ? currentDays.filter(d => d !== dayNum)
+                                                                            : [...currentDays, dayNum].sort();
+                                                                        setSelectedAppt({
+                                                                            ...selectedAppt,
+                                                                            recurrence: { ...selectedAppt.recurrence, days: newDays }
+                                                                        });
+                                                                    }}
+                                                                >
+                                                                    {day}
+                                                                </button>
+                                                            );
+                                                        })}
+                                                    </div>
+
+                                                    <div className="form-grid mb-2.5">
+                                                        <div className="form-group" style={{ marginBottom: 0 }}>
+                                                            <label className="text-xs font-semibold text-gray-700 mb-1 block">
+                                                                {selectedAppt.recurrence?.frequency === 'biweekly' ? 'Duración (Semanas)' : 'Repetir (Semanas)'}
+                                                            </label>
+                                                            <input
+                                                                type="number"
+                                                                min="1"
+                                                                max="52"
+                                                                disabled={!!selectedAppt.recurrence?.until}
+                                                                placeholder="Nº"
+                                                                value={selectedAppt.recurrence?.weeks || ''}
+                                                                onChange={e => setSelectedAppt({
+                                                                    ...selectedAppt,
+                                                                    recurrence: { ...selectedAppt.recurrence, weeks: parseInt(e.target.value) || undefined, until: undefined }
+                                                                })}
+                                                                style={{ height: '34px', padding: '0 0.5rem', borderRadius: '6px', fontSize: '0.85rem', width: '100%', border: '1px solid #cbd5e1' }}
+                                                            />
                                                         </div>
-                                                    );
-                                                }
-                                                return (
-                                                    <p className="text-[10px] text-gray-500 mt-2.5 italic">
-                                                        Cita única si no se indica duración. Pulsa en semanas o fecha límite para programar una serie recurrente.
-                                                    </p>
-                                                );
-                                            })()}
+                                                        <div className="form-group" style={{ marginBottom: 0 }}>
+                                                            <label className="text-xs font-semibold text-gray-700 mb-1 block">O hasta fecha límite</label>
+                                                            <input
+                                                                type="date"
+                                                                disabled={!!selectedAppt.recurrence?.weeks && selectedAppt.recurrence.weeks > 0}
+                                                                value={selectedAppt.recurrence?.until || ''}
+                                                                onChange={e => setSelectedAppt({
+                                                                    ...selectedAppt,
+                                                                    recurrence: { ...selectedAppt.recurrence, until: e.target.value, weeks: undefined }
+                                                                })}
+                                                                style={{ height: '34px', padding: '0 0.5rem', borderRadius: '6px', fontSize: '0.85rem', width: '100%', border: '1px solid #cbd5e1' }}
+                                                            />
+                                                        </div>
+                                                    </div>
+
+                                                    {/* Botones de duración rápida */}
+                                                    <div className="flex gap-1.5 mt-2 flex-wrap items-center">
+                                                        {(selectedAppt.recurrence?.frequency === 'biweekly' ? [
+                                                            { weeks: 4, label: '1 mes (2 citas)' },
+                                                            { weeks: 8, label: '2 meses (4 citas)' },
+                                                            { weeks: 12, label: '3 meses (6 citas)' },
+                                                            { weeks: 24, label: '6 meses (12 citas)' },
+                                                        ] : [
+                                                            { weeks: 4, label: '4 semanas (1 mes)' },
+                                                            { weeks: 8, label: '8 semanas (2 meses)' },
+                                                            { weeks: 12, label: '12 semanas (3 meses)' },
+                                                            { weeks: 24, label: '24 semanas (6 meses)' },
+                                                        ]).map(preset => (
+                                                            <button
+                                                                key={preset.weeks}
+                                                                type="button"
+                                                                className={`text-[11px] px-2.5 py-1 rounded-full border transition-all ${
+                                                                    selectedAppt.recurrence?.weeks === preset.weeks
+                                                                        ? 'bg-primary/10 border-primary text-primary font-bold shadow-2xs'
+                                                                        : 'bg-white border-gray-200 text-gray-600 hover:bg-gray-50'
+                                                                }`}
+                                                                onClick={() => setSelectedAppt({
+                                                                    ...selectedAppt,
+                                                                    recurrence: {
+                                                                        ...selectedAppt.recurrence,
+                                                                        weeks: preset.weeks,
+                                                                        until: undefined
+                                                                    }
+                                                                })}
+                                                            >
+                                                                {preset.label}
+                                                            </button>
+                                                        ))}
+
+                                                        {(selectedAppt.recurrence?.weeks || selectedAppt.recurrence?.until) && (
+                                                            <button
+                                                                type="button"
+                                                                className="text-[11px] px-2.5 py-1 rounded-full border border-gray-200 text-rose-600 hover:bg-rose-50 transition-all ml-auto font-medium"
+                                                                onClick={() => {
+                                                                    setSelectedAppt({
+                                                                        ...selectedAppt,
+                                                                        recurrence: {
+                                                                            frequency: selectedAppt.recurrence?.frequency || 'weekly',
+                                                                            weeks: undefined,
+                                                                            until: undefined,
+                                                                            days: undefined
+                                                                        }
+                                                                    });
+                                                                    setIsRecurrenceOpen(false);
+                                                                }}
+                                                            >
+                                                                Cita única (desactivar)
+                                                            </button>
+                                                        )}
+                                                    </div>
+
+                                                    {/* Resumen dinámico en tiempo real */}
+                                                    {(() => {
+                                                        const summary = getRecurrenceSummary(selectedAppt);
+                                                        if (summary) {
+                                                            return (
+                                                                <div className="recurrence-summary mt-3 p-2.5 bg-emerald-50 border border-emerald-200 rounded-lg text-emerald-800 text-[11px] flex items-start gap-2">
+                                                                    <CheckCircle2 size={15} className="mt-0.5 shrink-0 text-emerald-600" />
+                                                                    <div>
+                                                                        <span className="font-bold">Serie {summary.isBiweekly ? 'quincenal' : 'semanal'}: </span>
+                                                                        <span>
+                                                                            Se crearán <strong>{summary.count} {summary.count === 1 ? 'cita' : 'citas'}</strong>{' '}
+                                                                            {summary.isBiweekly ? '(cada 15 días / semanas alternas)' : '(cada semana)'} desde el <strong>{summary.firstDate}</strong> hasta el <strong>{summary.lastDate}</strong>.
+                                                                        </span>
+                                                                    </div>
+                                                                </div>
+                                                            );
+                                                        }
+                                                        return (
+                                                            <p className="text-[10px] text-gray-500 mt-2.5 italic">
+                                                                Cita única si no se indica duración. Pulsa en semanas o fecha límite para programar una serie recurrente.
+                                                            </p>
+                                                        );
+                                                    })()}
+                                                </div>
+                                            )}
                                         </div>
                                     )}
 
                                     {selectedAppt.id && selectedAppt.recurrence?.originalId === 'SERIE' && (
-                                        <div className="mb-4 p-2.5 bg-indigo-50 border border-indigo-200 rounded-xl flex items-center gap-2 text-indigo-800 text-xs">
+                                        <div className="mb-3 p-2.5 bg-indigo-50 border border-indigo-200 rounded-xl flex items-center gap-2 text-indigo-800 text-xs">
                                             <Repeat size={14} className="text-indigo-600 shrink-0" />
                                             <span>
                                                 Esta cita forma parte de una <strong>serie recurrente {selectedAppt.recurrence.frequency === 'biweekly' ? 'quincenal (cada 15 días)' : 'semanal'}</strong>.

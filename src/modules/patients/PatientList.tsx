@@ -1134,12 +1134,7 @@ const PatientList: React.FC = () => {
             {isModalOpen && selectedPatient && (
                 <div className="modal-overlay">
                     <div
-                        className={`modal-content ${activeTab === 'appointments' || activeTab === 'history' || activeTab === 'wallet' ? 'large' : ''}`}
-                        style={{
-                            maxWidth: activeTab === 'appointments' || activeTab === 'history' || activeTab === 'wallet' ? '960px' : '680px',
-                            width: '95%',
-                            transition: 'max-width 0.25s cubic-bezier(0.4, 0, 0.2, 1)'
-                        }}
+                        className="modal-content large patient-detail-modal"
                     >
                         <div className="modal-header">
                             <div className="flex items-center gap-5">

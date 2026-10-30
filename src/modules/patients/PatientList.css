@@ -398,18 +398,44 @@
 }
 
 /* --- Modal & Form Improvements --- */
+.patient-detail-modal,
 .modal-content.large {
-    max-width: 900px;
+    max-width: 960px;
     width: 95%;
+    height: 85vh;
+    min-height: 620px;
     max-height: 90vh;
     display: flex;
     flex-direction: column;
+    overflow: hidden;
 }
 
-.tab-content {
+.patient-detail-modal .modal-header,
+.modal-content.large .modal-header {
+    flex-shrink: 0;
+}
+
+.patient-detail-modal .modal-tabs,
+.modal-content.large .modal-tabs {
+    flex-shrink: 0;
+}
+
+.patient-detail-modal .tab-content,
+.modal-content.large .tab-content {
     flex: 1;
     overflow-y: auto;
+    min-height: 0;
     padding-right: 0.5rem;
+}
+
+@media (max-width: 768px) {
+    .patient-detail-modal,
+    .modal-content.large {
+        width: 98% !important;
+        height: 92vh !important;
+        min-height: 0 !important;
+        max-height: 95vh !important;
+    }
 }
 
 /* Custom Scrollbar for Form */

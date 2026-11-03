@@ -2599,10 +2599,11 @@ const CalendarView: React.FC<CalendarViewProps> = ({ mode: initialMode, therapis
                                                         <option value="">Seleccionar terapeuta...</option>
                                                         {(() => {
                                                             const available = getAvailableTherapists(selectedAppt.start, selectedAppt.end);
-                                                            const singleTId = effectiveTherapistId || (selectedTherapistIds.length === 1 ? selectedTherapistIds[0] : undefined);
-                                                            const filteredOptions = singleTId ? available.filter(t => t.id === singleTId) : available;
-                                                            return filteredOptions.map(t => (
-                                                                <option key={t.id} value={t.id}>{t.fullName}</option>
+                                                            const availableIds = new Set(available.map(t => t.id));
+                                                            return therapists.map(t => (
+                                                                <option key={t.id} value={t.id}>
+                                                                    {t.fullName} {!availableIds.has(t.id) && selectedAppt.start ? '⚠️ (Fuera de horario / Ausente)' : ''}
+                                                                </option>
                                                             ));
                                                         })()}
                                                     </select>
@@ -2909,10 +2910,11 @@ const CalendarView: React.FC<CalendarViewProps> = ({ mode: initialMode, therapis
                                                             <option value="">Seleccionar terapeuta...</option>
                                                             {(() => {
                                                                 const available = getAvailableTherapists(selectedAppt.start, selectedAppt.end);
-                                                                const singleTId = effectiveTherapistId || (selectedTherapistIds.length === 1 ? selectedTherapistIds[0] : undefined);
-                                                                const filteredOptions = singleTId ? available.filter(t => t.id === singleTId) : available;
-                                                                return filteredOptions.map(t => (
-                                                                    <option key={t.id} value={t.id}>{t.fullName}</option>
+                                                                const availableIds = new Set(available.map(t => t.id));
+                                                                return therapists.map(t => (
+                                                                    <option key={t.id} value={t.id}>
+                                                                        {t.fullName} {!availableIds.has(t.id) && selectedAppt.start ? '⚠️ (Fuera de horario / Ausente)' : ''}
+                                                                    </option>
                                                                 ));
                                                             })()}
                                                         </select>

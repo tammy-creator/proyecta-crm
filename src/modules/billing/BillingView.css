@@ -4,8 +4,11 @@
 
 .billing-container {
     animation: billingFadeIn 0.4s ease-out;
-    padding: 1.5rem 1.5rem 0;
+    padding: 1.25rem 1rem 0;
     max-width: 1440px;
+    width: 100%;
+    min-width: 0;
+    box-sizing: border-box;
     margin: 0 auto;
     min-height: 100vh;
     display: flex;
@@ -14,7 +17,13 @@
 
 @media (min-width: 768px) {
     .billing-container {
-        padding: 2rem 2.5rem 0;
+        padding: 1.5rem 1.5rem 0;
+    }
+}
+
+@media (min-width: 1440px) {
+    .billing-container {
+        padding: 1.75rem 2rem 0;
     }
 }
 
@@ -257,7 +266,10 @@
 .billing-table-wrapper {
     display: block !important;
     width: 100%;
+    max-width: 100%;
+    min-width: 0;
     overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
     height: auto !important;
     background: #ffffff !important;
     border-radius: 20px;
@@ -266,7 +278,7 @@
         0 1px 3px rgba(0, 0, 0, 0.02);
     border: 1px solid #eef2f6;
     margin-bottom: 2rem;
-    padding: 0 0 60px 0 !important;
+    padding: 0 0 20px 0 !important;
 }
 
 /* Custom scrollbar for table */
@@ -274,12 +286,13 @@
     height: 6px;
 }
 .billing-table-wrapper::-webkit-scrollbar-thumb {
-    background: #e2e8f0;
+    background: #cbd5e1;
     border-radius: 10px;
 }
 
 .billing-table {
     width: 100%;
+    min-width: 920px;
     border-collapse: separate;
     border-spacing: 0;
     text-align: left;
@@ -291,22 +304,34 @@
 }
 
 .billing-table th {
-    padding: 1.25rem 1.5rem;
-    font-size: 0.7rem;
+    padding: 0.9rem 0.85rem;
+    font-size: 0.72rem;
     font-weight: 800;
     color: #94a3b8;
     text-transform: uppercase;
-    letter-spacing: 0.12em;
+    letter-spacing: 0.06em;
     border-bottom: 2px solid #edf2f7;
+    white-space: nowrap;
 }
 
 .billing-table td {
-    padding: 1.1rem 1.5rem;
+    padding: 0.85rem 0.85rem;
     border-bottom: 1px solid #f8fafc;
-    font-size: 0.95rem;
+    font-size: 0.92rem;
     color: #334155;
     transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
     vertical-align: middle;
+}
+
+.billing-table th:first-child,
+.billing-table td:first-child {
+    padding-left: 1.5rem;
+}
+
+.billing-table th:last-child,
+.billing-table td:last-child {
+    padding-right: 1.5rem;
+    text-align: right;
 }
 
 .billing-table tbody tr {
@@ -509,23 +534,29 @@
 
 /* ── Payment Action Buttons ── */
 .payment-actions {
-    display: flex;
-    gap: 0.4rem;
+    display: inline-flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 0.25rem;
+    flex-shrink: 0;
 }
 
 .btn-payment-method {
-    display: flex;
+    display: inline-flex;
     align-items: center;
     justify-content: center;
-    width: 36px;
-    height: 36px;
+    width: 32px;
+    height: 32px;
+    min-width: 32px;
+    min-height: 32px;
     padding: 0;
-    border-radius: 12px;
+    border-radius: 8px;
     border: 1px solid #e2e8f0;
     background: white;
     color: #475569;
     cursor: pointer;
-    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    flex-shrink: 0;
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .btn-payment-method:hover {

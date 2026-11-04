@@ -2916,7 +2916,7 @@ const BillingView: React.FC = () => {
                                         <th>Importe</th>
                                         <th>Estado</th>
                                         <th>Método</th>
-                                        <th style={{ textAlign: 'right' }}>Acciones</th>
+                                        <th style={{ textAlign: 'right', minWidth: '220px', whiteSpace: 'nowrap' }}>Acciones</th>
                                     </tr>
                                 </thead>
                                 <tbody>

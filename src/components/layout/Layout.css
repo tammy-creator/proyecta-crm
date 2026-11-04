@@ -26,6 +26,7 @@
     /* Independent scroll */
     overflow-x: clip;
     min-height: 0;
+    min-width: 0;
     /* CRITICAL: Allows flex item to be smaller than its content */
     display: flex;
     flex-direction: column;

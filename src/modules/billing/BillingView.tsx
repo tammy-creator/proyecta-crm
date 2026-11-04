@@ -2910,13 +2910,13 @@ const BillingView: React.FC = () => {
                             <table className="billing-table">
                                 <thead>
                                     <tr>
-                                        <th>Hora</th>
-                                        <th style={{ minWidth: '200px' }}>Paciente</th>
-                                        <th>Concepto</th>
-                                        <th>Importe</th>
-                                        <th>Estado</th>
-                                        <th>Método</th>
-                                        <th style={{ textAlign: 'right', minWidth: '220px', whiteSpace: 'nowrap' }}>Acciones</th>
+                                        <th style={{ width: '60px' }}>Hora</th>
+                                        <th>Paciente</th>
+                                        <th style={{ width: '130px' }}>Concepto</th>
+                                        <th style={{ width: '70px', textAlign: 'right' }}>Importe</th>
+                                        <th style={{ width: '85px', textAlign: 'center' }}>Estado</th>
+                                        <th style={{ width: '95px' }}>Método</th>
+                                        <th style={{ textAlign: 'right', width: '190px', minWidth: '185px', whiteSpace: 'nowrap' }}>Acciones</th>
                                     </tr>
                                 </thead>
                                 <tbody>
@@ -2945,7 +2945,7 @@ const BillingView: React.FC = () => {
                                                             onClick={() => openBatchPayModal(appt.patientId, appt.patientName, appt)}
                                                             title="Cobrar conjuntamente esta cita y las pendientes"
                                                         >
-                                                            <Layers size={11} /> {pendingItems.length} pendiente{pendingItems.length > 1 ? 's' : ''} ({pendingTotal.toFixed(2)}€)
+                                                            <Layers size={11} /> {pendingItems.length} pend. ({pendingTotal.toFixed(0)}€)
                                                         </button>
                                                     )}
                                                 </div>
@@ -2956,22 +2956,22 @@ const BillingView: React.FC = () => {
                                                     {appt.type}
                                                 </div>
                                             </td>
-                                            <td className="amount-text text-secondary">
+                                            <td className="amount-text text-secondary" style={{ textAlign: 'right' }}>
                                                 {appt.price != null ? `${Number(appt.price).toFixed(2)}€` : '—'}
                                             </td>
-                                            <td><span className="badge badge-warning">Sin cobrar</span></td>
+                                            <td style={{ textAlign: 'center' }}><span className="badge badge-warning">Sin cobrar</span></td>
                                             <td>—</td>
                                             <td style={{ textAlign: 'right' }}>
-                                                <div className="payment-actions flex gap-1 justify-end">
+                                                <div className="payment-actions">
                                                     {hasPending && (
                                                         <button
                                                             disabled={isCharging}
                                                             className="btn-payment-method"
                                                             style={{ background: '#fef3c7', borderColor: '#fde68a', color: '#92400e' }}
                                                             onClick={() => openBatchPayModal(appt.patientId, appt.patientName, appt)}
-                                                            title="Cobro agrupado de hoy y sesiones pendientes"
+                                                            title={`Cobro agrupado (${pendingItems.length} pendientes)`}
                                                         >
-                                                            <Layers size={14} />
+                                                            <Layers size={13} />
                                                         </button>
                                                     )}
                                                     {(() => {
@@ -2981,22 +2981,22 @@ const BillingView: React.FC = () => {
                                                             return (
                                                                 <button
                                                                     disabled={isCharging}
-                                                                    style={isCharging ? { opacity: 0.5, cursor: 'not-allowed' } : { backgroundColor: '#ecfdf5', borderColor: '#a7f3d0', color: '#047857', fontWeight: 700 }}
+                                                                    style={isCharging ? { opacity: 0.5, cursor: 'not-allowed' } : { backgroundColor: '#ecfdf5', borderColor: '#a7f3d0', color: '#047857' }}
                                                                     className="btn-payment-method"
                                                                     onClick={() => handleChargeAppointment(appt, 'Saldo a favor')}
-                                                                    title={`Cobrar con Saldo a favor / Beca (Disponible: ${pBal.toFixed(0)}€)`}
+                                                                    title={`Cobrar con Saldo a favor (Disponible: ${pBal.toFixed(0)}€)`}
                                                                 >
-                                                                    <Coins size={14} /> Saldo ({pBal.toFixed(0)}€)
+                                                                    <Coins size={13} />
                                                                 </button>
                                                             );
                                                         }
                                                         return null;
                                                     })()}
-                                                    <button disabled={isCharging} style={isCharging ? { opacity: 0.5, cursor: 'not-allowed' } : undefined} className="btn-payment-method" onClick={() => handleChargeAppointment(appt, 'Efectivo')} title="Cobrar Efectivo"><Wallet size={14} /></button>
-                                                    <button disabled={isCharging} style={isCharging ? { opacity: 0.5, cursor: 'not-allowed' } : undefined} className="btn-payment-method" onClick={() => handleChargeAppointment(appt, 'Tarjeta')} title="Cobrar Tarjeta"><CreditCard size={14} /></button>
-                                                    <button disabled={isCharging} style={isCharging ? { opacity: 0.5, cursor: 'not-allowed' } : undefined} className="btn-payment-method" onClick={() => handleChargeAppointment(appt, 'Transferencia')} title="Cobrar Transferencia"><Send size={14} /></button>
-                                                    <button disabled={isCharging} style={isCharging ? { opacity: 0.5, cursor: 'not-allowed' } : { backgroundColor: '#faf5ff', borderColor: '#e9d5ff', color: '#7e22ce' }} className="btn-payment-method" onClick={() => handleChargeAppointment(appt, 'TPV Virtual')} title="Cobrar TPV Virtual / Link"><LinkIcon size={14} /></button>
-                                                    <button disabled={isCharging} style={isCharging ? { opacity: 0.5, cursor: 'not-allowed' } : undefined} className="btn-payment-method" onClick={() => handleChargeAppointment(appt, 'Fin de mes')} title="Asignar Fin de Mes (Pendiente)"><CalendarClock size={14} /></button>
+                                                    <button disabled={isCharging} style={isCharging ? { opacity: 0.5, cursor: 'not-allowed' } : undefined} className="btn-payment-method" onClick={() => handleChargeAppointment(appt, 'Efectivo')} title="Cobrar Efectivo"><Wallet size={13} /></button>
+                                                    <button disabled={isCharging} style={isCharging ? { opacity: 0.5, cursor: 'not-allowed' } : undefined} className="btn-payment-method" onClick={() => handleChargeAppointment(appt, 'Tarjeta')} title="Cobrar Tarjeta"><CreditCard size={13} /></button>
+                                                    <button disabled={isCharging} style={isCharging ? { opacity: 0.5, cursor: 'not-allowed' } : undefined} className="btn-payment-method" onClick={() => handleChargeAppointment(appt, 'Transferencia')} title="Cobrar Transferencia"><Send size={13} /></button>
+                                                    <button disabled={isCharging} style={isCharging ? { opacity: 0.5, cursor: 'not-allowed' } : { backgroundColor: '#faf5ff', borderColor: '#e9d5ff', color: '#7e22ce' }} className="btn-payment-method" onClick={() => handleChargeAppointment(appt, 'TPV Virtual')} title="Cobrar TPV Virtual / Link"><LinkIcon size={13} /></button>
+                                                    <button disabled={isCharging} style={isCharging ? { opacity: 0.5, cursor: 'not-allowed' } : undefined} className="btn-payment-method" onClick={() => handleChargeAppointment(appt, 'Fin de mes')} title="Asignar Fin de Mes (Pendiente)"><CalendarClock size={13} /></button>
                                                 </div>
                                             </td>
                                         </tr>
@@ -3027,7 +3027,7 @@ const BillingView: React.FC = () => {
                                                             onClick={() => openBatchPayModal(t.patientId, t.patientName)}
                                                             title="Ver o cobrar deuda acumulada del paciente"
                                                         >
-                                                            <Layers size={11} /> {pendingItems.length} pendiente{pendingItems.length > 1 ? 's' : ''} ({pendingTotal.toFixed(2)}€)
+                                                            <Layers size={11} /> {pendingItems.length} pend. ({pendingTotal.toFixed(0)}€)
                                                         </button>
                                                     )}
                                                 </div>
@@ -3038,8 +3038,8 @@ const BillingView: React.FC = () => {
                                                     {t.category}
                                                 </div>
                                             </td>
-                                            <td className="amount-text">{t.amount.toFixed(2)}€</td>
-                                            <td>
+                                            <td className="amount-text" style={{ textAlign: 'right' }}>{t.amount.toFixed(2)}€</td>
+                                            <td style={{ textAlign: 'center' }}>
                                                 <span className={`badge ${t.status === 'Pagado' ? 'badge-success' : 'badge-warning'}`}>
                                                     {t.status}
                                                 </span>
@@ -3053,21 +3053,21 @@ const BillingView: React.FC = () => {
                                                         {t.method === 'TPV Virtual' && <LinkIcon size={12} className="text-purple-600" />}
                                                         {t.method === 'Fin de mes' && <CalendarClock size={12} />}
                                                         {t.method === 'Saldo a favor' && <Wallet size={12} className="text-emerald-700" />}
-                                                        {t.method === 'TPV Virtual' ? 'TPV Virtual / Link' : t.method}
+                                                        {t.method === 'TPV Virtual' ? 'TPV Virtual' : t.method}
                                                     </span>
                                                 ) : '—'}
                                             </td>
                                             <td style={{ textAlign: 'right' }}>
-                                                <div className="flex gap-2 justify-end">
-                                                    <button className="btn-icon micro" onClick={() => handleEditOpen(t)} title="Editar Transacción"><Edit2 size={14} /></button>
+                                                <div className="payment-actions">
+                                                    <button className="btn-icon micro" onClick={() => handleEditOpen(t)} title="Editar Transacción"><Edit2 size={13} /></button>
                                                     {t.status === 'Pagado' && !t.invoiceId && (
-                                                        <button className="btn-icon micro text-secondary" onClick={() => handleOpenGenerateInvoice(t)} title="Generar Factura"><FileText size={14} /></button>
+                                                        <button className="btn-icon micro text-secondary" onClick={() => handleOpenGenerateInvoice(t)} title="Generar Factura"><FileText size={13} /></button>
                                                     )}
                                                     {t.invoiceId && (
-                                                        <span title="Factura Generada" className="text-secondary opacity-50 flex items-center justify-center" style={{ width: 24, height: 24 }}><CheckCircle size={14} /></span>
+                                                        <span title="Factura Generada" className="text-secondary opacity-50 flex items-center justify-center" style={{ width: 28, height: 28 }}><CheckCircle size={13} /></span>
                                                     )}
                                                     {t.status === 'Pendiente' && (
-                                                        <div className="payment-actions flex gap-1">
+                                                        <>
                                                             {hasPending && (
                                                                 <button
                                                                     disabled={payingTxIds.has(t.id)}
@@ -3076,7 +3076,7 @@ const BillingView: React.FC = () => {
                                                                     onClick={() => openBatchPayModal(t.patientId, t.patientName)}
                                                                     title="Cobro agrupado con sesiones pendientes"
                                                                 >
-                                                                    <Layers size={14} />
+                                                                    <Layers size={13} />
                                                                 </button>
                                                             )}
                                                             {(() => {
@@ -3086,25 +3086,25 @@ const BillingView: React.FC = () => {
                                                                     return (
                                                                         <button
                                                                             disabled={payingTxIds.has(t.id)}
-                                                                            style={payingTxIds.has(t.id) ? { opacity: 0.5, cursor: 'not-allowed' } : { backgroundColor: '#ecfdf5', borderColor: '#a7f3d0', color: '#047857', fontWeight: 700 }}
+                                                                            style={payingTxIds.has(t.id) ? { opacity: 0.5, cursor: 'not-allowed' } : { backgroundColor: '#ecfdf5', borderColor: '#a7f3d0', color: '#047857' }}
                                                                             className="btn-payment-method"
                                                                             onClick={() => handlePayment(t.id, 'Saldo a favor')}
-                                                                            title={`Cobrar con Saldo a favor / Beca (Disponible: ${pBalTx.toFixed(0)}€)`}
+                                                                            title={`Cobrar con Saldo a favor (Disponible: ${pBalTx.toFixed(0)}€)`}
                                                                         >
-                                                                            <Coins size={14} /> Saldo ({pBalTx.toFixed(0)}€)
+                                                                            <Coins size={13} />
                                                                         </button>
                                                                     );
                                                                 }
                                                                 return null;
                                                             })()}
-                                                            <button disabled={payingTxIds.has(t.id)} style={payingTxIds.has(t.id) ? { opacity: 0.5, cursor: 'not-allowed' } : undefined} className="btn-payment-method" onClick={() => handlePayment(t.id, 'Efectivo')} title="Cobrar Efectivo"><Wallet size={14} /></button>
-                                                            <button disabled={payingTxIds.has(t.id)} style={payingTxIds.has(t.id) ? { opacity: 0.5, cursor: 'not-allowed' } : undefined} className="btn-payment-method" onClick={() => handlePayment(t.id, 'Tarjeta')} title="Cobrar Tarjeta"><CreditCard size={14} /></button>
-                                                            <button disabled={payingTxIds.has(t.id)} style={payingTxIds.has(t.id) ? { opacity: 0.5, cursor: 'not-allowed' } : undefined} className="btn-payment-method" onClick={() => handlePayment(t.id, 'Transferencia')} title="Cobrar Transferencia"><Send size={14} /></button>
-                                                            <button disabled={payingTxIds.has(t.id)} style={payingTxIds.has(t.id) ? { opacity: 0.5, cursor: 'not-allowed' } : { backgroundColor: '#faf5ff', borderColor: '#e9d5ff', color: '#7e22ce' }} className="btn-payment-method" onClick={() => handlePayment(t.id, 'TPV Virtual')} title="Cobrar TPV Virtual / Link"><LinkIcon size={14} /></button>
+                                                            <button disabled={payingTxIds.has(t.id)} style={payingTxIds.has(t.id) ? { opacity: 0.5, cursor: 'not-allowed' } : undefined} className="btn-payment-method" onClick={() => handlePayment(t.id, 'Efectivo')} title="Cobrar Efectivo"><Wallet size={13} /></button>
+                                                            <button disabled={payingTxIds.has(t.id)} style={payingTxIds.has(t.id) ? { opacity: 0.5, cursor: 'not-allowed' } : undefined} className="btn-payment-method" onClick={() => handlePayment(t.id, 'Tarjeta')} title="Cobrar Tarjeta"><CreditCard size={13} /></button>
+                                                            <button disabled={payingTxIds.has(t.id)} style={payingTxIds.has(t.id) ? { opacity: 0.5, cursor: 'not-allowed' } : undefined} className="btn-payment-method" onClick={() => handlePayment(t.id, 'Transferencia')} title="Cobrar Transferencia"><Send size={13} /></button>
+                                                            <button disabled={payingTxIds.has(t.id)} style={payingTxIds.has(t.id) ? { opacity: 0.5, cursor: 'not-allowed' } : { backgroundColor: '#faf5ff', borderColor: '#e9d5ff', color: '#7e22ce' }} className="btn-payment-method" onClick={() => handlePayment(t.id, 'TPV Virtual')} title="Cobrar TPV Virtual / Link"><LinkIcon size={13} /></button>
                                                             {t.method !== 'Fin de mes' && (
-                                                                <button disabled={payingTxIds.has(t.id)} style={payingTxIds.has(t.id) ? { opacity: 0.5, cursor: 'not-allowed' } : undefined} className="btn-payment-method" onClick={() => handlePayment(t.id, 'Fin de mes')} title="Asignar Fin de Mes (Pendiente)"><CalendarClock size={14} /></button>
+                                                                <button disabled={payingTxIds.has(t.id)} style={payingTxIds.has(t.id) ? { opacity: 0.5, cursor: 'not-allowed' } : undefined} className="btn-payment-method" onClick={() => handlePayment(t.id, 'Fin de mes')} title="Asignar Fin de Mes (Pendiente)"><CalendarClock size={13} /></button>
                                                             )}
-                                                        </div>
+                                                        </>
                                                     )}
                                                 </div>
                                             </td>
@@ -3155,7 +3155,7 @@ const BillingView: React.FC = () => {
                                                         {pt.method === 'Efectivo' && <Wallet size={12} />}
                                                         {pt.method === 'Transferencia' && <Send size={12} />}
                                                         {pt.method === 'TPV Virtual' && <LinkIcon size={12} className="text-purple-600" />}
-                                                        {pt.method === 'TPV Virtual' ? 'TPV Virtual / Link' : pt.method}
+                                                        {pt.method === 'TPV Virtual' ? 'TPV Virtual' : pt.method}
                                                     </span>
                                                 </td>
                                                 <td><span className="badge badge-success">Cobrado hoy</span></td>

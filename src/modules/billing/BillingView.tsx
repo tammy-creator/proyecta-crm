@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { getTransactions, recordPayment, updateTransaction, createTransaction, toggleReconciliation, isNonClinicalSession, batchPayAppointments, type BatchPaymentItem, computePatientBalances, addPatientCredit } from './service';
 import { type Transaction, type PaymentMethod } from './types';
 import Card from '../../components/ui/Card';
-import { DollarSign, Clock, CheckCircle, CreditCard, Wallet, Send, Download, Calendar as CalendarIcon, Edit2, X, FileText, Receipt, Filter, TrendingUp, AlertTriangle, Banknote, User, CalendarClock, Search, ChevronLeft, ChevronRight, CheckCheck, ArrowUpDown, ArrowUp, ArrowDown, RotateCcw, Landmark, FileSpreadsheet, Layers, Coins } from 'lucide-react';
+import { DollarSign, Clock, CheckCircle, CreditCard, Wallet, Send, Download, Calendar as CalendarIcon, Edit2, X, FileText, Receipt, Filter, TrendingUp, AlertTriangle, Banknote, User, CalendarClock, Search, ChevronLeft, ChevronRight, CheckCheck, ArrowUpDown, ArrowUp, ArrowDown, RotateCcw, Landmark, FileSpreadsheet, Layers, Coins, Link as LinkIcon } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import { format, parseISO, startOfDay, endOfDay, isValid, isSameMonth, parse } from 'date-fns';
 import { es } from 'date-fns/locale';
@@ -40,7 +40,7 @@ const BillingView: React.FC = () => {
     const [loading, setLoading] = useState(true);
     const [selectedDate, setSelectedDate] = useState<string>(format(new Date(), 'yyyy-MM-dd'));
     const [statusFilter, setStatusFilter] = useState<'ALL' | 'Pendiente' | 'Pagado'>('ALL');
-    const [methodFilter, setMethodFilter] = useState<'ALL' | 'Efectivo' | 'Tarjeta' | 'Transferencia' | 'Fin de mes' | 'Saldo a favor'>('ALL');
+    const [methodFilter, setMethodFilter] = useState<'ALL' | 'Efectivo' | 'Tarjeta' | 'Transferencia' | 'Fin de mes' | 'Saldo a favor' | 'TPV Virtual'>('ALL');
 
     // Reconciliation Sub-states (Datáfono vs Transferencias vs Otras Formas)
     const [reconciliationType, setReconciliationType] = useState<'CARD' | 'TRANSFER' | 'OTHER'>('CARD');
@@ -48,7 +48,7 @@ const BillingView: React.FC = () => {
     const [reconciliationMonth, setReconciliationMonth] = useState<string>(format(new Date(), 'yyyy-MM'));
     const [cardSearchChild, setCardSearchChild] = useState<string>('');
     const [cardReconciledFilter, setCardReconciledFilter] = useState<'ALL' | 'PENDING' | 'VERIFIED'>('ALL');
-    const [cardMethodFilter, setCardMethodFilter] = useState<'CARD_ONLY' | 'ALL' | 'Efectivo' | 'Transferencia'>('CARD_ONLY');
+    const [cardMethodFilter, setCardMethodFilter] = useState<'CARD_ONLY' | 'ALL' | 'Efectivo' | 'Transferencia' | 'TPV Virtual'>('CARD_ONLY');
     const [cardTherapistFilter, setCardTherapistFilter] = useState<string>('ALL');
     const [cardStatusFilter, setCardStatusFilter] = useState<'ALL' | 'Pagado' | 'Pendiente'>('ALL');
     const [cardSortField, setCardSortField] = useState<CardSortField>('date');
@@ -58,7 +58,7 @@ const BillingView: React.FC = () => {
     const [transferScope, setTransferScope] = useState<'MONTH' | 'ALL_PENDING'>('MONTH');
     const [transferSearchChild, setTransferSearchChild] = useState<string>('');
     const [transferReconciledFilter, setTransferReconciledFilter] = useState<'ALL' | 'PENDING' | 'VERIFIED'>('ALL');
-    const [transferMethodFilter, setTransferMethodFilter] = useState<'TRANSFER_ONLY' | 'ALL' | 'Tarjeta' | 'Efectivo'>('TRANSFER_ONLY');
+    const [transferMethodFilter, setTransferMethodFilter] = useState<'TRANSFER_ONLY' | 'ALL' | 'Tarjeta' | 'Efectivo' | 'TPV Virtual'>('TRANSFER_ONLY');
     const [transferTherapistFilter, setTransferTherapistFilter] = useState<string>('ALL');
     const [transferStatusFilter, setTransferStatusFilter] = useState<'ALL' | 'Pagado' | 'Pendiente'>('ALL');
     const [transferSortField, setTransferSortField] = useState<CardSortField>('date');
@@ -68,7 +68,7 @@ const BillingView: React.FC = () => {
     const [otherScope, setOtherScope] = useState<'MONTH' | 'ALL_PENDING'>('MONTH');
     const [otherSearchChild, setOtherSearchChild] = useState<string>('');
     const [otherReconciledFilter, setOtherReconciledFilter] = useState<'ALL' | 'PENDING' | 'VERIFIED'>('ALL');
-    const [otherMethodFilter, setOtherMethodFilter] = useState<'ALL_OTHER' | 'Efectivo' | 'Fin de mes' | 'ALL'>('ALL_OTHER');
+    const [otherMethodFilter, setOtherMethodFilter] = useState<'ALL_OTHER' | 'Efectivo' | 'Fin de mes' | 'TPV Virtual' | 'ALL'>('ALL_OTHER');
     const [otherTherapistFilter, setOtherTherapistFilter] = useState<string>('ALL');
     const [otherStatusFilter, setOtherStatusFilter] = useState<'ALL' | 'Pagado' | 'Pendiente'>('ALL');
     const [otherSortField, setOtherSortField] = useState<CardSortField>('date');
@@ -113,7 +113,7 @@ const BillingView: React.FC = () => {
     const [isAddCreditModalOpen, setIsAddCreditModalOpen] = useState(false);
     const [selectedWalletPatient, setSelectedWalletPatient] = useState<{ id: string; name: string } | null>(null);
     const [newCreditAmount, setNewCreditAmount] = useState('');
-    const [newCreditMethod, setNewCreditMethod] = useState<'Transferencia' | 'Tarjeta' | 'Efectivo'>('Transferencia');
+    const [newCreditMethod, setNewCreditMethod] = useState<'Transferencia' | 'Tarjeta' | 'Efectivo' | 'TPV Virtual'>('Transferencia');
     const [newCreditCategory, setNewCreditCategory] = useState('Ingreso Beca MEC');
     const [newCreditDate, setNewCreditDate] = useState(selectedDate);
     const [newCreditNotes, setNewCreditNotes] = useState('');
@@ -1320,6 +1320,7 @@ const BillingView: React.FC = () => {
                                     <option value="Efectivo">Efectivo</option>
                                     <option value="Tarjeta">Tarjeta</option>
                                     <option value="Transferencia">Transferencia</option>
+                                    <option value="TPV Virtual">🔗 TPV Virtual / Link</option>
                                     <option value="Fin de mes">Fin de mes</option>
                                     <option value="Saldo a favor">Saldo a favor</option>
                                 </select>
@@ -1462,7 +1463,7 @@ const BillingView: React.FC = () => {
                             onClick={() => setReconciliationType('OTHER')}
                         >
                             <Banknote size={18} />
-                            Otras Formas (Efectivo / Fin de mes)
+                            Otras Formas (Efectivo / TPV / Fin mes)
                             {otherMonthPendingCount > 0 && (
                                 <span style={{ fontSize: '0.72rem', background: '#fef3c7', color: '#b45309', padding: '1px 6px', borderRadius: '10px', fontWeight: 700 }}>
                                     {otherMonthPendingCount}
@@ -1791,6 +1792,7 @@ const BillingView: React.FC = () => {
                                                         <option value="ALL">🔍 Todas</option>
                                                         <option value="Efectivo">💵 Efectivo</option>
                                                         <option value="Transferencia">🏦 Transferencia</option>
+                                                        <option value="TPV Virtual">🔗 TPV Virtual / Link</option>
                                                     </select>
                                                 )}
                                             </th>
@@ -1899,6 +1901,7 @@ const BillingView: React.FC = () => {
                                                             <option value="Tarjeta">💳 Tarjeta</option>
                                                             <option value="Efectivo">💵 Efectivo</option>
                                                             <option value="Transferencia">🏦 Transferencia</option>
+                                                            <option value="TPV Virtual">🔗 TPV Virtual</option>
                                                             <option value="Fin de mes">📅 Fin de mes</option>
                                                         </select>
                                                     </td>
@@ -2270,6 +2273,7 @@ const BillingView: React.FC = () => {
                                                         <option value="ALL">🔍 Todas</option>
                                                         <option value="Tarjeta">💳 Tarjeta</option>
                                                         <option value="Efectivo">💵 Efectivo</option>
+                                                        <option value="TPV Virtual">🔗 TPV Virtual / Link</option>
                                                     </select>
                                                 )}
                                             </th>
@@ -2378,6 +2382,7 @@ const BillingView: React.FC = () => {
                                                             <option value="Transferencia">🏦 Transferencia</option>
                                                             <option value="Tarjeta">💳 Tarjeta</option>
                                                             <option value="Efectivo">💵 Efectivo</option>
+                                                            <option value="TPV Virtual">🔗 TPV Virtual</option>
                                                             <option value="Fin de mes">📅 Fin de mes</option>
                                                         </select>
                                                     </td>
@@ -2743,9 +2748,10 @@ const BillingView: React.FC = () => {
                                                         onChange={(e) => setOtherMethodFilter(e.target.value as any)}
                                                         title="Filtrar por forma de pago"
                                                     >
-                                                        <option value="ALL_OTHER">💵/📅 Efectivo y Fin de mes</option>
+                                                        <option value="ALL_OTHER">💵/📅/🔗 Otras formas</option>
                                                         <option value="Efectivo">💵 Solo Efectivo</option>
                                                         <option value="Fin de mes">📅 Solo Fin de mes</option>
+                                                        <option value="TPV Virtual">🔗 Solo TPV Virtual / Link</option>
                                                         <option value="ALL">🔍 Todas (incl. Tarjeta/Transf.)</option>
                                                     </select>
                                                 )}
@@ -2856,6 +2862,7 @@ const BillingView: React.FC = () => {
                                                             <option value="Fin de mes">📅 Fin de mes</option>
                                                             <option value="Tarjeta">💳 Tarjeta</option>
                                                             <option value="Transferencia">🏦 Transferencia</option>
+                                                            <option value="TPV Virtual">🔗 TPV Virtual</option>
                                                         </select>
                                                     </td>
                                                     <td>
@@ -2988,6 +2995,7 @@ const BillingView: React.FC = () => {
                                                     <button disabled={isCharging} style={isCharging ? { opacity: 0.5, cursor: 'not-allowed' } : undefined} className="btn-payment-method" onClick={() => handleChargeAppointment(appt, 'Efectivo')} title="Cobrar Efectivo"><Wallet size={14} /></button>
                                                     <button disabled={isCharging} style={isCharging ? { opacity: 0.5, cursor: 'not-allowed' } : undefined} className="btn-payment-method" onClick={() => handleChargeAppointment(appt, 'Tarjeta')} title="Cobrar Tarjeta"><CreditCard size={14} /></button>
                                                     <button disabled={isCharging} style={isCharging ? { opacity: 0.5, cursor: 'not-allowed' } : undefined} className="btn-payment-method" onClick={() => handleChargeAppointment(appt, 'Transferencia')} title="Cobrar Transferencia"><Send size={14} /></button>
+                                                    <button disabled={isCharging} style={isCharging ? { opacity: 0.5, cursor: 'not-allowed' } : { backgroundColor: '#faf5ff', borderColor: '#e9d5ff', color: '#7e22ce' }} className="btn-payment-method" onClick={() => handleChargeAppointment(appt, 'TPV Virtual')} title="Cobrar TPV Virtual / Link"><LinkIcon size={14} /></button>
                                                     <button disabled={isCharging} style={isCharging ? { opacity: 0.5, cursor: 'not-allowed' } : undefined} className="btn-payment-method" onClick={() => handleChargeAppointment(appt, 'Fin de mes')} title="Asignar Fin de Mes (Pendiente)"><CalendarClock size={14} /></button>
                                                 </div>
                                             </td>
@@ -3038,13 +3046,14 @@ const BillingView: React.FC = () => {
                                             </td>
                                             <td>
                                                 {t.method ? (
-                                                    <span className="method-tag">
+                                                    <span className={`method-tag ${t.method === 'TPV Virtual' ? 'tpv-virtual' : ''}`}>
                                                         {t.method === 'Tarjeta' && <CreditCard size={12} />}
                                                         {t.method === 'Efectivo' && <Wallet size={12} />}
                                                         {t.method === 'Transferencia' && <Send size={12} />}
+                                                        {t.method === 'TPV Virtual' && <LinkIcon size={12} className="text-purple-600" />}
                                                         {t.method === 'Fin de mes' && <CalendarClock size={12} />}
                                                         {t.method === 'Saldo a favor' && <Wallet size={12} className="text-emerald-700" />}
-                                                        {t.method}
+                                                        {t.method === 'TPV Virtual' ? 'TPV Virtual / Link' : t.method}
                                                     </span>
                                                 ) : '—'}
                                             </td>
@@ -3091,6 +3100,7 @@ const BillingView: React.FC = () => {
                                                             <button disabled={payingTxIds.has(t.id)} style={payingTxIds.has(t.id) ? { opacity: 0.5, cursor: 'not-allowed' } : undefined} className="btn-payment-method" onClick={() => handlePayment(t.id, 'Efectivo')} title="Cobrar Efectivo"><Wallet size={14} /></button>
                                                             <button disabled={payingTxIds.has(t.id)} style={payingTxIds.has(t.id) ? { opacity: 0.5, cursor: 'not-allowed' } : undefined} className="btn-payment-method" onClick={() => handlePayment(t.id, 'Tarjeta')} title="Cobrar Tarjeta"><CreditCard size={14} /></button>
                                                             <button disabled={payingTxIds.has(t.id)} style={payingTxIds.has(t.id) ? { opacity: 0.5, cursor: 'not-allowed' } : undefined} className="btn-payment-method" onClick={() => handlePayment(t.id, 'Transferencia')} title="Cobrar Transferencia"><Send size={14} /></button>
+                                                            <button disabled={payingTxIds.has(t.id)} style={payingTxIds.has(t.id) ? { opacity: 0.5, cursor: 'not-allowed' } : { backgroundColor: '#faf5ff', borderColor: '#e9d5ff', color: '#7e22ce' }} className="btn-payment-method" onClick={() => handlePayment(t.id, 'TPV Virtual')} title="Cobrar TPV Virtual / Link"><LinkIcon size={14} /></button>
                                                             {t.method !== 'Fin de mes' && (
                                                                 <button disabled={payingTxIds.has(t.id)} style={payingTxIds.has(t.id) ? { opacity: 0.5, cursor: 'not-allowed' } : undefined} className="btn-payment-method" onClick={() => handlePayment(t.id, 'Fin de mes')} title="Asignar Fin de Mes (Pendiente)"><CalendarClock size={14} /></button>
                                                             )}
@@ -3140,11 +3150,12 @@ const BillingView: React.FC = () => {
                                                 <td>{pt.category}</td>
                                                 <td className="amount-text">{pt.amount.toFixed(2)}€</td>
                                                 <td>
-                                                    <span className="method-tag">
+                                                    <span className={`method-tag ${pt.method === 'TPV Virtual' ? 'tpv-virtual' : ''}`}>
                                                         {pt.method === 'Tarjeta' && <CreditCard size={12} />}
                                                         {pt.method === 'Efectivo' && <Wallet size={12} />}
                                                         {pt.method === 'Transferencia' && <Send size={12} />}
-                                                        {pt.method}
+                                                        {pt.method === 'TPV Virtual' && <LinkIcon size={12} className="text-purple-600" />}
+                                                        {pt.method === 'TPV Virtual' ? 'TPV Virtual / Link' : pt.method}
                                                     </span>
                                                 </td>
                                                 <td><span className="badge badge-success">Cobrado hoy</span></td>
@@ -3211,6 +3222,7 @@ const BillingView: React.FC = () => {
                                         <option value="Efectivo">Efectivo</option>
                                         <option value="Tarjeta">Tarjeta</option>
                                         <option value="Transferencia">Transferencia</option>
+                                    <option value="TPV Virtual">🔗 TPV Virtual / Link</option>
                                         <option value="Fin de mes">Fin de mes</option>
                                     </select>
                                 </div>
@@ -3257,8 +3269,8 @@ const BillingView: React.FC = () => {
 
                             <div className="breakdown-section mb-6">
                                 <h4 className="border-bottom pb-2 mb-3">Desglose por Forma de Pago</h4>
-                                <div className="grid grid-cols-3 gap-4">
-                                    {['Efectivo', 'Tarjeta', 'Transferencia', 'Fin de mes'].map(method => {
+                                <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
+                                    {['Efectivo', 'Tarjeta', 'Transferencia', 'TPV Virtual', 'Fin de mes'].map(method => {
                                         const total = collectionsForDay
                                             .filter((t: Transaction) => t.method === method && t.status === 'Pagado')
                                             .reduce((acc: number, t: Transaction) => acc + t.amount, 0);
@@ -3539,6 +3551,7 @@ const BillingView: React.FC = () => {
                                 >
                                     <option value="Transferencia">🏦 Transferencia Bancaria</option>
                                     <option value="Tarjeta">💳 Tarjeta (Datáfono)</option>
+                                    <option value="TPV Virtual">🔗 TPV Virtual / Link</option>
                                     <option value="Efectivo">💵 Efectivo</option>
                                 </select>
                             </div>
@@ -3723,6 +3736,7 @@ const BillingView: React.FC = () => {
                                         <option value="Efectivo">Efectivo</option>
                                         <option value="Tarjeta">Tarjeta (Datáfono)</option>
                                         <option value="Transferencia">Transferencia</option>
+                                    <option value="TPV Virtual">🔗 TPV Virtual / Link</option>
                                         <option value="Fin de mes">Fin de mes</option>
                                         {(() => {
                                             const batchPBal = (batchPayPatientId && patientBalances.get(batchPayPatientId)?.balance) ||
@@ -3882,6 +3896,15 @@ const BillingView: React.FC = () => {
                                                             title="Cobrar Transferencia"
                                                         >
                                                             <Send size={14} />
+                                                        </button>
+                                                        <button
+                                                            disabled={isBusy}
+                                                            style={isBusy ? { opacity: 0.5, cursor: 'not-allowed' } : { backgroundColor: '#faf5ff', borderColor: '#e9d5ff', color: '#7e22ce' }}
+                                                            className="btn-payment-method"
+                                                            onClick={() => t._rawAppt ? handleChargeAppointment(t._rawAppt, 'TPV Virtual') : handlePayment(t.id, 'TPV Virtual')}
+                                                            title="Cobrar TPV Virtual / Link"
+                                                        >
+                                                            <LinkIcon size={14} />
                                                         </button>
                                                         <button
                                                             disabled={isBusy}

@@ -1,5 +1,5 @@
 export type TransactionStatus = 'Pagado' | 'Pendiente' | 'Deuda';
-export type PaymentMethod = 'Efectivo' | 'Tarjeta' | 'Transferencia' | 'Fin de mes' | 'Saldo a favor';
+export type PaymentMethod = 'Efectivo' | 'Tarjeta' | 'Transferencia' | 'Fin de mes' | 'Saldo a favor' | 'TPV Virtual';
 
 export interface Transaction {
     id: string;
@@ -40,7 +40,7 @@ export interface AddPatientCreditParams {
     patientId: string;
     patientName: string;
     amount: number;
-    method: 'Transferencia' | 'Tarjeta' | 'Efectivo';
+    method: 'Transferencia' | 'Tarjeta' | 'Efectivo' | 'TPV Virtual';
     category?: string; // 'Ingreso Beca', 'Anticipo mensualidad', 'Bono sesiones'
     paymentDate?: string;
     therapistName?: string;

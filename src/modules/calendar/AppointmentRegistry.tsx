@@ -24,7 +24,8 @@ import {
     Send,
     CalendarClock,
     AlertCircle,
-    Filter
+    Filter,
+    Link as LinkIcon
 } from 'lucide-react';
 import { getAppointments, updateAppointment, subscribeToCalendarSync } from './service';
 import { getTransactions, createTransaction, updateTransaction, isNonClinicalSession, computePatientBalances } from '../billing/service';
@@ -710,6 +711,7 @@ const AppointmentRegistry: React.FC = () => {
                             <option value="Efectivo">💵 Solo Efectivo</option>
                             <option value="Tarjeta">💳 Solo Tarjeta</option>
                             <option value="Transferencia">🏦 Solo Transferencia</option>
+                            <option value="TPV Virtual">🔗 Solo TPV Virtual / Link</option>
                             <option value="Fin de mes">📅 Fin de mes</option>
                         </select>
                     </div>
@@ -930,7 +932,7 @@ const AppointmentRegistry: React.FC = () => {
 
                                                 return (
                                                     <select
-                                                        className={`registry-payment-select ${isPaid ? 'paid' : 'unpaid'} ${currentMethod === 'Fin de mes' ? 'delayed' : ''} ${isCurrentSaldo ? 'saldo' : ''}`}
+                                                        className={`registry-payment-select ${isPaid ? 'paid' : 'unpaid'} ${currentMethod === 'Fin de mes' ? 'delayed' : ''} ${isCurrentSaldo ? 'saldo' : ''} ${currentMethod === 'TPV Virtual' ? 'tpv' : ''}`}
                                                         value={currentMethod}
                                                         onChange={(e) => handlePaymentChange(appt, e.target.value)}
                                                     >
@@ -938,6 +940,7 @@ const AppointmentRegistry: React.FC = () => {
                                                         <option value="Tarjeta">💳 Tarjeta</option>
                                                         <option value="Efectivo">💵 Efectivo</option>
                                                         <option value="Transferencia">🏦 Transferencia</option>
+                                                        <option value="TPV Virtual">🔗 TPV Virtual / Link</option>
                                                         <option value="Fin de mes">{isPaid ? '📅 Fin de mes (Cobrado)' : '📅 Fin de mes (Pendiente)'}</option>
                                                         {(isCurrentSaldo || patBal > 0) && (
                                                             <option value="Saldo a favor">
@@ -954,6 +957,7 @@ const AppointmentRegistry: React.FC = () => {
                                                         {payInfo.method === 'Tarjeta' && <CreditCard size={14} />}
                                                         {payInfo.method === 'Efectivo' && <Wallet size={14} />}
                                                         {payInfo.method === 'Transferencia' && <Send size={14} />}
+                                                        {payInfo.method === 'TPV Virtual' && <LinkIcon size={14} />}
                                                         {payInfo.method === 'Fin de mes' && <CalendarClock size={14} />}
                                                         {payInfo.method === 'Saldo a favor' && <Wallet size={14} className="text-emerald-700" />}
                                                         {payInfo.label}

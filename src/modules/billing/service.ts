@@ -34,13 +34,32 @@ export const isNonClinicalSession = (patientName?: string, type?: string, status
 
 const mapTransaction = (row: any): Transaction => {
     const rawCategory = row.category ?? '';
+    const rawNotes = row.notes ?? '';
     const isSaldoAFavor =
         rawCategory.startsWith('[Saldo a favor]') ||
         rawCategory.includes('[Saldo a favor]') ||
         rawCategory === 'Saldo a favor' ||
         row.method === 'Saldo a favor' ||
         (!row.method && row.status === 'Pagado' && row.appointment_id);
-    const cleanCategory = rawCategory.replace(/^\[Saldo a favor\]\s*/, '').trim();
+
+    const isTpvVirtual =
+        row.method === 'TPV Virtual' ||
+        rawCategory.includes('[TPV Virtual]') ||
+        rawCategory.includes('[Enlace WhatsApp / Paygold]') ||
+        rawNotes.includes('[Enlace WhatsApp / Paygold]');
+
+    const cleanCategory = rawCategory
+        .replace(/^\[Saldo a favor\]\s*/, '')
+        .replace(/^\[TPV Virtual\]\s*/, '')
+        .replace(/^\[Enlace WhatsApp \/ Paygold\]\s*/, '')
+        .trim();
+
+    let effectiveMethod: PaymentMethod | undefined = row.method;
+    if (isSaldoAFavor) {
+        effectiveMethod = 'Saldo a favor';
+    } else if (isTpvVirtual) {
+        effectiveMethod = 'TPV Virtual';
+    }
 
     return {
         id: row.id,
@@ -52,7 +71,7 @@ const mapTransaction = (row: any): Transaction => {
         date: row.date,
         paymentDate: row.payment_date || (row.status === 'Pagado' ? row.date : undefined),
         status: row.status,
-        method: isSaldoAFavor ? 'Saldo a favor' : row.method,
+        method: effectiveMethod,
         category: cleanCategory || (isSaldoAFavor ? 'Terapia' : ''),
         invoiceId: row.invoice_id,
         isReconciled: row.is_reconciled ?? false,
@@ -102,18 +121,28 @@ export const recordPayment = async (
 ): Promise<boolean> => {
     const isFinDeMes = method === 'Fin de mes';
     const isSaldo = method === 'Saldo a favor';
+    const isTpvVirtual = method === 'TPV Virtual';
     const effectivePaymentDate = isFinDeMes ? null : (paymentDate || new Date().toISOString());
 
     let categoryToUpdate: string | undefined = undefined;
-    if (isSaldo) {
+    if (isSaldo || isTpvVirtual) {
         try {
             const { data: existing } = await supabase
                 .from('transactions')
                 .select('category')
                 .eq('id', transactionId)
                 .maybeSingle();
-            const baseCat = (existing?.category || 'Terapia').replace(/^\[Saldo a favor\]\s*/, '').trim();
-            categoryToUpdate = `[Saldo a favor] ${baseCat}`.trim();
+            const rawCat = existing?.category || 'Terapia';
+            const baseCat = rawCat
+                .replace(/^\[Saldo a favor\]\s*/, '')
+                .replace(/^\[TPV Virtual\]\s*/, '')
+                .replace(/^\[Enlace WhatsApp \/ Paygold\]\s*/, '')
+                .trim();
+            if (isSaldo) {
+                categoryToUpdate = `[Saldo a favor] ${baseCat || 'Terapia'}`.trim();
+            } else if (isTpvVirtual) {
+                categoryToUpdate = `[TPV Virtual] ${baseCat || 'Terapia'}`.trim();
+            }
         } catch (_) {}
     }
 
@@ -122,9 +151,9 @@ export const recordPayment = async (
         method: isSaldo ? null : method,
         payment_date: effectivePaymentDate
     };
-    if (categoryToUpdate) payload.category = categoryToUpdate;
+    if (categoryToUpdate && isSaldo) payload.category = categoryToUpdate;
 
-    // Try updating with payment_date
+    // Try primary update with payment_date
     try {
         const { error } = await supabase
             .from('transactions')
@@ -134,6 +163,41 @@ export const recordPayment = async (
     } catch (_) {}
 
     // Fallback if payment_date column doesn't exist yet
+    try {
+        const fallbackPayload = { ...payload };
+        delete fallbackPayload.payment_date;
+        const { error: fallbackError } = await supabase
+            .from('transactions')
+            .update(fallbackPayload)
+            .eq('id', transactionId);
+        if (!fallbackError) return true;
+    } catch (_) {}
+
+    // Fallback if DB enum does not yet contain 'TPV Virtual': store as 'Tarjeta' with [TPV Virtual] category prefix
+    if (isTpvVirtual) {
+        const tpvFallback: any = {
+            status: 'Pagado',
+            method: 'Tarjeta',
+            category: categoryToUpdate || '[TPV Virtual] Terapia',
+            payment_date: effectivePaymentDate
+        };
+        try {
+            const { error } = await supabase
+                .from('transactions')
+                .update(tpvFallback)
+                .eq('id', transactionId);
+            if (!error) return true;
+        } catch (_) {}
+
+        delete tpvFallback.payment_date;
+        const { error: finalErr } = await supabase
+            .from('transactions')
+            .update(tpvFallback)
+            .eq('id', transactionId);
+        if (finalErr) throw finalErr;
+        return true;
+    }
+
     delete payload.payment_date;
     const { error: fallbackError } = await supabase
         .from('transactions')
@@ -146,14 +210,19 @@ export const recordPayment = async (
 export const updateTransaction = async (transaction: Transaction): Promise<boolean> => {
     const isPaid = transaction.status === 'Pagado';
     const isSaldo = transaction.method === 'Saldo a favor';
+    const isTpvVirtual = transaction.method === 'TPV Virtual';
     const paymentDateToSave = isPaid
         ? (transaction.paymentDate || transaction.date || new Date().toISOString())
         : null;
 
     let effectiveCategory = transaction.category;
     if (isSaldo) {
-        const base = (transaction.category || 'Terapia').replace(/^\[Saldo a favor\]\s*/, '').trim();
-        effectiveCategory = `[Saldo a favor] ${base}`.trim();
+        const base = (transaction.category || 'Terapia')
+            .replace(/^\[Saldo a favor\]\s*/, '')
+            .replace(/^\[TPV Virtual\]\s*/, '')
+            .replace(/^\[Enlace WhatsApp \/ Paygold\]\s*/, '')
+            .trim();
+        effectiveCategory = `[Saldo a favor] ${base || 'Terapia'}`.trim();
     }
 
     const basePayload: any = {
@@ -187,6 +256,67 @@ export const updateTransaction = async (transaction: Transaction): Promise<boole
     } catch (_) {}
 
     // Fallback without payment_date
+    try {
+        const { error } = await supabase
+            .from('transactions')
+            .update(basePayload)
+            .eq('id', transaction.id);
+        if (!error) {
+            if (transaction.appointmentId) {
+                await supabase
+                    .from('appointments')
+                    .update({ price: transaction.amount })
+                    .eq('id', transaction.appointmentId);
+            }
+            return true;
+        }
+    } catch (_) {}
+
+    // Fallback if DB enum does not yet contain 'TPV Virtual': store as 'Tarjeta' with [TPV Virtual] category prefix
+    if (isTpvVirtual) {
+        const base = (transaction.category || 'Terapia')
+            .replace(/^\[Saldo a favor\]\s*/, '')
+            .replace(/^\[TPV Virtual\]\s*/, '')
+            .replace(/^\[Enlace WhatsApp \/ Paygold\]\s*/, '')
+            .trim();
+        const fallbackCat = `[TPV Virtual] ${base || 'Terapia'}`.trim();
+        const tpvPayload = {
+            ...basePayload,
+            method: 'Tarjeta',
+            category: fallbackCat,
+            payment_date: paymentDateToSave
+        };
+        try {
+            const { error } = await supabase
+                .from('transactions')
+                .update(tpvPayload)
+                .eq('id', transaction.id);
+            if (!error) {
+                if (transaction.appointmentId) {
+                    await supabase
+                        .from('appointments')
+                        .update({ price: transaction.amount })
+                        .eq('id', transaction.appointmentId);
+                }
+                return true;
+            }
+        } catch (_) {}
+
+        delete tpvPayload.payment_date;
+        const { error: finalErr } = await supabase
+            .from('transactions')
+            .update(tpvPayload)
+            .eq('id', transaction.id);
+        if (finalErr) throw finalErr;
+        if (transaction.appointmentId) {
+            await supabase
+                .from('appointments')
+                .update({ price: transaction.amount })
+                .eq('id', transaction.appointmentId);
+        }
+        return true;
+    }
+
     const { error } = await supabase
         .from('transactions')
         .update(basePayload)
@@ -216,14 +346,19 @@ export const createTransaction = async (
     const executeCreate = async (): Promise<Transaction> => {
         const isPaid = transaction.status === 'Pagado';
         const isSaldo = transaction.method === 'Saldo a favor';
+        const isTpvVirtual = transaction.method === 'TPV Virtual';
         const effectivePaymentDate = isPaid
             ? (transaction.paymentDate || new Date().toISOString())
             : null;
 
         let effectiveCategory = transaction.category;
         if (isSaldo) {
-            const base = (transaction.category || 'Terapia').replace(/^\[Saldo a favor\]\s*/, '').trim();
-            effectiveCategory = `[Saldo a favor] ${base}`.trim();
+            const base = (transaction.category || 'Terapia')
+                .replace(/^\[Saldo a favor\]\s*/, '')
+                .replace(/^\[TPV Virtual\]\s*/, '')
+                .replace(/^\[Enlace WhatsApp \/ Paygold\]\s*/, '')
+                .trim();
+            effectiveCategory = `[Saldo a favor] ${base || 'Terapia'}`.trim();
         }
 
         // 1. If appointmentId is provided, check if a transaction already exists for it in DB
@@ -257,23 +392,49 @@ export const createTransaction = async (
                     if (!updateError && updated) return mapTransaction(updated);
                 } catch (_) {}
 
-                const { data: updatedFallback, error: fallbackError } = await supabase
-                    .from('transactions')
-                    .update({
-                        patient_id: transaction.patientId,
-                        patient_name: transaction.patientName,
-                        therapist_name: transaction.therapistName,
-                        amount: transaction.amount,
-                        date: transaction.date,
-                        status: transaction.status,
-                        method: isSaldo ? null : (transaction.method ?? null),
-                        category: effectiveCategory,
-                    })
-                    .eq('id', existing.id)
-                    .select()
-                    .single();
-                if (fallbackError) throw fallbackError;
-                return mapTransaction(updatedFallback);
+                try {
+                    const { data: updatedFallback, error: fallbackError } = await supabase
+                        .from('transactions')
+                        .update({
+                            patient_id: transaction.patientId,
+                            patient_name: transaction.patientName,
+                            therapist_name: transaction.therapistName,
+                            amount: transaction.amount,
+                            date: transaction.date,
+                            status: transaction.status,
+                            method: isSaldo ? null : (transaction.method ?? null),
+                            category: effectiveCategory,
+                        })
+                        .eq('id', existing.id)
+                        .select()
+                        .single();
+                    if (!fallbackError && updatedFallback) return mapTransaction(updatedFallback);
+                } catch (_) {}
+
+                if (isTpvVirtual) {
+                    const base = (transaction.category || 'Terapia')
+                        .replace(/^\[Saldo a favor\]\s*/, '')
+                        .replace(/^\[TPV Virtual\]\s*/, '')
+                        .replace(/^\[Enlace WhatsApp \/ Paygold\]\s*/, '')
+                        .trim();
+                    const { data: updatedTpv, error: tpvErr } = await supabase
+                        .from('transactions')
+                        .update({
+                            patient_id: transaction.patientId,
+                            patient_name: transaction.patientName,
+                            therapist_name: transaction.therapistName,
+                            amount: transaction.amount,
+                            date: transaction.date,
+                            payment_date: effectivePaymentDate,
+                            status: transaction.status,
+                            method: 'Tarjeta',
+                            category: `[TPV Virtual] ${base || 'Terapia'}`.trim(),
+                        })
+                        .eq('id', existing.id)
+                        .select()
+                        .single();
+                    if (!tpvErr && updatedTpv) return mapTransaction(updatedTpv);
+                }
             }
         }
 
@@ -301,6 +462,68 @@ export const createTransaction = async (
         } catch (_) {}
 
         // Fallback without payment_date
+        try {
+            const { data, error } = await supabase
+                .from('transactions')
+                .insert({
+                    appointment_id: transaction.appointmentId || null,
+                    patient_id: transaction.patientId,
+                    patient_name: transaction.patientName,
+                    therapist_name: transaction.therapistName,
+                    amount: transaction.amount,
+                    date: transaction.date,
+                    status: transaction.status,
+                    method: isSaldo ? null : (transaction.method ?? null),
+                    category: effectiveCategory,
+                    invoice_id: transaction.invoiceId ?? null,
+                    is_reconciled: transaction.isReconciled ?? false,
+                })
+                .select()
+                .single();
+            if (!error && data) return mapTransaction(data);
+        } catch (_) {}
+
+        // Fallback if DB enum does not yet contain 'TPV Virtual'
+        if (isTpvVirtual) {
+            const base = (transaction.category || 'Terapia')
+                .replace(/^\[Saldo a favor\]\s*/, '')
+                .replace(/^\[TPV Virtual\]\s*/, '')
+                .replace(/^\[Enlace WhatsApp \/ Paygold\]\s*/, '')
+                .trim();
+            const tpvInsertPayload: any = {
+                appointment_id: transaction.appointmentId || null,
+                patient_id: transaction.patientId,
+                patient_name: transaction.patientName,
+                therapist_name: transaction.therapistName,
+                amount: transaction.amount,
+                date: transaction.date,
+                payment_date: effectivePaymentDate,
+                status: transaction.status,
+                method: 'Tarjeta',
+                category: `[TPV Virtual] ${base || 'Terapia'}`.trim(),
+                invoice_id: transaction.invoiceId ?? null,
+                is_reconciled: transaction.isReconciled ?? false,
+            };
+
+            try {
+                const { data, error } = await supabase
+                    .from('transactions')
+                    .insert(tpvInsertPayload)
+                    .select()
+                    .single();
+                if (!error && data) return mapTransaction(data);
+            } catch (_) {}
+
+            delete tpvInsertPayload.payment_date;
+            const { data, error } = await supabase
+                .from('transactions')
+                .insert(tpvInsertPayload)
+                .select()
+                .single();
+            if (error) throw error;
+            return mapTransaction(data);
+        }
+
         const { data, error } = await supabase
             .from('transactions')
             .insert({
@@ -488,6 +711,43 @@ export const addPatientCredit = async (params: AddPatientCreditParams): Promise<
             .single();
         if (!error && data) return mapTransaction(data);
     } catch (_) {}
+
+    try {
+        const payloadNoDate = { ...payload };
+        delete payloadNoDate.payment_date;
+        const { data, error } = await supabase
+            .from('transactions')
+            .insert(payloadNoDate)
+            .select()
+            .single();
+        if (!error && data) return mapTransaction(data);
+    } catch (_) {}
+
+    // Fallback if DB enum does not yet contain 'TPV Virtual'
+    if (params.method === 'TPV Virtual') {
+        const tpvPayload: any = {
+            ...payload,
+            method: 'Tarjeta',
+            category: `[TPV Virtual] ${category.trim()}`,
+        };
+        try {
+            const { data, error } = await supabase
+                .from('transactions')
+                .insert(tpvPayload)
+                .select()
+                .single();
+            if (!error && data) return mapTransaction(data);
+        } catch (_) {}
+
+        delete tpvPayload.payment_date;
+        const { data, error } = await supabase
+            .from('transactions')
+            .insert(tpvPayload)
+            .select()
+            .single();
+        if (error) throw error;
+        return mapTransaction(data);
+    }
 
     delete payload.payment_date;
     const { data, error } = await supabase

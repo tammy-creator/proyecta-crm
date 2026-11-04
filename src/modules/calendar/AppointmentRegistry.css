@@ -604,6 +604,12 @@
     border-color: #bfdbfe;
 }
 
+.registry-payment-select.tpv {
+    background-color: #faf5ff;
+    color: #7e22ce;
+    border-color: #e9d5ff;
+}
+
 .registry-payment-select.paid {
     background-color: #ecfdf5;
     color: #065f46;

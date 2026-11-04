@@ -1385,3 +1385,9 @@
     padding: 1rem;
     margin-top: 1.5rem;
 }
+
+.method-tag.tpv-virtual {
+    background-color: #faf5ff;
+    color: #7e22ce;
+    border-color: #f3e8ff;
+}

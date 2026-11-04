@@ -46,7 +46,7 @@ const PatientList: React.FC = () => {
     const [patientBalances, setPatientBalances] = useState<Map<string, PatientBalanceInfo>>(new Map());
     const [isAddCreditModalOpen, setIsAddCreditModalOpen] = useState(false);
     const [newCreditAmount, setNewCreditAmount] = useState<string>('');
-    const [newCreditMethod, setNewCreditMethod] = useState<'Transferencia' | 'Tarjeta' | 'Efectivo'>('Transferencia');
+    const [newCreditMethod, setNewCreditMethod] = useState<'Transferencia' | 'Tarjeta' | 'Efectivo' | 'TPV Virtual'>('Transferencia');
     const [newCreditCategory, setNewCreditCategory] = useState<string>('Ingreso Beca MEC');
     const [newCreditDate, setNewCreditDate] = useState<string>(format(new Date(), 'yyyy-MM-dd'));
     const [newCreditNotes, setNewCreditNotes] = useState<string>('');
@@ -2197,6 +2197,7 @@ const PatientList: React.FC = () => {
                                 >
                                     <option value="Transferencia">🏦 Transferencia Bancaria</option>
                                     <option value="Tarjeta">💳 Tarjeta (Datáfono)</option>
+                                    <option value="TPV Virtual">🔗 TPV Virtual / Link</option>
                                     <option value="Efectivo">💵 Efectivo</option>
                                 </select>
                             </div>

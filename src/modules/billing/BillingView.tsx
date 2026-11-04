@@ -144,8 +144,8 @@ const BillingView: React.FC = () => {
     }, [chargeMenu]);
 
     const patientBalances = React.useMemo(() => {
-        return computePatientBalances(transactions);
-    }, [transactions]);
+        return computePatientBalances(transactions, patients);
+    }, [transactions, patients]);
 
     const patientsWithBalanceList = React.useMemo(() => {
         const list: { id: string; name: string; balance: number; totalDeposited: number; totalConsumed: number }[] = [];

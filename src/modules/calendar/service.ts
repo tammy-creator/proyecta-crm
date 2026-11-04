@@ -257,7 +257,9 @@ export const updateAppointment = async (appointment: Appointment): Promise<Appoi
             if (updated.start) txUpdatePayload.date = updated.start;
 
             // 4. Sync status with appointment status / isPaid:
-            if (updated.status === 'Finalizada' || updated.status === 'Programada' || updated.isPaid === false) {
+            if (updated.status === 'Cancelada') {
+                txUpdatePayload.status = 'Cancelada';
+            } else if (updated.status === 'Finalizada' || updated.status === 'Programada' || updated.isPaid === false) {
                 if (existingTx.method === 'Fin de mes' || updated.isPaid === false) {
                     txUpdatePayload.status = 'Pendiente';
                 }

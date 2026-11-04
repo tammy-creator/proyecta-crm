@@ -221,8 +221,8 @@ const AppointmentRegistry: React.FC = () => {
     };
 
     const patientBalances = React.useMemo(() => {
-        return computePatientBalances(transactions);
-    }, [transactions]);
+        return computePatientBalances(transactions, patientsList);
+    }, [transactions, patientsList]);
 
     const classifiedAppointments = React.useMemo(() => {
         return appointments.map(appt => ({

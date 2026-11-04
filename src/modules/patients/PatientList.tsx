@@ -1,4 +1,5 @@
 import React, { useEffect, useState, useRef, useMemo } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { getPatients, getPatientById, createPatient, updatePatient, deletePatient, deletePatientFile, uploadPatientFileContent, getPatientFileUrl } from './service';
 import { supabase } from '../../lib/supabase';
 import { generateConsentSheetPDF, generateClinicalHistoryPDF } from '../../utils/consentPdfGenerator';
@@ -43,7 +44,20 @@ const PatientList: React.FC = () => {
 
     // Patient Wallet / Monedero / Becas states
     const [allTransactions, setAllTransactions] = useState<Transaction[]>([]);
-    const [patientBalances, setPatientBalances] = useState<Map<string, PatientBalanceInfo>>(new Map());
+    const [searchParams] = useSearchParams();
+
+    const patientBalances = useMemo(() => {
+        return computePatientBalances(allTransactions, patients);
+    }, [allTransactions, patients]);
+
+    const getPatientBalance = (p?: Partial<Patient> | null): PatientBalanceInfo => {
+        if (!p) return { balance: 0, totalDeposited: 0, totalConsumed: 0 };
+        if (p.id && patientBalances.has(p.id)) return patientBalances.get(p.id)!;
+        const fullName = `${p.firstName || ''} ${p.lastName || ''}`.toLowerCase().trim();
+        if (fullName && patientBalances.has(fullName)) return patientBalances.get(fullName)!;
+        return { balance: 0, totalDeposited: 0, totalConsumed: 0 };
+    };
+
     const [isAddCreditModalOpen, setIsAddCreditModalOpen] = useState(false);
     const [newCreditAmount, setNewCreditAmount] = useState<string>('');
     const [newCreditMethod, setNewCreditMethod] = useState<'Transferencia' | 'Tarjeta' | 'Efectivo' | 'TPV Virtual'>('Transferencia');
@@ -260,7 +274,6 @@ const PatientList: React.FC = () => {
         try {
             const txs = await getTransactions();
             setAllTransactions(txs);
-            setPatientBalances(computePatientBalances(txs));
         } catch (e) {
             console.error("Error loading transactions for wallet:", e);
         }
@@ -306,18 +319,23 @@ const PatientList: React.FC = () => {
         }
     };
 
-    const handleDeleteCreditMovement = async (txId: string) => {
-        if (!window.confirm("¿Seguro que deseas eliminar este ingreso de saldo/beca? Esta acción revertirá el saldo del paciente.")) {
+    const handleDeleteMovement = async (m: Transaction) => {
+        const isDeposit = isAdvanceDeposit(m.category, m.status);
+        const confirmMsg = isDeposit
+            ? "¿Seguro que deseas eliminar este ingreso de saldo/beca? Esta acción revertirá el saldo disponible del paciente."
+            : `¿Seguro que deseas anular este consumo de saldo (${Number(m.amount || 0).toFixed(2)}€)? Esta acción devolverá el importe al saldo disponible del paciente.`;
+
+        if (!window.confirm(confirmMsg)) {
             return;
         }
 
         try {
-            await deletePatientCredit(txId);
-            showToast("Ingreso eliminado correctamente", "info");
+            await deletePatientCredit(m.id);
+            showToast(isDeposit ? "Ingreso eliminado correctamente" : "Consumo anulado y saldo devuelto al monedero", "info");
             await loadTransactions();
         } catch (error) {
-            console.error("Error deleting credit tx:", error);
-            showToast("Error al eliminar el movimiento de saldo", "error");
+            console.error("Error deleting movement tx:", error);
+            showToast("Error al procesar el movimiento de saldo", "error");
         }
     };
 
@@ -328,6 +346,21 @@ const PatientList: React.FC = () => {
             setTherapists(onlyTherapists);
         });
     }, []);
+
+    // Abrir ficha automáticamente si viene ?id=... en la URL
+    useEffect(() => {
+        const patientIdFromUrl = searchParams.get('id');
+        if (patientIdFromUrl && patients.length > 0 && !isModalOpen) {
+            const found = patients.find(p => p.id === patientIdFromUrl);
+            if (found) {
+                const targetTab = searchParams.get('tab') as any;
+                handleOpenModal(found);
+                if (targetTab && ['general', 'appointments', 'files', 'history', 'wallet'].includes(targetTab)) {
+                    setActiveTab(targetTab);
+                }
+            }
+        }
+    }, [searchParams, patients]);
 
     useEffect(() => {
         if (isModalOpen && selectedPatient?.id && (activeTab === 'appointments' || activeTab === 'history')) {
@@ -374,21 +407,23 @@ const PatientList: React.FC = () => {
         setActiveTab('general');
         setApptFilter('future');
         loadTransactions();
-        if (patient?.id) {
-            // Recuperar siempre de la BD para asegurar datos frescos
-            try {
-                const freshPatient = await getPatientById(patient.id);
-                if (freshPatient) {
-                    setSelectedPatient(freshPatient);
-                } else {
-                    setSelectedPatient(patient);
-                }
-            } catch (error) {
-                console.error("Error fetching fresh patient data:", error);
-                setSelectedPatient(patient);
-            }
-        } else if (patient) {
+
+        if (patient) {
+            // Abrir y mostrar la ficha inmediatamente con los datos locales para que no haya retraso
             setSelectedPatient(patient);
+            setIsModalOpen(true);
+
+            if (patient.id) {
+                // Recuperar siempre de la BD para asegurar datos frescos
+                try {
+                    const freshPatient = await getPatientById(patient.id);
+                    if (freshPatient) {
+                        setSelectedPatient(freshPatient);
+                    }
+                } catch (error) {
+                    console.error("Error fetching fresh patient data:", error);
+                }
+            }
         } else {
             setSelectedPatient({
                 firstName: '',
@@ -423,8 +458,8 @@ const PatientList: React.FC = () => {
                 whatsappRgpdEnviado: false,
                 files: []
             });
+            setIsModalOpen(true);
         }
-        setIsModalOpen(true);
     };
 
     const handleMoveToWaitingList = async (patient: Patient) => {
@@ -1056,10 +1091,10 @@ const PatientList: React.FC = () => {
                                 <span className={`status-badge ${getStatusClass(patient.status)}`}>
                                     {patient.status}
                                 </span>
-                                {(patientBalances.get(patient.id)?.balance || 0) > 0 && (
-                                    <span className="patient-balance-pill" title={`Saldo a favor disponible: ${patientBalances.get(patient.id)!.balance.toFixed(2)}€`}>
+                                {getPatientBalance(patient).balance > 0 && (
+                                    <span className="patient-balance-pill" title={`Saldo a favor disponible: ${getPatientBalance(patient).balance.toFixed(2)}€`}>
                                         <Wallet size={12} />
-                                        {patientBalances.get(patient.id)!.balance.toFixed(0)}€ Saldo
+                                        {getPatientBalance(patient).balance.toFixed(0)}€ Saldo
                                     </span>
                                 )}
                             </div>
@@ -1169,9 +1204,9 @@ const PatientList: React.FC = () => {
                                     >
                                         <Wallet size={15} />
                                         <span>Beca / Monedero</span>
-                                        {selectedPatient.id && (patientBalances.get(selectedPatient.id)?.balance || 0) > 0 && (
+                                        {getPatientBalance(selectedPatient).balance > 0 && (
                                             <span style={{ fontSize: '0.72rem', padding: '1px 6px', borderRadius: '9999px', backgroundColor: '#dcfce7', color: '#166534', fontWeight: 700, marginLeft: '4px' }}>
-                                                {patientBalances.get(selectedPatient.id)!.balance.toFixed(0)}€
+                                                {getPatientBalance(selectedPatient).balance.toFixed(0)}€
                                             </span>
                                         )}
                                     </button>
@@ -1990,7 +2025,7 @@ const PatientList: React.FC = () => {
                             )}
 
                             {activeTab === 'wallet' && selectedPatient?.id && (() => {
-                                const pBalance = patientBalances.get(selectedPatient.id) || { balance: 0, totalDeposited: 0, totalConsumed: 0 };
+                                const pBalance = getPatientBalance(selectedPatient);
                                 const pFullName = `${selectedPatient.firstName || ''} ${selectedPatient.lastName || ''}`.toLowerCase().trim();
                                 const movements = allTransactions
                                     .filter(t => (t.patientId && t.patientId === selectedPatient.id) || (t.patientName && t.patientName.toLowerCase().trim() === pFullName))
@@ -2105,19 +2140,15 @@ const PatientList: React.FC = () => {
                                                                         {isDeposit ? `+${m.amount.toFixed(2)}€` : `-${m.amount.toFixed(2)}€`}
                                                                     </td>
                                                                     <td className="p-3 text-center">
-                                                                        {isDeposit ? (
-                                                                            <button
-                                                                                type="button"
-                                                                                className="btn-icon text-red-500 hover:text-red-700 p-1"
-                                                                                style={{ border: 'none', background: 'none', cursor: 'pointer', color: '#ef4444' }}
-                                                                                title="Eliminar ingreso"
-                                                                                onClick={() => handleDeleteCreditMovement(m.id)}
-                                                                            >
-                                                                                <Trash2 size={16} />
-                                                                            </button>
-                                                                        ) : (
-                                                                            <span className="text-xs text-gray-400">Sesión cita</span>
-                                                                        )}
+                                                                        <button
+                                                                            type="button"
+                                                                            className="btn-icon text-red-500 hover:text-red-700 p-1"
+                                                                            style={{ border: 'none', background: 'none', cursor: 'pointer', color: '#ef4444' }}
+                                                                            title={isDeposit ? "Eliminar ingreso de saldo" : "Anular consumo (devolver saldo)"}
+                                                                            onClick={() => handleDeleteMovement(m)}
+                                                                        >
+                                                                            <Trash2 size={16} />
+                                                                        </button>
                                                                     </td>
                                                                 </tr>
                                                             );

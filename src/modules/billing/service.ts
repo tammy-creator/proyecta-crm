@@ -642,42 +642,64 @@ export const isSaldoConsumption = (method?: string, category?: string, status?: 
     return method === 'Saldo a favor' || (category || '').includes('[Saldo a favor]');
 };
 
-export const computePatientBalances = (allTransactions: Transaction[]): Map<string, PatientBalanceInfo> => {
+export const computePatientBalances = (
+    allTransactions: Transaction[],
+    patients?: Array<{ id: string; firstName?: string; lastName?: string }>
+): Map<string, PatientBalanceInfo> => {
     const map = new Map<string, PatientBalanceInfo>();
 
-    const getOrCreate = (key: string): PatientBalanceInfo => {
-        let entry = map.get(key);
-        if (!entry) {
-            entry = { balance: 0, totalDeposited: 0, totalConsumed: 0 };
-            map.set(key, entry);
-        }
-        return entry;
-    };
+    // If patients are provided, link each patient's id and normalized full name to a single shared entry
+    if (patients && patients.length > 0) {
+        patients.forEach(p => {
+            if (!p.id) return;
+            const sharedEntry: PatientBalanceInfo = { balance: 0, totalDeposited: 0, totalConsumed: 0 };
+            map.set(p.id, sharedEntry);
+            const fullName = `${p.firstName || ''} ${p.lastName || ''}`.toLowerCase().trim();
+            if (fullName) {
+                map.set(fullName, sharedEntry);
+            }
+        });
+    }
 
     allTransactions.forEach(t => {
         if (t.status !== 'Pagado') return;
         const amount = Number(t.amount || 0);
         if (isNaN(amount) || amount <= 0) return;
 
-        const keys: string[] = [];
-        if (t.patientId) keys.push(t.patientId);
-        if (t.patientName) keys.push(t.patientName.toLowerCase().trim());
-
         const isDeposit = isAdvanceDeposit(t.category, t.status);
         const isConsumption = isSaldoConsumption(t.method, t.category, t.status);
+        if (!isDeposit && !isConsumption) return;
+
+        // Find existing shared entry if available
+        let entry: PatientBalanceInfo | undefined = undefined;
+        if (t.patientId && map.has(t.patientId)) {
+            entry = map.get(t.patientId);
+        } else if (t.patientName) {
+            const cleanName = t.patientName.toLowerCase().trim();
+            if (map.has(cleanName)) {
+                entry = map.get(cleanName);
+            }
+        }
+
+        // If not pre-created or found, create and register for both keys
+        if (!entry) {
+            entry = { balance: 0, totalDeposited: 0, totalConsumed: 0 };
+            if (t.patientId) map.set(t.patientId, entry);
+            if (t.patientName) map.set(t.patientName.toLowerCase().trim(), entry);
+        } else {
+            // Ensure both keys point to this entry if missing
+            if (t.patientId && !map.has(t.patientId)) map.set(t.patientId, entry);
+            if (t.patientName && !map.has(t.patientName.toLowerCase().trim())) {
+                map.set(t.patientName.toLowerCase().trim(), entry);
+            }
+        }
 
         if (isDeposit) {
-            keys.forEach(k => {
-                const entry = getOrCreate(k);
-                entry.totalDeposited += amount;
-                entry.balance += amount;
-            });
+            entry.totalDeposited += amount;
+            entry.balance += amount;
         } else if (isConsumption) {
-            keys.forEach(k => {
-                const entry = getOrCreate(k);
-                entry.totalConsumed += amount;
-                entry.balance -= amount;
-            });
+            entry.totalConsumed += amount;
+            entry.balance -= amount;
         }
     });
 

@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { getTransactions, recordPayment, updateTransaction, createTransaction, toggleReconciliation, isNonClinicalSession, batchPayAppointments, type BatchPaymentItem, computePatientBalances, addPatientCredit } from './service';
 import { type Transaction, type PaymentMethod } from './types';
 import Card from '../../components/ui/Card';
-import { DollarSign, Clock, CheckCircle, CreditCard, Wallet, Send, Download, Calendar as CalendarIcon, Edit2, X, FileText, Receipt, Filter, TrendingUp, AlertTriangle, Banknote, User, CalendarClock, Search, ChevronLeft, ChevronRight, CheckCheck, ArrowUpDown, ArrowUp, ArrowDown, RotateCcw, Landmark, FileSpreadsheet, Layers, Coins, Link as LinkIcon } from 'lucide-react';
+import { DollarSign, Clock, CheckCircle, CreditCard, Wallet, Send, Download, Calendar as CalendarIcon, Edit2, X, FileText, Receipt, Filter, TrendingUp, AlertTriangle, Banknote, User, CalendarClock, Search, ChevronLeft, ChevronRight, CheckCheck, ArrowUpDown, ArrowUp, ArrowDown, RotateCcw, Landmark, FileSpreadsheet, Layers, Coins, Link as LinkIcon, ChevronDown } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import { format, parseISO, startOfDay, endOfDay, isValid, isSameMonth, parse } from 'date-fns';
 import { es } from 'date-fns/locale';
@@ -118,6 +119,29 @@ const BillingView: React.FC = () => {
     const [newCreditDate, setNewCreditDate] = useState(selectedDate);
     const [newCreditNotes, setNewCreditNotes] = useState('');
     const [isSavingCredit, setIsSavingCredit] = useState(false);
+
+    // Charge Dropdown Menu State
+    const [chargeMenu, setChargeMenu] = useState<{
+        type: 'appt' | 'tx';
+        id: string;
+        item: any;
+        rect: DOMRect;
+        hasPending: boolean;
+        pendingItems: any[];
+        pendingTotal: number;
+        patientBalance: number;
+    } | null>(null);
+
+    useEffect(() => {
+        if (!chargeMenu) return;
+        const handleCloseOnInteraction = () => setChargeMenu(null);
+        window.addEventListener('scroll', handleCloseOnInteraction, true);
+        window.addEventListener('resize', handleCloseOnInteraction);
+        return () => {
+            window.removeEventListener('scroll', handleCloseOnInteraction, true);
+            window.removeEventListener('resize', handleCloseOnInteraction);
+        };
+    }, [chargeMenu]);
 
     const patientBalances = React.useMemo(() => {
         return computePatientBalances(transactions);
@@ -2910,13 +2934,13 @@ const BillingView: React.FC = () => {
                             <table className="billing-table">
                                 <thead>
                                     <tr>
-                                        <th style={{ width: '55px' }}>Hora</th>
+                                        <th style={{ width: '65px' }}>Hora</th>
                                         <th>Paciente</th>
-                                        <th style={{ width: '125px' }}>Concepto</th>
-                                        <th style={{ width: '65px', textAlign: 'right' }}>Importe</th>
-                                        <th style={{ width: '80px', textAlign: 'center' }}>Estado</th>
-                                        <th style={{ width: '85px' }}>Método</th>
-                                        <th style={{ textAlign: 'right', width: '220px', minWidth: '215px', whiteSpace: 'nowrap' }}>Acciones</th>
+                                        <th style={{ width: '150px' }}>Concepto</th>
+                                        <th style={{ width: '85px', textAlign: 'right' }}>Importe</th>
+                                        <th style={{ width: '100px', textAlign: 'center' }}>Estado</th>
+                                        <th style={{ width: '110px' }}>Método</th>
+                                        <th style={{ textAlign: 'center', width: '140px', whiteSpace: 'nowrap' }}>Acciones</th>
                                     </tr>
                                 </thead>
                                 <tbody>
@@ -2961,42 +2985,33 @@ const BillingView: React.FC = () => {
                                             </td>
                                             <td style={{ textAlign: 'center' }}><span className="badge badge-warning">Sin cobrar</span></td>
                                             <td>—</td>
-                                            <td style={{ textAlign: 'right', width: '220px', minWidth: '215px' }}>
-                                                <div className="payment-actions">
-                                                    {hasPending && (
-                                                        <button
-                                                            disabled={isCharging}
-                                                            className="btn-payment-method"
-                                                            style={{ background: '#fef3c7', borderColor: '#fde68a', color: '#92400e' }}
-                                                            onClick={() => openBatchPayModal(appt.patientId, appt.patientName, appt)}
-                                                            title={`Cobro agrupado (${pendingItems.length} pendientes)`}
-                                                        >
-                                                            <Layers size={12} />
-                                                        </button>
-                                                    )}
-                                                    {(() => {
-                                                        const pBal = (appt.patientId && patientBalances.get(appt.patientId)?.balance) ||
-                                                            (appt.patientName && patientBalances.get(appt.patientName.toLowerCase().trim())?.balance) || 0;
-                                                        if (pBal >= Number(appt.price || 0) && Number(appt.price || 0) > 0) {
-                                                            return (
-                                                                <button
-                                                                    disabled={isCharging}
-                                                                    style={isCharging ? { opacity: 0.5, cursor: 'not-allowed' } : { backgroundColor: '#ecfdf5', borderColor: '#a7f3d0', color: '#047857' }}
-                                                                    className="btn-payment-method"
-                                                                    onClick={() => handleChargeAppointment(appt, 'Saldo a favor')}
-                                                                    title={`Cobrar con Saldo a favor (Disponible: ${pBal.toFixed(0)}€)`}
-                                                                >
-                                                                    <Coins size={12} />
-                                                                </button>
-                                                            );
-                                                        }
-                                                        return null;
-                                                    })()}
-                                                    <button disabled={isCharging} style={isCharging ? { opacity: 0.5, cursor: 'not-allowed' } : undefined} className="btn-payment-method" onClick={() => handleChargeAppointment(appt, 'Efectivo')} title="Cobrar Efectivo"><Wallet size={12} /></button>
-                                                    <button disabled={isCharging} style={isCharging ? { opacity: 0.5, cursor: 'not-allowed' } : undefined} className="btn-payment-method" onClick={() => handleChargeAppointment(appt, 'Tarjeta')} title="Cobrar Tarjeta"><CreditCard size={12} /></button>
-                                                    <button disabled={isCharging} style={isCharging ? { opacity: 0.5, cursor: 'not-allowed' } : undefined} className="btn-payment-method" onClick={() => handleChargeAppointment(appt, 'Transferencia')} title="Cobrar Transferencia"><Send size={12} /></button>
-                                                    <button disabled={isCharging} style={isCharging ? { opacity: 0.5, cursor: 'not-allowed' } : { backgroundColor: '#faf5ff', borderColor: '#e9d5ff', color: '#7e22ce' }} className="btn-payment-method" onClick={() => handleChargeAppointment(appt, 'TPV Virtual')} title="Cobrar TPV Virtual / Link"><LinkIcon size={12} /></button>
-                                                    <button disabled={isCharging} style={isCharging ? { opacity: 0.5, cursor: 'not-allowed' } : undefined} className="btn-payment-method" onClick={() => handleChargeAppointment(appt, 'Fin de mes')} title="Asignar Fin de Mes (Pendiente)"><CalendarClock size={12} /></button>
+                                            <td style={{ textAlign: 'center', width: '140px' }}>
+                                                <div className="charge-cell-container">
+                                                    <button
+                                                        type="button"
+                                                        className="btn-charge-trigger"
+                                                        onClick={(e) => {
+                                                            e.stopPropagation();
+                                                            const rect = e.currentTarget.getBoundingClientRect();
+                                                            setChargeMenu(prev => (prev?.id === appt.id ? null : {
+                                                                type: 'appt',
+                                                                id: appt.id,
+                                                                item: appt,
+                                                                rect,
+                                                                hasPending,
+                                                                pendingItems,
+                                                                pendingTotal,
+                                                                patientBalance: (appt.patientId && patientBalances.get(appt.patientId)?.balance) ||
+                                                                    (appt.patientName && patientBalances.get(appt.patientName.toLowerCase().trim())?.balance) || 0,
+                                                            }));
+                                                        }}
+                                                        disabled={isCharging}
+                                                        title="Seleccionar método de cobro"
+                                                    >
+                                                        <CreditCard size={14} />
+                                                        <span>Cobrar</span>
+                                                        <ChevronDown size={13} className="opacity-70" />
+                                                    </button>
                                                 </div>
                                             </td>
                                         </tr>
@@ -3057,54 +3072,48 @@ const BillingView: React.FC = () => {
                                                     </span>
                                                 ) : '—'}
                                             </td>
-                                            <td style={{ textAlign: 'right', width: '220px', minWidth: '215px' }}>
-                                                <div className="payment-actions">
-                                                    <button className="btn-icon micro" onClick={() => handleEditOpen(t)} title="Editar Transacción"><Edit2 size={12} /></button>
+                                            <td style={{ textAlign: 'center', width: '140px' }}>
+                                                <div className="charge-cell-container">
+                                                    <button className="btn-table-action" onClick={() => handleEditOpen(t)} title="Editar Transacción">
+                                                        <Edit2 size={14} />
+                                                    </button>
                                                     {t.status === 'Pagado' && !t.invoiceId && (
-                                                        <button className="btn-icon micro text-secondary" onClick={() => handleOpenGenerateInvoice(t)} title="Generar Factura"><FileText size={12} /></button>
+                                                        <button className="btn-table-action text-secondary" onClick={() => handleOpenGenerateInvoice(t)} title="Generar Factura">
+                                                            <FileText size={14} />
+                                                        </button>
                                                     )}
                                                     {t.invoiceId && (
-                                                        <span title="Factura Generada" className="text-secondary opacity-50 flex items-center justify-center" style={{ width: 25, height: 25 }}><CheckCircle size={12} /></span>
+                                                        <span title="Factura Generada" className="badge-invoice-pill">
+                                                            <CheckCircle size={13} />
+                                                            <span>Factura</span>
+                                                        </span>
                                                     )}
                                                     {t.status === 'Pendiente' && (
-                                                        <>
-                                                            {hasPending && (
-                                                                <button
-                                                                    disabled={payingTxIds.has(t.id)}
-                                                                    className="btn-payment-method"
-                                                                    style={{ background: '#fef3c7', borderColor: '#fde68a', color: '#92400e' }}
-                                                                    onClick={() => openBatchPayModal(t.patientId, t.patientName)}
-                                                                    title="Cobro agrupado con sesiones pendientes"
-                                                                >
-                                                                    <Layers size={12} />
-                                                                </button>
-                                                            )}
-                                                            {(() => {
-                                                                const pBalTx = (t.patientId && patientBalances.get(t.patientId)?.balance) ||
-                                                                    (t.patientName && patientBalances.get(t.patientName.toLowerCase().trim())?.balance) || 0;
-                                                                if (pBalTx >= t.amount && t.amount > 0) {
-                                                                    return (
-                                                                        <button
-                                                                            disabled={payingTxIds.has(t.id)}
-                                                                            style={payingTxIds.has(t.id) ? { opacity: 0.5, cursor: 'not-allowed' } : { backgroundColor: '#ecfdf5', borderColor: '#a7f3d0', color: '#047857' }}
-                                                                            className="btn-payment-method"
-                                                                            onClick={() => handlePayment(t.id, 'Saldo a favor')}
-                                                                            title={`Cobrar con Saldo a favor (Disponible: ${pBalTx.toFixed(0)}€)`}
-                                                                        >
-                                                                            <Coins size={12} />
-                                                                        </button>
-                                                                    );
-                                                                }
-                                                                return null;
-                                                            })()}
-                                                            <button disabled={payingTxIds.has(t.id)} style={payingTxIds.has(t.id) ? { opacity: 0.5, cursor: 'not-allowed' } : undefined} className="btn-payment-method" onClick={() => handlePayment(t.id, 'Efectivo')} title="Cobrar Efectivo"><Wallet size={12} /></button>
-                                                            <button disabled={payingTxIds.has(t.id)} style={payingTxIds.has(t.id) ? { opacity: 0.5, cursor: 'not-allowed' } : undefined} className="btn-payment-method" onClick={() => handlePayment(t.id, 'Tarjeta')} title="Cobrar Tarjeta"><CreditCard size={12} /></button>
-                                                            <button disabled={payingTxIds.has(t.id)} style={payingTxIds.has(t.id) ? { opacity: 0.5, cursor: 'not-allowed' } : undefined} className="btn-payment-method" onClick={() => handlePayment(t.id, 'Transferencia')} title="Cobrar Transferencia"><Send size={12} /></button>
-                                                            <button disabled={payingTxIds.has(t.id)} style={payingTxIds.has(t.id) ? { opacity: 0.5, cursor: 'not-allowed' } : { backgroundColor: '#faf5ff', borderColor: '#e9d5ff', color: '#7e22ce' }} className="btn-payment-method" onClick={() => handlePayment(t.id, 'TPV Virtual')} title="Cobrar TPV Virtual / Link"><LinkIcon size={12} /></button>
-                                                            {t.method !== 'Fin de mes' && (
-                                                                <button disabled={payingTxIds.has(t.id)} style={payingTxIds.has(t.id) ? { opacity: 0.5, cursor: 'not-allowed' } : undefined} className="btn-payment-method" onClick={() => handlePayment(t.id, 'Fin de mes')} title="Asignar Fin de Mes (Pendiente)"><CalendarClock size={12} /></button>
-                                                            )}
-                                                        </>
+                                                        <button
+                                                            type="button"
+                                                            className="btn-charge-trigger"
+                                                            onClick={(e) => {
+                                                                e.stopPropagation();
+                                                                const rect = e.currentTarget.getBoundingClientRect();
+                                                                setChargeMenu(prev => (prev?.id === t.id ? null : {
+                                                                    type: 'tx',
+                                                                    id: t.id,
+                                                                    item: t,
+                                                                    rect,
+                                                                    hasPending,
+                                                                    pendingItems,
+                                                                    pendingTotal,
+                                                                    patientBalance: (t.patientId && patientBalances.get(t.patientId)?.balance) ||
+                                                                        (t.patientName && patientBalances.get(t.patientName.toLowerCase().trim())?.balance) || 0,
+                                                                }));
+                                                            }}
+                                                            disabled={payingTxIds.has(t.id)}
+                                                            title="Seleccionar método de cobro"
+                                                        >
+                                                            <CreditCard size={14} />
+                                                            <span>Cobrar</span>
+                                                            <ChevronDown size={13} className="opacity-70" />
+                                                        </button>
                                                     )}
                                                 </div>
                                             </td>
@@ -4006,6 +4015,162 @@ const BillingView: React.FC = () => {
                     </PrintPortal>
                 )
             }
+            {/* Charge Dropdown Menu Portal */}
+            {chargeMenu && createPortal(
+                <>
+                    <div className="charge-menu-backdrop" onClick={() => setChargeMenu(null)} />
+                    <div
+                        className="charge-menu-dropdown-portal"
+                        style={{
+                            position: 'fixed',
+                            top: (chargeMenu.rect.bottom + 270 > window.innerHeight)
+                                ? Math.max(10, chargeMenu.rect.top - 270)
+                                : chargeMenu.rect.bottom + 6,
+                            right: Math.max(16, window.innerWidth - chargeMenu.rect.right),
+                            width: 250,
+                            zIndex: 9999,
+                        }}
+                        onClick={(e) => e.stopPropagation()}
+                    >
+                        <div className="charge-dropdown-header">Método de cobro</div>
+
+                        {/* Cobro agrupado si tiene citas pendientes acumuladas */}
+                        {chargeMenu.hasPending && (
+                            <>
+                                <button
+                                    type="button"
+                                    className="charge-dropdown-item batch"
+                                    onClick={() => {
+                                        const { item, type } = chargeMenu;
+                                        setChargeMenu(null);
+                                        if (type === 'appt') {
+                                            openBatchPayModal(item.patientId, item.patientName, item);
+                                        } else {
+                                            openBatchPayModal(item.patientId, item.patientName);
+                                        }
+                                    }}
+                                >
+                                    <div className="charge-dropdown-icon-wrap batch">
+                                        <Layers size={15} />
+                                    </div>
+                                    <div className="charge-dropdown-text">
+                                        <div className="charge-dropdown-title">Cobro agrupado</div>
+                                        <div className="charge-dropdown-sub">{chargeMenu.pendingItems.length} sesiones ({chargeMenu.pendingTotal.toFixed(2)}€)</div>
+                                    </div>
+                                </button>
+                                <div className="charge-dropdown-divider" />
+                            </>
+                        )}
+
+                        {/* Saldo a favor si tiene suficiente saldo disponible */}
+                        {(() => {
+                            const reqAmount = chargeMenu.type === 'appt' ? Number(chargeMenu.item.price || 0) : chargeMenu.item.amount;
+                            if (chargeMenu.patientBalance >= reqAmount && reqAmount > 0) {
+                                return (
+                                    <>
+                                        <button
+                                            type="button"
+                                            className="charge-dropdown-item balance"
+                                            onClick={() => {
+                                                const { item, type } = chargeMenu;
+                                                setChargeMenu(null);
+                                                if (type === 'appt') {
+                                                    handleChargeAppointment(item, 'Saldo a favor');
+                                                } else {
+                                                    handlePayment(item.id, 'Saldo a favor');
+                                                }
+                                            }}
+                                        >
+                                            <div className="charge-dropdown-icon-wrap balance">
+                                                <Coins size={15} />
+                                            </div>
+                                            <div className="charge-dropdown-text">
+                                                <div className="charge-dropdown-title">Saldo a favor / Beca</div>
+                                                <div className="charge-dropdown-sub">Disponible: {chargeMenu.patientBalance.toFixed(0)}€</div>
+                                            </div>
+                                        </button>
+                                        <div className="charge-dropdown-divider" />
+                                    </>
+                                );
+                            }
+                            return null;
+                        })()}
+
+                        <button
+                            type="button"
+                            className="charge-dropdown-item"
+                            onClick={() => {
+                                const { item, type } = chargeMenu;
+                                setChargeMenu(null);
+                                if (type === 'appt') handleChargeAppointment(item, 'Tarjeta');
+                                else handlePayment(item.id, 'Tarjeta');
+                            }}
+                        >
+                            <CreditCard size={15} className="text-blue-600" />
+                            <span>Tarjeta (Datáfono)</span>
+                        </button>
+
+                        <button
+                            type="button"
+                            className="charge-dropdown-item"
+                            onClick={() => {
+                                const { item, type } = chargeMenu;
+                                setChargeMenu(null);
+                                if (type === 'appt') handleChargeAppointment(item, 'Efectivo');
+                                else handlePayment(item.id, 'Efectivo');
+                            }}
+                        >
+                            <Wallet size={15} className="text-emerald-600" />
+                            <span>Efectivo</span>
+                        </button>
+
+                        <button
+                            type="button"
+                            className="charge-dropdown-item"
+                            onClick={() => {
+                                const { item, type } = chargeMenu;
+                                setChargeMenu(null);
+                                if (type === 'appt') handleChargeAppointment(item, 'TPV Virtual');
+                                else handlePayment(item.id, 'TPV Virtual');
+                            }}
+                        >
+                            <LinkIcon size={15} className="text-purple-600" />
+                            <span>TPV Virtual / Link WhatsApp</span>
+                        </button>
+
+                        <button
+                            type="button"
+                            className="charge-dropdown-item"
+                            onClick={() => {
+                                const { item, type } = chargeMenu;
+                                setChargeMenu(null);
+                                if (type === 'appt') handleChargeAppointment(item, 'Transferencia');
+                                else handlePayment(item.id, 'Transferencia');
+                            }}
+                        >
+                            <Send size={15} className="text-sky-600" />
+                            <span>Transferencia bancaria</span>
+                        </button>
+
+                        {!(chargeMenu.type === 'tx' && chargeMenu.item.method === 'Fin de mes') && (
+                            <button
+                                type="button"
+                                className="charge-dropdown-item"
+                                onClick={() => {
+                                    const { item, type } = chargeMenu;
+                                    setChargeMenu(null);
+                                    if (type === 'appt') handleChargeAppointment(item, 'Fin de mes');
+                                    else handlePayment(item.id, 'Fin de mes');
+                                }}
+                            >
+                                <CalendarClock size={15} className="text-amber-600" />
+                                <span>Fin de mes (Pendiente)</span>
+                            </button>
+                        )}
+                    </div>
+                </>,
+                document.body
+            )}
         </div >
     );
 };

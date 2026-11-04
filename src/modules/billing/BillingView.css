@@ -602,6 +602,218 @@
     background-color: #f8fafc;
 }
 
+/* ── Modern Centered Action Buttons & Dropdown ── */
+.charge-cell-container {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.45rem;
+}
+
+.btn-charge-trigger {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.4rem;
+    padding: 0.38rem 0.8rem;
+    background: #ecfdf5;
+    color: #047857;
+    border: 1px solid #a7f3d0;
+    border-radius: 8px;
+    font-size: 0.82rem;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+    box-shadow: 0 1px 2px rgba(16, 185, 129, 0.08);
+    white-space: nowrap;
+}
+
+.btn-charge-trigger:hover {
+    background: #10b981;
+    color: white;
+    border-color: #10b981;
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(16, 185, 129, 0.25);
+}
+
+.btn-charge-trigger:active {
+    transform: translateY(0);
+}
+
+.btn-charge-trigger:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+    transform: none;
+    box-shadow: none;
+}
+
+.btn-table-action {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 30px;
+    height: 30px;
+    border-radius: 7px;
+    border: 1px solid #e2e8f0;
+    background: white;
+    color: #64748b;
+    cursor: pointer;
+    transition: all 0.15s ease;
+}
+
+.btn-table-action:hover {
+    color: #1A5F7A;
+    border-color: #1A5F7A;
+    background: #f8fafc;
+    transform: translateY(-1px);
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.06);
+}
+
+.badge-invoice-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    padding: 0.35rem 0.65rem;
+    background: #f0fdf4;
+    color: #166534;
+    border: 1px solid #bbf7d0;
+    border-radius: 6px;
+    font-size: 0.75rem;
+    font-weight: 600;
+}
+
+/* ── Charge Portal Dropdown ── */
+.charge-menu-backdrop {
+    position: fixed;
+    inset: 0;
+    z-index: 9998;
+    background: transparent;
+}
+
+.charge-menu-dropdown-portal {
+    position: fixed;
+    z-index: 9999;
+    min-width: 250px;
+    background: white;
+    border-radius: 14px;
+    border: 1px solid #e2e8f0;
+    box-shadow: 
+        0 10px 25px -5px rgba(0, 0, 0, 0.12),
+        0 8px 10px -6px rgba(0, 0, 0, 0.08),
+        0 0 0 1px rgba(0, 0, 0, 0.02);
+    padding: 0.4rem;
+    animation: chargeDropdownFade 0.15s cubic-bezier(0, 0, 0.2, 1);
+    transform-origin: top right;
+}
+
+@keyframes chargeDropdownFade {
+    from {
+        opacity: 0;
+        transform: scale(0.96) translateY(-4px);
+    }
+    to {
+        opacity: 1;
+        transform: scale(1) translateY(0);
+    }
+}
+
+.charge-dropdown-header {
+    padding: 0.5rem 0.75rem 0.35rem;
+    font-size: 0.7rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: #94a3b8;
+}
+
+.charge-dropdown-item {
+    display: flex;
+    align-items: center;
+    gap: 0.65rem;
+    width: 100%;
+    padding: 0.55rem 0.75rem;
+    border: none;
+    background: transparent;
+    border-radius: 8px;
+    font-size: 0.84rem;
+    font-weight: 500;
+    color: #334155;
+    text-align: left;
+    cursor: pointer;
+    transition: all 0.15s ease;
+}
+
+.charge-dropdown-item:hover {
+    background: #f1f5f9;
+    color: #0f172a;
+}
+
+.charge-dropdown-item.batch {
+    background: #fefce8;
+    border: 1px solid #fef08a;
+    color: #854d0e;
+    margin-bottom: 0.3rem;
+}
+
+.charge-dropdown-item.batch:hover {
+    background: #fef08a;
+    color: #713f12;
+}
+
+.charge-dropdown-item.balance {
+    background: #ecfdf5;
+    border: 1px solid #a7f3d0;
+    color: #065f46;
+    margin-bottom: 0.3rem;
+}
+
+.charge-dropdown-item.balance:hover {
+    background: #d1fae5;
+    color: #047857;
+}
+
+.charge-dropdown-icon-wrap {
+    width: 28px;
+    height: 28px;
+    border-radius: 6px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+}
+
+.charge-dropdown-icon-wrap.batch {
+    background: #fef08a;
+    color: #a16207;
+}
+
+.charge-dropdown-icon-wrap.balance {
+    background: #a7f3d0;
+    color: #047857;
+}
+
+.charge-dropdown-text {
+    display: flex;
+    flex-direction: column;
+    gap: 0.1rem;
+}
+
+.charge-dropdown-title {
+    font-size: 0.82rem;
+    font-weight: 700;
+}
+
+.charge-dropdown-sub {
+    font-size: 0.7rem;
+    opacity: 0.85;
+}
+
+.charge-dropdown-divider {
+    height: 1px;
+    background: #f1f5f9;
+    margin: 0.3rem 0;
+}
+
 /* ── Pending Row Highlighting ── */
 .row-pending {
     background-color: #fffcf9 !important;

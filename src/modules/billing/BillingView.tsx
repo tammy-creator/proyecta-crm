@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import { getTransactions, recordPayment, updateTransaction, createTransaction, toggleReconciliation, isNonClinicalSession, batchPayAppointments, type BatchPaymentItem, computePatientBalances, addPatientCredit } from './service';
 import { type Transaction, type PaymentMethod } from './types';
@@ -114,6 +114,9 @@ const BillingView: React.FC = () => {
     const [walletFilterTab, setWalletFilterTab] = useState<'all' | 'positive' | 'negative'>('all');
     const [isAddCreditModalOpen, setIsAddCreditModalOpen] = useState(false);
     const [selectedWalletPatient, setSelectedWalletPatient] = useState<{ id: string; name: string } | null>(null);
+    const [creditPatientSearch, setCreditPatientSearch] = useState('');
+    const [isCreditPatientDropdownOpen, setIsCreditPatientDropdownOpen] = useState(false);
+    const creditPatientDropdownRef = useRef<HTMLDivElement>(null);
     const [newCreditAmount, setNewCreditAmount] = useState('');
     const [newCreditMethod, setNewCreditMethod] = useState<'Transferencia' | 'Tarjeta' | 'Efectivo' | 'TPV Virtual'>('Transferencia');
     const [newCreditCategory, setNewCreditCategory] = useState('Ingreso Beca MEC');
@@ -170,9 +173,46 @@ const BillingView: React.FC = () => {
     const totalCustodialBalance = patientsWithBalanceList.reduce((acc, p) => acc + Math.max(0, p.balance), 0);
     const totalNegativeBalance = Math.abs(patientsWithBalanceList.reduce((acc, p) => acc + Math.min(0, p.balance), 0));
 
+    // Close credit patient dropdown when clicking outside
+    useEffect(() => {
+        if (!isCreditPatientDropdownOpen) return;
+        const handleClickOutside = (e: MouseEvent) => {
+            if (creditPatientDropdownRef.current && !creditPatientDropdownRef.current.contains(e.target as Node)) {
+                setIsCreditPatientDropdownOpen(false);
+            }
+        };
+        document.addEventListener('mousedown', handleClickOutside);
+        return () => {
+            document.removeEventListener('mousedown', handleClickOutside);
+        };
+    }, [isCreditPatientDropdownOpen]);
+
+    // All clinic patients sorted alphabetically A-Z
+    const sortedAlphabeticalPatients = useMemo(() => {
+        return [...patients].sort((a, b) => {
+            const nameA = `${a.firstName || ''} ${a.lastName || ''}`.trim();
+            const nameB = `${b.firstName || ''} ${b.lastName || ''}`.trim();
+            return nameA.localeCompare(nameB, 'es', { sensitivity: 'base' });
+        });
+    }, [patients]);
+
+    // Live search filter matching patient name and tutor names
+    const filteredCreditPatients = useMemo(() => {
+        const rawSearch = creditPatientSearch.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().trim();
+        if (!rawSearch) return sortedAlphabeticalPatients;
+        const tokens = rawSearch.split(/\s+/).filter(Boolean);
+        return sortedAlphabeticalPatients.filter(p => {
+            const fullName = `${p.firstName || ''} ${p.lastName || ''}`.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+            const t1 = p.tutor1 ? `${p.tutor1.firstName || ''} ${p.tutor1.lastName || ''}`.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase() : '';
+            const t2 = p.tutor2 ? `${p.tutor2.firstName || ''} ${p.tutor2.lastName || ''}`.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase() : '';
+            const combined = `${fullName} ${t1} ${t2}`;
+            return tokens.every(token => combined.includes(token));
+        });
+    }, [sortedAlphabeticalPatients, creditPatientSearch]);
+
     const handleSaveWalletCredit = async () => {
         if (!selectedWalletPatient?.id || !newCreditAmount || Number(newCreditAmount) <= 0) {
-            showToast("Introduce un importe válido", "error");
+            showToast("Selecciona un paciente e introduce un importe válido", "error");
             return;
         }
 
@@ -190,6 +230,9 @@ const BillingView: React.FC = () => {
 
             showToast("¡Ingreso en bolsa de saldo / beca registrado!", "success");
             setIsAddCreditModalOpen(false);
+            setIsCreditPatientDropdownOpen(false);
+            setCreditPatientSearch('');
+            setSelectedWalletPatient(null);
             setNewCreditAmount('');
             setNewCreditNotes('');
             await fetchData();
@@ -3468,9 +3511,9 @@ const BillingView: React.FC = () => {
                                     type="button"
                                     className="billing-wallet-add-btn"
                                     onClick={() => {
-                                        if (patients.length > 0) {
-                                            setSelectedWalletPatient({ id: patients[0].id, name: `${patients[0].firstName} ${patients[0].lastName}` });
-                                        }
+                                        setSelectedWalletPatient(null);
+                                        setCreditPatientSearch('');
+                                        setIsCreditPatientDropdownOpen(true);
                                         setNewCreditAmount('');
                                         setNewCreditCategory('Ingreso Beca MEC');
                                         setNewCreditMethod('Transferencia');
@@ -3563,6 +3606,8 @@ const BillingView: React.FC = () => {
                                                                     className="wallet-action-pill-btn"
                                                                     onClick={() => {
                                                                         setSelectedWalletPatient({ id: p.id, name: p.name });
+                                                                        setCreditPatientSearch('');
+                                                                        setIsCreditPatientDropdownOpen(false);
                                                                         setNewCreditAmount('');
                                                                         setNewCreditCategory('Ingreso Beca MEC');
                                                                         setNewCreditMethod('Transferencia');
@@ -3597,37 +3642,159 @@ const BillingView: React.FC = () => {
             )}
 
             {/* Modal para ingresar saldo/beca desde Facturación */}
-            {isAddCreditModalOpen && selectedWalletPatient && (
+            {isAddCreditModalOpen && (
                 <div className="modal-overlay" style={{ zIndex: 11000 }}>
-                    <div className="modal-content" style={{ maxWidth: '480px' }}>
-                        <div className="modal-header">
-                            <div className="flex items-center gap-2">
-                                <Wallet size={20} style={{ color: '#047857' }} />
-                                <h3>Ingresar Beca / Saldo en Monedero</h3>
+                    <div className="modal-content credit-modal-content">
+                        <div className="modal-header credit-modal-header">
+                            <div className="flex items-center gap-3">
+                                <div className="credit-modal-header-icon">
+                                    <Wallet size={20} />
+                                </div>
+                                <div>
+                                    <h3 style={{ margin: 0, fontSize: '1.05rem', fontWeight: 700, color: '#0f172a' }}>Ingresar Beca / Saldo en Monedero</h3>
+                                    <p style={{ margin: 0, fontSize: '0.75rem', color: '#64748b' }}>Abono anticipado de fondos para futuras sesiones</p>
+                                </div>
                             </div>
-                            <button className="btn-icon-round" onClick={() => setIsAddCreditModalOpen(false)}>
+                            <button className="btn-icon-round" onClick={() => { setIsAddCreditModalOpen(false); setIsCreditPatientDropdownOpen(false); }}>
                                 <X size={20} />
                             </button>
                         </div>
-                        <div style={{ padding: '1.25rem', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-                            <div className="form-group">
-                                <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 700, color: '#334155', marginBottom: '4px' }}>
-                                    Paciente *
+                        <div className="credit-modal-body">
+                            {/* Selector de Paciente con Buscador Interactivo */}
+                            <div className="form-group" style={{ position: 'relative' }}>
+                                <label style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.8rem', fontWeight: 700, color: '#334155', marginBottom: '6px' }}>
+                                    <span>Paciente *</span>
+                                    {selectedWalletPatient && (
+                                        <span style={{ fontSize: '0.72rem', fontWeight: 500, color: '#059669' }}>
+                                            Paciente asignado correctamente
+                                        </span>
+                                    )}
                                 </label>
-                                <select
-                                    style={{ width: '100%', padding: '0.55rem 0.75rem', borderRadius: '8px', border: '1px solid #cbd5e1' }}
-                                    value={selectedWalletPatient.id}
-                                    onChange={(e) => {
-                                        const p = patients.find(pat => pat.id === e.target.value);
-                                        if (p) setSelectedWalletPatient({ id: p.id, name: `${p.firstName} ${p.lastName}` });
-                                    }}
-                                >
-                                    {patients.map(p => (
-                                        <option key={p.id} value={p.id}>{p.firstName} {p.lastName}</option>
-                                    ))}
-                                </select>
+
+                                {selectedWalletPatient ? (
+                                    <div className="wallet-selected-patient-box">
+                                        <div className="wallet-selected-patient-avatar">
+                                            <User size={18} />
+                                        </div>
+                                        <div className="wallet-selected-patient-info">
+                                            <span className="wallet-selected-patient-name">{selectedWalletPatient.name}</span>
+                                            <span className="wallet-selected-patient-meta">
+                                                {(() => {
+                                                    const pObj = patients.find(p => p.id === selectedWalletPatient.id);
+                                                    const tutorName = pObj?.tutor1?.firstName ? `Tutor: ${pObj.tutor1.firstName} ${pObj.tutor1.lastName || ''}`.trim() : null;
+                                                    const bObj = patientsWithBalanceList.find(b => b.id === selectedWalletPatient.id);
+                                                    const currentBal = bObj?.balance;
+                                                    return (
+                                                        <>
+                                                            {tutorName && <span>{tutorName} • </span>}
+                                                            {currentBal !== undefined ? (
+                                                                <span style={{ fontWeight: 600, color: currentBal > 0 ? '#047857' : currentBal < 0 ? '#b91c1c' : '#64748b' }}>
+                                                                    Saldo actual: {currentBal > 0 ? `+${currentBal.toFixed(2)}€` : `${currentBal.toFixed(2)}€`}
+                                                                </span>
+                                                            ) : (
+                                                                <span>Sin saldo registrado previamente</span>
+                                                            )}
+                                                        </>
+                                                    );
+                                                })()}
+                                            </span>
+                                        </div>
+                                        <button
+                                            type="button"
+                                            className="wallet-change-patient-btn"
+                                            onClick={() => {
+                                                setSelectedWalletPatient(null);
+                                                setCreditPatientSearch('');
+                                                setIsCreditPatientDropdownOpen(true);
+                                            }}
+                                            title="Cambiar paciente"
+                                        >
+                                            <Search size={14} />
+                                            <span>Cambiar</span>
+                                        </button>
+                                    </div>
+                                ) : (
+                                    <div className="wallet-patient-picker" ref={creditPatientDropdownRef}>
+                                        <div className="wallet-patient-search-bar">
+                                            <Search size={16} className="wallet-patient-search-icon" />
+                                            <input
+                                                type="text"
+                                                autoFocus
+                                                className="wallet-patient-search-input"
+                                                placeholder="Buscar por nombre, apellidos o tutor... (A-Z)"
+                                                value={creditPatientSearch}
+                                                onChange={(e) => {
+                                                    setCreditPatientSearch(e.target.value);
+                                                    setIsCreditPatientDropdownOpen(true);
+                                                }}
+                                                onFocus={() => setIsCreditPatientDropdownOpen(true)}
+                                            />
+                                            {creditPatientSearch && (
+                                                <button
+                                                    type="button"
+                                                    className="wallet-patient-clear-btn"
+                                                    onClick={() => setCreditPatientSearch('')}
+                                                >
+                                                    <X size={14} />
+                                                </button>
+                                            )}
+                                        </div>
+
+                                        {isCreditPatientDropdownOpen && (
+                                            <div className="wallet-patient-dropdown-menu">
+                                                <div className="wallet-patient-dropdown-header">
+                                                    <span>{filteredCreditPatients.length} paciente{filteredCreditPatients.length !== 1 ? 's' : ''} {creditPatientSearch ? 'encontrado' + (filteredCreditPatients.length !== 1 ? 's' : '') : 'disponibles (orden alfabético A-Z)'}</span>
+                                                </div>
+                                                <div className="wallet-patient-dropdown-list">
+                                                    {filteredCreditPatients.length === 0 ? (
+                                                        <div className="wallet-patient-empty">
+                                                            No se encontró ningún paciente con "{creditPatientSearch}"
+                                                        </div>
+                                                    ) : (
+                                                        filteredCreditPatients.slice(0, 60).map(p => {
+                                                            const fullName = `${p.firstName} ${p.lastName}`.trim();
+                                                            const bObj = patientsWithBalanceList.find(b => b.id === p.id);
+                                                            const currentBal = bObj?.balance;
+                                                            const tutorName = p.tutor1?.firstName ? `Tutor: ${p.tutor1.firstName} ${p.tutor1.lastName || ''}`.trim() : null;
+                                                            return (
+                                                                <div
+                                                                    key={p.id}
+                                                                    className="wallet-patient-item"
+                                                                    onClick={() => {
+                                                                        setSelectedWalletPatient({ id: p.id, name: fullName });
+                                                                        setIsCreditPatientDropdownOpen(false);
+                                                                        setCreditPatientSearch('');
+                                                                    }}
+                                                                >
+                                                                    <div className="wallet-patient-item-avatar">
+                                                                        <User size={14} />
+                                                                    </div>
+                                                                    <div className="wallet-patient-item-details">
+                                                                        <span className="wallet-patient-item-name">{fullName}</span>
+                                                                        {tutorName && <span className="wallet-patient-item-tutor">{tutorName}</span>}
+                                                                    </div>
+                                                                    {currentBal !== undefined && currentBal !== 0 && (
+                                                                        <span className={`wallet-patient-item-balance ${currentBal > 0 ? 'pos' : 'neg'}`}>
+                                                                            {currentBal > 0 ? `+${currentBal.toFixed(2)}€` : `${currentBal.toFixed(2)}€`}
+                                                                        </span>
+                                                                    )}
+                                                                </div>
+                                                            );
+                                                        })
+                                                    )}
+                                                    {filteredCreditPatients.length > 60 && (
+                                                        <div className="wallet-patient-more-hint">
+                                                            Mostrando los primeros 60 de {filteredCreditPatients.length} pacientes. Escribe para afinar la búsqueda.
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            </div>
+                                        )}
+                                    </div>
+                                )}
                             </div>
 
+                            {/* Importe a Ingresar con sugerencias rápidas */}
                             <div className="form-group">
                                 <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 700, color: '#334155', marginBottom: '4px' }}>
                                     Importe a Ingresar (€) *
@@ -3637,13 +3804,27 @@ const BillingView: React.FC = () => {
                                     step="0.01"
                                     min="1"
                                     required
-                                    style={{ width: '100%', padding: '0.6rem 0.8rem', fontSize: '1.2rem', fontWeight: 700, color: '#047857', border: '2px solid #cbd5e1', borderRadius: '8px' }}
+                                    style={{ width: '100%', padding: '0.6rem 0.8rem', fontSize: '1.25rem', fontWeight: 800, color: '#047857', border: '2px solid #cbd5e1', borderRadius: '10px' }}
                                     placeholder="Ej: 300.00"
                                     value={newCreditAmount}
                                     onChange={e => setNewCreditAmount(e.target.value)}
                                 />
+                                <div className="credit-quick-amounts">
+                                    <span style={{ fontSize: '0.72rem', color: '#64748b', alignSelf: 'center', marginRight: '2px' }}>Montos habituales:</span>
+                                    {[100, 200, 300, 500, 900].map(amt => (
+                                        <button
+                                            key={amt}
+                                            type="button"
+                                            className="credit-quick-amount-chip"
+                                            onClick={() => setNewCreditAmount(String(amt))}
+                                        >
+                                            +{amt}€
+                                        </button>
+                                    ))}
+                                </div>
                             </div>
 
+                            {/* Concepto / Tipo de Ingreso */}
                             <div className="form-group">
                                 <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 700, color: '#334155', marginBottom: '4px' }}>
                                     Concepto / Tipo de Ingreso *
@@ -3653,7 +3834,7 @@ const BillingView: React.FC = () => {
                                     value={newCreditCategory}
                                     onChange={e => setNewCreditCategory(e.target.value)}
                                 >
-                                    <option value="Ingreso Beca MEC">Beca MEC / NEAE</option>
+                                    <option value="Ingreso Beca MEC">Beca MEC / NEAE (Educación Especial)</option>
                                     <option value="Anticipo mensualidad">Anticipo Mensualidad (Varias sesiones)</option>
                                     <option value="Bono sesiones">Bono de Sesiones por adelantado</option>
                                     <option value="Ingreso Beca">Otro Ingreso de Beca</option>
@@ -3661,6 +3842,7 @@ const BillingView: React.FC = () => {
                                 </select>
                             </div>
 
+                            {/* Forma de Pago */}
                             <div className="form-group">
                                 <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 700, color: '#334155', marginBottom: '4px' }}>
                                     Forma de Pago Recibida *
@@ -3677,6 +3859,7 @@ const BillingView: React.FC = () => {
                                 </select>
                             </div>
 
+                            {/* Fecha del Ingreso */}
                             <div className="form-group">
                                 <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 700, color: '#334155', marginBottom: '4px' }}>
                                     Fecha del Ingreso en Caja *
@@ -3690,6 +3873,7 @@ const BillingView: React.FC = () => {
                                 />
                             </div>
 
+                            {/* Observaciones */}
                             <div className="form-group">
                                 <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 700, color: '#334155', marginBottom: '4px' }}>
                                     Observaciones / Notas (Opcional)
@@ -3697,28 +3881,35 @@ const BillingView: React.FC = () => {
                                 <input
                                     type="text"
                                     style={{ width: '100%', padding: '0.55rem 0.75rem', borderRadius: '8px', border: '1px solid #cbd5e1' }}
-                                    placeholder="Ej: Beca concedida curso 2026-27"
+                                    placeholder="Ej: Beca concedida curso 2026-27, primer trimestre"
                                     value={newCreditNotes}
                                     onChange={e => setNewCreditNotes(e.target.value)}
                                 />
                             </div>
 
+                            {/* Footer Buttons */}
                             <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.75rem', paddingTop: '0.75rem', borderTop: '1px solid #e2e8f0' }}>
                                 <button
                                     type="button"
                                     className="btn-secondary"
-                                    onClick={() => setIsAddCreditModalOpen(false)}
+                                    onClick={() => { setIsAddCreditModalOpen(false); setIsCreditPatientDropdownOpen(false); }}
                                 >
                                     Cancelar
                                 </button>
                                 <button
                                     type="button"
                                     className="calendar-btn-pill calendar-btn-primary"
-                                    disabled={isSavingCredit || !newCreditAmount || Number(newCreditAmount) <= 0}
+                                    disabled={isSavingCredit || !selectedWalletPatient || !newCreditAmount || Number(newCreditAmount) <= 0}
                                     onClick={handleSaveWalletCredit}
                                 >
                                     <CheckCheck size={16} />
-                                    <span>{isSavingCredit ? 'Guardando...' : 'Confirmar Ingreso en Monedero'}</span>
+                                    <span>
+                                        {isSavingCredit 
+                                            ? 'Guardando...' 
+                                            : !selectedWalletPatient 
+                                            ? 'Selecciona un paciente' 
+                                            : 'Confirmar Ingreso en Monedero'}
+                                    </span>
                                 </button>
                             </div>
                         </div>

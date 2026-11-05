@@ -38,11 +38,9 @@ const WorkforcePrintDocument: React.FC<WorkforcePrintDocumentProps> = ({
         : format(parsedMonth, "MMMM 'de' yyyy", { locale: es }).toUpperCase();
 
     let totalWorkedMinutes = 0;
-    let totalAppointments = 0;
 
     const rows = daysInMonth.map(day => {
-        const { workAtts, absenceAtt, apptsCount } = getDailyData(day);
-        totalAppointments += apptsCount;
+        const { workAtts, absenceAtt } = getDailyData(day);
 
         let status = workAtts.length > 0 ? 'Trabajado' : '---';
         let statusClass = '';
@@ -91,7 +89,6 @@ const WorkforcePrintDocument: React.FC<WorkforcePrintDocumentProps> = ({
             entries,
             exits,
             total: totalStr,
-            appts: apptsCount,
             notes: absenceAtt 
                 ? (absenceAtt.notes || status) 
                 : (workAtts.map(a => a.notes).filter(Boolean).join('; ') || '')
@@ -133,7 +130,6 @@ const WorkforcePrintDocument: React.FC<WorkforcePrintDocumentProps> = ({
                 <div className="summary-box">
                     <p className="summary-label">Resumen del Mes</p>
                     <p className="summary-total">{totalWorkedString}</p>
-                    <p className="summary-sub">{totalAppointments} Citas Atendidas</p>
                 </div>
             </section>
 
@@ -146,7 +142,6 @@ const WorkforcePrintDocument: React.FC<WorkforcePrintDocumentProps> = ({
                         <th>Entrada</th>
                         <th>Salida</th>
                         <th>Total</th>
-                        <th>Citas</th>
                         <th>Notas</th>
                     </tr>
                 </thead>
@@ -158,7 +153,6 @@ const WorkforcePrintDocument: React.FC<WorkforcePrintDocumentProps> = ({
                             <td className="center-text">{row.entries.join(' / ') || '-'}</td>
                             <td className="center-text">{row.exits.join(' / ') || '-'}</td>
                             <td className="center-text bold-text">{row.total}</td>
-                            <td className="center-text">{row.appts || '-'}</td>
                             <td className="notes-cell">{row.notes}</td>
                         </tr>
                     ))}

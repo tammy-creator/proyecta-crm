@@ -29,11 +29,9 @@ const PrintableWorkforceReport: React.FC<PrintableWorkforceReportProps> = ({
 
     // Calculamos los totales del mes para mostrar en el resumen
     let totalWorkedMinutes = 0;
-    let totalAppointments = 0;
     
     daysInMonth.forEach(day => {
-        const { workAtt, apptsCount } = getDailyData(day);
-        totalAppointments += apptsCount;
+        const { workAtt } = getDailyData(day);
         
         if (workAtt?.startTime && workAtt?.endTime) {
             const mins = differenceInMinutes(parseISO(workAtt.endTime), parseISO(workAtt.startTime));
@@ -86,7 +84,6 @@ const PrintableWorkforceReport: React.FC<PrintableWorkforceReportProps> = ({
                 <div style={{ textAlign: 'right', backgroundColor: '#f9f9f9', padding: '15px', borderRadius: '8px', border: '1px solid #eee' }}>
                     <p style={{ margin: '0 0 5px 0', fontSize: '14px', color: '#666' }}>Resumen del Mes</p>
                     <p style={{ margin: '5px 0', fontSize: '18px', fontWeight: 'bold' }}>{totalWorkedString}</p>
-                    <p style={{ margin: '0', fontSize: '14px' }}>{totalAppointments} Citas Atendidas</p>
                 </div>
             </div>
 
@@ -103,13 +100,12 @@ const PrintableWorkforceReport: React.FC<PrintableWorkforceReportProps> = ({
                         <th style={{ padding: '10px 5px', textAlign: 'center', border: '1px solid #ddd' }}>Entrada</th>
                         <th style={{ padding: '10px 5px', textAlign: 'center', border: '1px solid #ddd' }}>Salida</th>
                         <th style={{ padding: '10px 5px', textAlign: 'center', border: '1px solid #ddd' }}>Total Horas</th>
-                        <th style={{ padding: '10px 5px', textAlign: 'center', border: '1px solid #ddd' }}>Citas</th>
-                        <th style={{ padding: '10px 5px', textAlign: 'left', border: '1px solid #ddd', width: '25%' }}>Notas</th>
+                        <th style={{ padding: '10px 5px', textAlign: 'left', border: '1px solid #ddd', width: '30%' }}>Notas</th>
                     </tr>
                 </thead>
                 <tbody>
                     {daysInMonth.map((day, idx) => {
-                        const { workAtt, absenceAtt, apptsCount } = getDailyData(day);
+                        const { workAtt, absenceAtt } = getDailyData(day);
                         const isWeekend = day.getDay() === 0 || day.getDay() === 6;
                         
                         let status = workAtt ? 'Trabajado' : '---';
@@ -155,9 +151,6 @@ const PrintableWorkforceReport: React.FC<PrintableWorkforceReportProps> = ({
                                 <td style={{ padding: '8px 5px', border: '1px solid #ddd', textAlign: 'center' }}>{start}</td>
                                 <td style={{ padding: '8px 5px', border: '1px solid #ddd', textAlign: 'center' }}>{end}</td>
                                 <td style={{ padding: '8px 5px', border: '1px solid #ddd', textAlign: 'center', fontWeight: 'bold' }}>{dailyTotal}</td>
-                                <td style={{ padding: '8px 5px', border: '1px solid #ddd', textAlign: 'center', color: apptsCount === 0 ? '#aaa' : '#000' }}>
-                                    {apptsCount > 0 ? apptsCount : '-'}
-                                </td>
                                 <td style={{ padding: '8px 5px', border: '1px solid #ddd', fontStyle: 'italic', color: '#555' }}>
                                     {absenceAtt ? (absenceAtt.notes || status) : (workAtt?.notes || '')}
                                 </td>

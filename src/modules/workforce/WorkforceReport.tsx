@@ -1750,10 +1750,6 @@ const WorkforceReport: React.FC = () => {
                                                 <span className="wf-doc-metric-label">Días</span>
                                                 <span className="wf-doc-metric-val">{report.activeDays || '—'}</span>
                                             </div>
-                                            <div className="wf-doc-metric">
-                                                <span className="wf-doc-metric-label">Citas</span>
-                                                <span className="wf-doc-metric-val">{report.apptsCount || '—'}</span>
-                                            </div>
                                         </div>
 
                                         {/* Signature Box */}

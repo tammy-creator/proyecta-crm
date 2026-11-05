@@ -121,13 +121,11 @@ export const generateDetailedReportPDF = async (params: GeneratePDFParams): Prom
     doc.text(`Puesto: ${therapist.specialty || 'Especialista'}`, 40, yPos + 45);
 
     let totalWorkedMinutes = 0;
-    let totalAppointments = 0;
     
     const tableData: any[][] = [];
     
     daysInMonth.forEach((day) => {
-        const { workAtts, absenceAtt, apptsCount } = getDailyData(day);
-        totalAppointments += apptsCount;
+        const { workAtts, absenceAtt } = getDailyData(day);
         
         let status = workAtts.length > 0 ? 'Trabajado' : '---';
         if (absenceAtt) {
@@ -170,7 +168,6 @@ export const generateDetailedReportPDF = async (params: GeneratePDFParams): Prom
             entries || '-',
             exits || '-',
             dailyTotalStr,
-            apptsCount > 0 ? apptsCount.toString() : '-',
             absenceAtt 
                 ? (absenceAtt.notes || status) 
                 : (workAtts.map(a => a.notes).filter(Boolean).join('; ') || '')
@@ -182,35 +179,30 @@ export const generateDetailedReportPDF = async (params: GeneratePDFParams): Prom
     const totalWorkedString = `${totalHours}h ${totalRemainingMins > 0 ? `${totalRemainingMins}m` : ''}`;
 
     doc.setFillColor(245, 245, 245);
-    doc.roundedRect(pageWidth - 200, yPos - 10, 160, 65, 4, 4, 'F');
+    doc.roundedRect(pageWidth - 200, yPos - 10, 160, 52, 4, 4, 'F');
     doc.setFontSize(10);
-    doc.text('Resumen del Mes', pageWidth - 120, yPos + 5, { align: 'center' });
+    doc.text('Resumen del Mes', pageWidth - 120, yPos + 8, { align: 'center' });
     doc.setFontSize(14);
     doc.setFont('helvetica', 'bold');
     doc.setTextColor(26, 95, 122);
-    doc.text(totalWorkedString, pageWidth - 120, yPos + 25, { align: 'center' });
-    doc.setFontSize(10);
-    doc.setFont('helvetica', 'normal');
-    doc.setTextColor(secondaryColor);
-    doc.text(`${totalAppointments} Citas Atendidas`, pageWidth - 120, yPos + 40, { align: 'center' });
+    doc.text(totalWorkedString, pageWidth - 120, yPos + 28, { align: 'center' });
 
-    yPos += 70;
+    yPos += 60;
 
     autoTable(doc, {
         startY: yPos,
-        head: [['Fecha', 'Estado', 'Entrada', 'Salida', 'Total', 'Citas', 'Notas']],
+        head: [['Fecha', 'Estado', 'Entrada', 'Salida', 'Total', 'Notas']],
         body: tableData,
         theme: 'grid',
         headStyles: { fillColor: [26, 95, 122], fontSize: 9 },
         bodyStyles: { fontSize: 8, textColor: [31, 41, 55] },
         columnStyles: {
             0: { cellWidth: 55 },
-            1: { cellWidth: 65 },
-            2: { cellWidth: 45, halign: 'center' },
-            3: { cellWidth: 45, halign: 'center' },
-            4: { cellWidth: 45, halign: 'center', fontStyle: 'bold' },
-            5: { cellWidth: 35, halign: 'center' },
-            6: { cellWidth: 'auto' }
+            1: { cellWidth: 70 },
+            2: { cellWidth: 48, halign: 'center' },
+            3: { cellWidth: 48, halign: 'center' },
+            4: { cellWidth: 48, halign: 'center', fontStyle: 'bold' },
+            5: { cellWidth: 'auto' }
         },
         willDrawCell: function(data) {
             if (data.row.section === 'body') {

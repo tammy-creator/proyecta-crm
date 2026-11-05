@@ -1665,3 +1665,345 @@
     color: #7e22ce;
     border-color: #f3e8ff;
 }
+
+/* ═══════════════════════════════════════════════════════════════════════════════
+   Bolsa de Saldos, Becas y Anticipos (Modal & Table Styles)
+   ═══════════════════════════════════════════════════════════════════════════════ */
+
+.billing-wallet-modal-content {
+    max-width: 900px !important;
+    border-radius: 20px !important;
+    overflow: hidden;
+}
+
+.billing-wallet-header-icon {
+    width: 44px;
+    height: 44px;
+    border-radius: 12px;
+    background: linear-gradient(135deg, #ecfdf5 0%, #d1fae5 100%);
+    border: 1px solid #a7f3d0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #059669;
+    flex-shrink: 0;
+    box-shadow: 0 2px 6px rgba(5, 150, 105, 0.12);
+}
+
+.billing-wallet-summary-grid {
+    display: grid;
+    grid-template-columns: 1.2fr 1fr 1fr;
+    gap: 12px;
+    margin-bottom: 1.25rem;
+}
+
+@media (max-width: 768px) {
+    .billing-wallet-summary-grid {
+        grid-template-columns: 1fr;
+    }
+}
+
+.billing-wallet-card {
+    padding: 1.1rem 1.25rem;
+    border-radius: 14px;
+    border: 1px solid #e2e8f0;
+    background: #ffffff;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+    position: relative;
+    overflow: hidden;
+    transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.billing-wallet-card:hover {
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.06);
+}
+
+.billing-wallet-card.primary {
+    background: linear-gradient(135deg, #065f46 0%, #047857 100%);
+    border: none;
+    color: #ffffff !important;
+    box-shadow: 0 4px 16px rgba(4, 120, 87, 0.28);
+}
+
+.billing-wallet-card.primary * {
+    color: #ffffff !important;
+}
+
+.billing-wallet-card.secondary-amber {
+    border-color: #fed7aa;
+    background: #fffbeb;
+}
+
+.billing-wallet-card-header {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 0.72rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: #64748b;
+    margin-bottom: 0.35rem;
+}
+
+.billing-wallet-card.primary .billing-wallet-card-header {
+    color: rgba(255, 255, 255, 0.85) !important;
+}
+
+.billing-wallet-card-amount {
+    font-size: 1.85rem;
+    font-weight: 800;
+    line-height: 1.15;
+    color: #0f172a;
+    margin-bottom: 0.25rem;
+}
+
+.billing-wallet-card.primary .billing-wallet-card-amount {
+    color: #ffffff !important;
+}
+
+.billing-wallet-card-subtitle {
+    font-size: 0.72rem;
+    color: #94a3b8;
+    line-height: 1.3;
+}
+
+.billing-wallet-card.primary .billing-wallet-card-subtitle {
+    color: rgba(255, 255, 255, 0.8) !important;
+}
+
+/* Filter bar & Tabs */
+.billing-wallet-toolbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 1rem;
+    flex-wrap: wrap;
+}
+
+.billing-wallet-tabs {
+    display: flex;
+    background: #f1f5f9;
+    border-radius: 10px;
+    padding: 3px;
+    gap: 3px;
+}
+
+.billing-wallet-tab {
+    border: none;
+    background: transparent;
+    padding: 6px 12px;
+    font-size: 0.78rem;
+    font-weight: 600;
+    color: #64748b;
+    border-radius: 7px;
+    cursor: pointer;
+    transition: all 0.15s ease;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.billing-wallet-tab:hover {
+    color: #1e293b;
+}
+
+.billing-wallet-tab.active {
+    background: #ffffff;
+    color: #0f172a;
+    font-weight: 700;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+}
+
+.billing-wallet-tab-badge {
+    font-size: 0.7rem;
+    padding: 1px 6px;
+    border-radius: 9999px;
+    font-weight: 700;
+}
+
+.billing-wallet-tab-badge.neutral {
+    background: #e2e8f0;
+    color: #475569;
+}
+
+.billing-wallet-tab-badge.positive {
+    background: #dcfce7;
+    color: #166534;
+}
+
+.billing-wallet-tab-badge.negative {
+    background: #fee2e2;
+    color: #991b1b;
+}
+
+/* Action button */
+.billing-wallet-add-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 8px 16px;
+    font-size: 0.82rem;
+    font-weight: 700;
+    color: #ffffff;
+    background: linear-gradient(135deg, #059669 0%, #047857 100%);
+    border: none;
+    border-radius: 10px;
+    cursor: pointer;
+    box-shadow: 0 2px 6px rgba(5, 150, 105, 0.25);
+    transition: all 0.15s ease;
+    white-space: nowrap;
+}
+
+.billing-wallet-add-btn:hover {
+    background: linear-gradient(135deg, #047857 0%, #065f46 100%);
+    box-shadow: 0 4px 10px rgba(5, 150, 105, 0.35);
+    transform: translateY(-1px);
+}
+
+/* Table container */
+.billing-wallet-table-container {
+    border: 1px solid #e2e8f0;
+    border-radius: 14px;
+    background: #ffffff;
+    overflow: hidden;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.03);
+    max-height: 380px;
+    overflow-y: auto;
+}
+
+.billing-wallet-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.84rem;
+}
+
+.billing-wallet-table thead {
+    background: #f8fafc;
+    border-bottom: 2px solid #e2e8f0;
+    position: sticky;
+    top: 0;
+    z-index: 2;
+}
+
+.billing-wallet-table th {
+    padding: 10px 14px;
+    font-size: 0.72rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: #475569;
+    text-align: left;
+    white-space: nowrap;
+}
+
+.billing-wallet-table th.text-right {
+    text-align: right;
+}
+
+.billing-wallet-table th.text-center {
+    text-align: center;
+}
+
+.billing-wallet-table tbody tr {
+    border-bottom: 1px solid #f1f5f9;
+    transition: background-color 0.12s ease;
+}
+
+.billing-wallet-table tbody tr:hover {
+    background-color: #f8fafc;
+}
+
+.billing-wallet-table td {
+    padding: 11px 14px;
+    vertical-align: middle;
+}
+
+.billing-wallet-table td.text-right {
+    text-align: right;
+}
+
+.billing-wallet-table td.text-center {
+    text-align: center;
+}
+
+/* Patient cell */
+.billing-wallet-patient-cell {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.billing-wallet-avatar {
+    width: 32px;
+    height: 32px;
+    border-radius: 8px;
+    background: #eff6ff;
+    color: #2563eb;
+    border: 1px solid #dbeafe;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.78rem;
+    font-weight: 700;
+    flex-shrink: 0;
+}
+
+.billing-wallet-patient-name {
+    font-weight: 600;
+    color: #1e293b;
+}
+
+/* Badges */
+.wallet-balance-badge {
+    display: inline-block;
+    padding: 3px 10px;
+    border-radius: 9999px;
+    font-size: 0.78rem;
+    font-weight: 800;
+    white-space: nowrap;
+}
+
+.wallet-balance-badge.positive {
+    background: #ecfdf5;
+    color: #047857;
+    border: 1px solid #a7f3d0;
+}
+
+.wallet-balance-badge.negative {
+    background: #fef2f2;
+    color: #b91c1c;
+    border: 1px solid #fecaca;
+}
+
+.wallet-balance-badge.neutral {
+    background: #f1f5f9;
+    color: #64748b;
+    border: 1px solid #e2e8f0;
+}
+
+.wallet-action-pill-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 5px 12px;
+    font-size: 0.76rem;
+    font-weight: 700;
+    color: #047857;
+    background: #f0fdf4;
+    border: 1px solid #bbf7d0;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.15s ease;
+}
+
+.wallet-action-pill-btn:hover {
+    background: #047857;
+    color: #ffffff;
+    border-color: #047857;
+    box-shadow: 0 2px 6px rgba(4, 120, 87, 0.25);
+}

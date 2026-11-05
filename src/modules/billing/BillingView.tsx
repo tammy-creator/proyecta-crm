@@ -111,6 +111,7 @@ const BillingView: React.FC = () => {
     // Patient Wallet / Bolsa de Saldos states
     const [isWalletModalOpen, setIsWalletModalOpen] = useState(false);
     const [walletSearchTerm, setWalletSearchTerm] = useState('');
+    const [walletFilterTab, setWalletFilterTab] = useState<'all' | 'positive' | 'negative'>('all');
     const [isAddCreditModalOpen, setIsAddCreditModalOpen] = useState(false);
     const [selectedWalletPatient, setSelectedWalletPatient] = useState<{ id: string; name: string } | null>(null);
     const [newCreditAmount, setNewCreditAmount] = useState('');
@@ -165,7 +166,9 @@ const BillingView: React.FC = () => {
     }, [patients, patientBalances]);
 
     const positiveBalancesCount = patientsWithBalanceList.filter(p => p.balance > 0).length;
+    const negativeBalancesCount = patientsWithBalanceList.filter(p => p.balance < 0).length;
     const totalCustodialBalance = patientsWithBalanceList.reduce((acc, p) => acc + Math.max(0, p.balance), 0);
+    const totalNegativeBalance = Math.abs(patientsWithBalanceList.reduce((acc, p) => acc + Math.min(0, p.balance), 0));
 
     const handleSaveWalletCredit = async () => {
         if (!selectedWalletPatient?.id || !newCreditAmount || Number(newCreditAmount) <= 0) {
@@ -3347,51 +3350,123 @@ const BillingView: React.FC = () => {
             {/* Modal de Bolsa de Saldos y Becas */}
             {isWalletModalOpen && (
                 <div className="modal-overlay" style={{ zIndex: 10000 }}>
-                    <div className="modal-content" style={{ maxWidth: '800px' }}>
+                    <div className="modal-content billing-wallet-modal-content">
                         <div className="modal-header">
-                            <div className="flex items-center gap-2">
-                                <Coins size={22} style={{ color: '#047857' }} />
+                            <div className="flex items-center gap-3">
+                                <div className="billing-wallet-header-icon">
+                                    <Coins size={24} />
+                                </div>
                                 <div>
-                                    <h3 className="m-0 text-lg font-bold">Bolsa de Saldos, Becas y Anticipos</h3>
-                                    <p className="text-xs text-secondary m-0">Fondos en custodia depositados por familias para futuras sesiones</p>
+                                    <h3 className="m-0 text-lg font-bold" style={{ color: '#0f172a' }}>Bolsa de Saldos, Becas y Anticipos</h3>
+                                    <p className="text-xs text-secondary m-0" style={{ color: '#64748b' }}>Control de fondos en custodia, becas MEC y anticipos por paciente</p>
                                 </div>
                             </div>
                             <button className="btn-icon-round" onClick={() => setIsWalletModalOpen(false)}>
                                 <X size={20} />
                             </button>
                         </div>
-                        <div className="p-4">
+
+                        <div style={{ padding: '1.25rem 1.5rem' }}>
                             {/* Summary Cards */}
-                            <div className="grid grid-cols-2 gap-4 mb-4">
-                                <div className="p-4 rounded-xl text-white" style={{ background: 'linear-gradient(135deg, #065f46 0%, #047857 100%)' }}>
-                                    <div className="text-xs opacity-80 uppercase font-semibold">Total Fondos en Custodia</div>
-                                    <div className="text-3xl font-extrabold mt-1">{totalCustodialBalance.toFixed(2)}€</div>
-                                    <div className="text-xs opacity-75 mt-1">Saldo a favor total de todas las familias</div>
-                                </div>
-                                <div className="p-4 rounded-xl bg-gray-50 border border-gray-200 flex flex-col justify-between">
+                            <div className="billing-wallet-summary-grid">
+                                <div className="billing-wallet-card primary">
                                     <div>
-                                        <div className="text-xs text-gray-500 uppercase font-semibold">Pacientes con Saldo a Favor</div>
-                                        <div className="text-3xl font-extrabold text-gray-800 mt-1">{positiveBalancesCount}</div>
+                                        <div className="billing-wallet-card-header">
+                                            <Coins size={15} />
+                                            <span>Total Fondos en Custodia</span>
+                                        </div>
+                                        <div className="billing-wallet-card-amount">
+                                            +{totalCustodialBalance.toFixed(2)}€
+                                        </div>
                                     </div>
-                                    <div className="text-xs text-gray-400">Becas MEC o mensualidades anticipadas activas</div>
+                                    <div className="billing-wallet-card-subtitle">
+                                        Saldo a favor real disponible de todas las familias
+                                    </div>
+                                </div>
+
+                                <div className="billing-wallet-card">
+                                    <div>
+                                        <div className="billing-wallet-card-header" style={{ color: '#059669' }}>
+                                            <CheckCircle size={15} />
+                                            <span>Con Saldo a Favor</span>
+                                        </div>
+                                        <div className="billing-wallet-card-amount" style={{ color: '#059669' }}>
+                                            {positiveBalancesCount}
+                                        </div>
+                                    </div>
+                                    <div className="billing-wallet-card-subtitle">
+                                        {positiveBalancesCount === 1 ? 'Familia con saldo activo' : 'Familias con saldo activo para sesiones'}
+                                    </div>
+                                </div>
+
+                                <div className="billing-wallet-card secondary-amber">
+                                    <div>
+                                        <div className="billing-wallet-card-header" style={{ color: '#b45309' }}>
+                                            <AlertTriangle size={15} />
+                                            <span>Saldo a Regularizar</span>
+                                        </div>
+                                        <div className="billing-wallet-card-amount" style={{ color: '#b45309' }}>
+                                            -{totalNegativeBalance.toFixed(2)}€
+                                        </div>
+                                    </div>
+                                    <div className="billing-wallet-card-subtitle">
+                                        {negativeBalancesCount} {negativeBalancesCount === 1 ? 'paciente con saldo consumido' : 'pacientes con saldo consumido'}
+                                    </div>
                                 </div>
                             </div>
 
-                            {/* Search and Filters */}
-                            <div className="flex items-center justify-between gap-3 mb-3">
-                                <div className="search-pill" style={{ flex: 1 }}>
+                            {/* Toolbar: Search, Filters & Action Button */}
+                            <div className="billing-wallet-toolbar">
+                                <div className="search-pill" style={{ flex: '1 1 240px', minWidth: '220px' }}>
                                     <Search size={16} />
                                     <input
                                         type="text"
-                                        placeholder="Buscar paciente en la bolsa..."
+                                        placeholder="Buscar por nombre de paciente..."
                                         value={walletSearchTerm}
                                         onChange={(e) => setWalletSearchTerm(e.target.value)}
                                     />
+                                    {walletSearchTerm && (
+                                        <button 
+                                            type="button" 
+                                            onClick={() => setWalletSearchTerm('')}
+                                            style={{ border: 'none', background: 'transparent', cursor: 'pointer', color: '#94a3b8', padding: '2px' }}
+                                        >
+                                            <X size={14} />
+                                        </button>
+                                    )}
                                 </div>
+
+                                {/* Filter Tabs */}
+                                <div className="billing-wallet-tabs">
+                                    <button
+                                        type="button"
+                                        className={`billing-wallet-tab ${walletFilterTab === 'all' ? 'active' : ''}`}
+                                        onClick={() => setWalletFilterTab('all')}
+                                    >
+                                        <span>Todos</span>
+                                        <span className="billing-wallet-tab-badge neutral">{patientsWithBalanceList.length}</span>
+                                    </button>
+                                    <button
+                                        type="button"
+                                        className={`billing-wallet-tab ${walletFilterTab === 'positive' ? 'active' : ''}`}
+                                        onClick={() => setWalletFilterTab('positive')}
+                                    >
+                                        <span>Con Saldo</span>
+                                        <span className="billing-wallet-tab-badge positive">{positiveBalancesCount}</span>
+                                    </button>
+                                    <button
+                                        type="button"
+                                        className={`billing-wallet-tab ${walletFilterTab === 'negative' ? 'active' : ''}`}
+                                        onClick={() => setWalletFilterTab('negative')}
+                                    >
+                                        <span>Pendientes</span>
+                                        <span className="billing-wallet-tab-badge negative">{negativeBalancesCount}</span>
+                                    </button>
+                                </div>
+
                                 <button
                                     type="button"
-                                    className="calendar-btn-pill calendar-btn-primary"
-                                    style={{ padding: '0.45rem 1rem', fontSize: '0.85rem' }}
+                                    className="billing-wallet-add-btn"
                                     onClick={() => {
                                         if (patients.length > 0) {
                                             setSelectedWalletPatient({ id: patients[0].id, name: `${patients[0].firstName} ${patients[0].lastName}` });
@@ -3404,80 +3479,117 @@ const BillingView: React.FC = () => {
                                         setIsAddCreditModalOpen(true);
                                     }}
                                 >
-                                    + Registrar Ingreso Beca / Saldo
+                                    <Wallet size={16} />
+                                    <span>+ Registrar Ingreso Beca / Saldo</span>
                                 </button>
                             </div>
 
                             {/* Table of Patients */}
                             {(() => {
-                                const filtered = patientsWithBalanceList.filter(p =>
-                                    !walletSearchTerm.trim() || p.name.toLowerCase().includes(walletSearchTerm.toLowerCase().trim())
-                                );
+                                const filtered = patientsWithBalanceList.filter(p => {
+                                    const matchesSearch = !walletSearchTerm.trim() || p.name.toLowerCase().includes(walletSearchTerm.toLowerCase().trim());
+                                    if (!matchesSearch) return false;
+                                    if (walletFilterTab === 'positive') return p.balance > 0;
+                                    if (walletFilterTab === 'negative') return p.balance < 0;
+                                    return true;
+                                });
 
                                 if (filtered.length === 0) {
                                     return (
-                                        <div className="empty-state p-6 text-center text-sm text-secondary">
-                                            {walletSearchTerm ? 'No se encontraron pacientes que coincidan con la búsqueda.' : 'No hay pacientes con movimientos de saldo o beca todavía.'}
+                                        <div className="billing-wallet-table-container" style={{ padding: '3rem 1.5rem', textAlign: 'center' }}>
+                                            <Wallet size={36} style={{ color: '#cbd5e1', margin: '0 auto 0.75rem' }} />
+                                            <p style={{ margin: 0, fontWeight: 600, color: '#475569', fontSize: '0.9rem' }}>
+                                                {walletSearchTerm 
+                                                    ? 'No se encontraron pacientes que coincidan con la búsqueda.' 
+                                                    : walletFilterTab === 'positive'
+                                                    ? 'No hay pacientes con saldo a favor actualmente.'
+                                                    : walletFilterTab === 'negative'
+                                                    ? 'No hay pacientes con saldo pendiente.'
+                                                    : 'No hay pacientes con movimientos de saldo o beca todavía.'}
+                                            </p>
+                                            {(walletSearchTerm || walletFilterTab !== 'all') && (
+                                                <button
+                                                    type="button"
+                                                    className="btn-secondary"
+                                                    style={{ marginTop: '0.75rem', padding: '4px 12px', fontSize: '0.78rem' }}
+                                                    onClick={() => { setWalletSearchTerm(''); setWalletFilterTab('all'); }}
+                                                >
+                                                    Restablecer filtros
+                                                </button>
+                                            )}
                                         </div>
                                     );
                                 }
 
                                 return (
-                                    <div className="table-responsive rounded-xl border border-gray-100 overflow-hidden shadow-sm" style={{ maxHeight: '350px', overflowY: 'auto' }}>
-                                        <table className="w-full text-sm" style={{ borderCollapse: 'collapse', width: '100%' }}>
-                                            <thead className="bg-gray-50 border-b border-gray-200 text-xs font-semibold text-gray-600 uppercase sticky top-0">
+                                    <div className="billing-wallet-table-container">
+                                        <table className="billing-wallet-table">
+                                            <thead>
                                                 <tr>
-                                                    <th className="p-3 text-left">Paciente</th>
-                                                    <th className="p-3 text-right">Saldo Disponible</th>
-                                                    <th className="p-3 text-right">Total Ingresado</th>
-                                                    <th className="p-3 text-right">Total Consumido</th>
-                                                    <th className="p-3 text-center">Acciones</th>
+                                                    <th>Paciente</th>
+                                                    <th className="text-right">Saldo Disponible</th>
+                                                    <th className="text-right">Total Ingresado</th>
+                                                    <th className="text-right">Total Consumido</th>
+                                                    <th className="text-center">Acciones</th>
                                                 </tr>
                                             </thead>
-                                            <tbody className="divide-y divide-gray-100 bg-white">
-                                                {filtered.map(p => (
-                                                    <tr key={p.id} className="hover:bg-gray-50/80 transition-colors">
-                                                        <td className="p-3 font-semibold text-gray-800">
-                                                            {p.name}
-                                                        </td>
-                                                        <td className="p-3 text-right">
-                                                            <span className={`inline-block px-2.5 py-0.5 rounded-full text-xs font-extrabold ${p.balance > 0 ? 'bg-emerald-100 text-emerald-800' : p.balance < 0 ? 'bg-red-100 text-red-800' : 'bg-gray-100 text-gray-600'}`}>
-                                                                {p.balance.toFixed(2)}€
-                                                            </span>
-                                                        </td>
-                                                        <td className="p-3 text-right text-emerald-700 font-semibold">
-                                                            +{p.totalDeposited.toFixed(2)}€
-                                                        </td>
-                                                        <td className="p-3 text-right text-blue-700 font-semibold">
-                                                            -{p.totalConsumed.toFixed(2)}€
-                                                        </td>
-                                                        <td className="p-3 text-center">
-                                                            <button
-                                                                type="button"
-                                                                className="btn-link"
-                                                                style={{ fontSize: '0.8rem', color: '#047857', fontWeight: 700, border: 'none', background: 'none', cursor: 'pointer' }}
-                                                                onClick={() => {
-                                                                    setSelectedWalletPatient({ id: p.id, name: p.name });
-                                                                    setNewCreditAmount('');
-                                                                    setNewCreditCategory('Ingreso Beca MEC');
-                                                                    setNewCreditMethod('Transferencia');
-                                                                    setNewCreditDate(selectedDate);
-                                                                    setNewCreditNotes('');
-                                                                    setIsAddCreditModalOpen(true);
-                                                                }}
-                                                            >
-                                                                + Añadir Saldo
-                                                            </button>
-                                                        </td>
-                                                    </tr>
-                                                ))}
+                                            <tbody>
+                                                {filtered.map(p => {
+                                                    const initials = p.name.split(' ').filter(Boolean).map(n => n[0]).slice(0, 2).join('').toUpperCase() || 'P';
+                                                    return (
+                                                        <tr key={p.id}>
+                                                            <td>
+                                                                <div className="billing-wallet-patient-cell">
+                                                                    <div className="billing-wallet-avatar">
+                                                                        {initials}
+                                                                    </div>
+                                                                    <span className="billing-wallet-patient-name">{p.name}</span>
+                                                                </div>
+                                                            </td>
+                                                            <td className="text-right">
+                                                                <span className={`wallet-balance-badge ${p.balance > 0 ? 'positive' : p.balance < 0 ? 'negative' : 'neutral'}`}>
+                                                                    {p.balance > 0 ? `+${p.balance.toFixed(2)}€` : `${p.balance.toFixed(2)}€`}
+                                                                </span>
+                                                            </td>
+                                                            <td className="text-right" style={{ color: '#047857', fontWeight: 600 }}>
+                                                                +{p.totalDeposited.toFixed(2)}€
+                                                            </td>
+                                                            <td className="text-right" style={{ color: '#2563eb', fontWeight: 600 }}>
+                                                                -{p.totalConsumed.toFixed(2)}€
+                                                            </td>
+                                                            <td className="text-center">
+                                                                <button
+                                                                    type="button"
+                                                                    className="wallet-action-pill-btn"
+                                                                    onClick={() => {
+                                                                        setSelectedWalletPatient({ id: p.id, name: p.name });
+                                                                        setNewCreditAmount('');
+                                                                        setNewCreditCategory('Ingreso Beca MEC');
+                                                                        setNewCreditMethod('Transferencia');
+                                                                        setNewCreditDate(selectedDate);
+                                                                        setNewCreditNotes('');
+                                                                        setIsAddCreditModalOpen(true);
+                                                                    }}
+                                                                    title="Añadir fondos o beca al monedero de este paciente"
+                                                                >
+                                                                    <span>+ Añadir Saldo</span>
+                                                                </button>
+                                                            </td>
+                                                        </tr>
+                                                    );
+                                                })}
                                             </tbody>
                                         </table>
                                     </div>
                                 );
                             })()}
                         </div>
-                        <div className="modal-footer">
+
+                        <div className="modal-footer" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#f8fafc', padding: '0.85rem 1.5rem', borderTop: '1px solid #e2e8f0' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.78rem', color: '#64748b' }}>
+                                <Coins size={14} style={{ color: '#059669' }} />
+                                <span>Los saldos se descuentan automáticamente al cobrar citas con el método <strong>"Saldo a favor / Beca"</strong>.</span>
+                            </div>
                             <button className="btn-secondary" onClick={() => setIsWalletModalOpen(false)}>Cerrar</button>
                         </div>
                     </div>

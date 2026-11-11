@@ -1,6 +1,6 @@
 import { supabase } from '../../lib/supabase';
 import { type Transaction, type PaymentMethod, type PatientBalanceInfo, type AddPatientCreditParams } from './types';
-import { markAppointmentPaid, setAppointmentPaidStatus } from '../calendar/service';
+import { markAppointmentPaid, setAppointmentPaidStatus, broadcastCalendarChange } from '../calendar/service';
 
 export const isNonClinicalSession = (patientName?: string, type?: string, status?: string): boolean => {
     if (status === 'Bloqueada' || status === 'Cancelada') return true;
@@ -782,6 +782,25 @@ export const addPatientCredit = async (params: AddPatientCreditParams): Promise<
 };
 
 export const deletePatientCredit = async (transactionId: string): Promise<boolean> => {
+    // If the transaction is linked to an appointment, revert appointment paid status
+    const { data: tx } = await supabase
+        .from('transactions')
+        .select('appointment_id')
+        .eq('id', transactionId)
+        .maybeSingle();
+
+    if (tx?.appointment_id) {
+        await supabase
+            .from('appointments')
+            .update({ is_paid: false, status: 'Finalizada' })
+            .eq('id', tx.appointment_id);
+
+        broadcastCalendarChange({
+            action: 'status_change',
+            appointmentId: tx.appointment_id
+        }).catch(err => console.warn('Broadcast sync error on deletePatientCredit:', err));
+    }
+
     const { error } = await supabase
         .from('transactions')
         .delete()

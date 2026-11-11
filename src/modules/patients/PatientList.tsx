@@ -3,7 +3,7 @@ import { useSearchParams } from 'react-router-dom';
 import { getPatients, getPatientById, createPatient, updatePatient, deletePatient, deletePatientFile, uploadPatientFileContent, getPatientFileUrl } from './service';
 import { supabase } from '../../lib/supabase';
 import { generateConsentSheetPDF, generateClinicalHistoryPDF } from '../../utils/consentPdfGenerator';
-import { getAppointmentsByPatient, deleteAppointmentsBatch } from '../calendar/service';
+import { getAppointmentsByPatient, deleteAppointmentsBatch, subscribeToCalendarSync } from '../calendar/service';
 import { type Patient, type PatientFile } from './types';
 import { type Appointment } from '../calendar/types';
 import { getTherapists } from '../therapists/service';
@@ -259,6 +259,7 @@ const PatientList: React.FC = () => {
                 "success"
             );
             setConfirmDeleteApptsModal({ isOpen: false, appts: [] });
+            await loadTransactions();
         } catch (err: any) {
             console.error("Error deleting appointments:", err);
             showToast(`Error al eliminar: ${err.message || 'Error desconocido'}`, "error");
@@ -338,6 +339,13 @@ const PatientList: React.FC = () => {
             showToast("Error al procesar el movimiento de saldo", "error");
         }
     };
+
+    useEffect(() => {
+        const unsubscribe = subscribeToCalendarSync(() => {
+            loadTransactions();
+        });
+        return () => unsubscribe();
+    }, []);
 
     useEffect(() => {
         fetchData();

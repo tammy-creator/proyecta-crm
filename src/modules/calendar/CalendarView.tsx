@@ -1204,7 +1204,8 @@ const CalendarView: React.FC<CalendarViewProps> = ({ mode: initialMode, therapis
                 const updated = {
                     ...selectedAppt,
                     status: finalStatus,
-                    cancellationReason: finalReason
+                    cancellationReason: finalReason,
+                    isPaid: finalStatus === 'Cancelada' ? false : selectedAppt.isPaid
                 } as Appointment;
 
                 await updateAppointment(updated);
@@ -3046,7 +3047,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({ mode: initialMode, therapis
                                                     onChange={e => {
                                                         const newStatus = e.target.value as any;
                                                         if (selectedAppt) {
-                                                            const isPaid = newStatus === 'Cobrada' ? true : (newStatus === 'Finalizada' ? false : selectedAppt.isPaid);
+                                                            const isPaid = newStatus === 'Cobrada' ? true : (newStatus === 'Finalizada' || newStatus === 'Cancelada' ? false : selectedAppt.isPaid);
                                                             setSelectedAppt({
                                                                 ...selectedAppt,
                                                                 status: newStatus,

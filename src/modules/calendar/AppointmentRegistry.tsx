@@ -539,7 +539,7 @@ const AppointmentRegistry: React.FC = () => {
 
     const handleStatusChange = async (appt: Appointment, newStatus: AppointmentStatus) => {
         try {
-            const isPaid = newStatus === 'Cobrada' ? true : (newStatus === 'Finalizada' ? false : appt.isPaid);
+            const isPaid = newStatus === 'Cobrada' ? true : (newStatus === 'Finalizada' || newStatus === 'Cancelada' ? false : appt.isPaid);
             await updateAppointment({ ...appt, status: newStatus, isPaid });
             setAppointments(prev => prev.map(a => a.id === appt.id ? { ...a, status: newStatus, isPaid } : a));
             const txData = await getTransactions(isRole('THERAPIST') ? user?.name : undefined);

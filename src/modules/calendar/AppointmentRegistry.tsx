@@ -751,15 +751,15 @@ const AppointmentRegistry: React.FC = () => {
                 <table className="registry-table">
                     <thead>
                         <tr>
-                            <th>Fecha y Hora</th>
-                            <th>Paciente / Descripción</th>
-                            <th>Terapeuta</th>
-                            <th>Servicio</th>
-                            <th style={{ width: '100px' }}>Importe</th>
-                            <th>Estado</th>
-                            <th>Forma de Pago</th>
-                            <th style={{ width: '135px' }}>Fecha de Cobro</th>
-                            <th className="text-right">Acciones</th>
+                            <th style={{ width: '120px', minWidth: '115px' }}>Fecha y Hora</th>
+                            <th style={{ minWidth: '160px' }}>Paciente / Descripción</th>
+                            <th style={{ minWidth: '125px' }}>Terapeuta</th>
+                            <th style={{ minWidth: '110px' }}>Servicio</th>
+                            <th style={{ width: '85px', minWidth: '80px' }}>Importe</th>
+                            <th style={{ width: '115px', minWidth: '110px' }}>Estado</th>
+                            <th style={{ width: '150px', minWidth: '140px' }}>Forma de Pago</th>
+                            <th style={{ width: '130px', minWidth: '120px' }}>Fecha Cobro</th>
+                            <th style={{ width: '90px', minWidth: '90px', textAlign: 'center' }}>Acciones</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -1037,21 +1037,21 @@ const AppointmentRegistry: React.FC = () => {
                                             );
                                         })()}
                                     </td>
-                                    <td className="text-right">
-                                        <div className="flex justify-end gap-2">
+                                    <td style={{ width: '90px', minWidth: '90px', textAlign: 'center' }}>
+                                        <div className="flex items-center justify-center gap-1.5" style={{ flexWrap: 'nowrap' }}>
                                             <button
                                                 className="btn-icon-registry"
                                                 onClick={() => handleOpenDetail(appt)}
                                                 title="Ver detalles"
                                             >
-                                                <Eye size={18} />
+                                                <Eye size={16} />
                                             </button>
                                             <button
                                                 className="btn-icon-registry highlight"
                                                 onClick={() => handleViewInCalendar(appt)}
                                                 title="Ver en Agenda"
                                             >
-                                                <CalendarIcon size={18} />
+                                                <CalendarIcon size={16} />
                                             </button>
                                         </div>
                                     </td>

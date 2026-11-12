@@ -413,10 +413,10 @@ const BillingView: React.FC = () => {
 
         const success = await updateTransaction(editingTransaction);
         if (success) {
-            // Sincronizar is_paid en la cita vinculada según el nuevo estado
+            // Sincronizar is_paid y payment_date en la cita vinculada según el nuevo estado
             if (editingTransaction.appointmentId) {
                 const isPaid = editingTransaction.status === 'Pagado';
-                await setAppointmentPaidStatus(editingTransaction.appointmentId, isPaid);
+                await setAppointmentPaidStatus(editingTransaction.appointmentId, isPaid, editingTransaction.paymentDate);
             }
             setIsEditModalOpen(false);
             fetchData();
@@ -3107,15 +3107,22 @@ const BillingView: React.FC = () => {
                                             </td>
                                             <td>
                                                 {t.method ? (
-                                                    <span className={`method-tag ${t.method === 'TPV Virtual' ? 'tpv-virtual' : ''}`}>
-                                                        {t.method === 'Tarjeta' && <CreditCard size={12} />}
-                                                        {t.method === 'Efectivo' && <Wallet size={12} />}
-                                                        {t.method === 'Transferencia' && <Send size={12} />}
-                                                        {t.method === 'TPV Virtual' && <LinkIcon size={12} className="text-purple-600" />}
-                                                        {t.method === 'Fin de mes' && <CalendarClock size={12} />}
-                                                        {t.method === 'Saldo a favor' && <Wallet size={12} className="text-emerald-700" />}
-                                                        {t.method === 'TPV Virtual' ? 'TPV Virtual' : t.method}
-                                                    </span>
+                                                    <div className="flex flex-col gap-0.5">
+                                                        <span className={`method-tag ${t.method === 'TPV Virtual' ? 'tpv-virtual' : ''}`}>
+                                                            {t.method === 'Tarjeta' && <CreditCard size={12} />}
+                                                            {t.method === 'Efectivo' && <Wallet size={12} />}
+                                                            {t.method === 'Transferencia' && <Send size={12} />}
+                                                            {t.method === 'TPV Virtual' && <LinkIcon size={12} className="text-purple-600" />}
+                                                            {t.method === 'Fin de mes' && <CalendarClock size={12} />}
+                                                            {t.method === 'Saldo a favor' && <Wallet size={12} className="text-emerald-700" />}
+                                                            {t.method === 'TPV Virtual' ? 'TPV Virtual' : t.method}
+                                                        </span>
+                                                        {t.status === 'Pagado' && t.paymentDate && (
+                                                            <span className="text-[10px] text-slate-500 font-normal">
+                                                                F. Pago: {format(parseISO(t.paymentDate), 'dd/MM/yy')}
+                                                            </span>
+                                                        )}
+                                                    </div>
                                                 ) : '—'}
                                             </td>
                                             <td style={{ textAlign: 'center', width: '140px' }}>
@@ -3267,20 +3274,33 @@ const BillingView: React.FC = () => {
                                 </select>
                             </div>
                             {editingTransaction.status === 'Pagado' && (
-                                <div className="form-group">
-                                    <label>Método de Pago</label>
-                                    <select
-                                        value={editingTransaction.method || ''}
-                                        onChange={e => setEditingTransaction({ ...editingTransaction, method: e.target.value as any })}
-                                    >
-                                        <option value="">Seleccionar...</option>
-                                        <option value="Efectivo">Efectivo</option>
-                                        <option value="Tarjeta">Tarjeta</option>
-                                        <option value="Transferencia">Transferencia</option>
-                                    <option value="TPV Virtual">🔗 TPV Virtual / Link</option>
-                                        <option value="Fin de mes">Fin de mes</option>
-                                    </select>
-                                </div>
+                                <>
+                                    <div className="form-group">
+                                        <label>Método de Pago</label>
+                                        <select
+                                            value={editingTransaction.method || ''}
+                                            onChange={e => setEditingTransaction({ ...editingTransaction, method: e.target.value as any })}
+                                        >
+                                            <option value="">Seleccionar...</option>
+                                            <option value="Efectivo">Efectivo</option>
+                                            <option value="Tarjeta">Tarjeta</option>
+                                            <option value="Transferencia">Transferencia</option>
+                                            <option value="TPV Virtual">🔗 TPV Virtual / Link</option>
+                                            <option value="Fin de mes">Fin de mes</option>
+                                        </select>
+                                    </div>
+                                    <div className="form-group">
+                                        <label>Fecha de Cobro / Pago</label>
+                                        <input
+                                            type="date"
+                                            value={(editingTransaction.paymentDate || editingTransaction.date || '').slice(0, 10)}
+                                            onChange={e => setEditingTransaction({
+                                                ...editingTransaction,
+                                                paymentDate: e.target.value ? new Date(`${e.target.value}T12:00:00Z`).toISOString() : undefined
+                                            })}
+                                        />
+                                    </div>
+                                </>
                             )}
                             <div className="modal-footer">
                                 <button type="button" className="btn-secondary" onClick={() => setIsEditModalOpen(false)}>Cancelar</button>

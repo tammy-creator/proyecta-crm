@@ -15,6 +15,7 @@ export interface Appointment {
     notes?: string;
     sessionDiary?: string; // Diario de sesión obligatorio
     isPaid?: boolean;      // Estado de cobro para alertas
+    paymentDate?: string;  // Fecha real en que se efectúa el cobro en caja o banco
     groupId?: string;      // Identificador de grupo para sesiones grupales
     isGroup?: boolean;     // Indica si la cita forma parte de una sesión grupal
     recurrence?: {

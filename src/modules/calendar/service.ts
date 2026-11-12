@@ -16,6 +16,7 @@ const mapAppointment = (row: any): Appointment => ({
     notes: row.notes,
     sessionDiary: row.session_diary,
     isPaid: row.is_paid ?? false,
+    paymentDate: row.payment_date || (row.is_paid && row.start_time ? row.start_time : undefined),
     cancellationReason: row.cancellation_reason,
     voiceNoteUrl: row.voice_note_url,
     notificacionRecordatorioEnviada: row.notificacion_recordatorio_enviada,
@@ -109,30 +110,49 @@ import { broadcastCalendarChange } from './calendarSync';
 export { checkAppointmentConflict, checkBatchAppointmentConflicts, subscribeToCalendarSync, broadcastCalendarChange } from './calendarSync';
 
 export const createAppointment = async (appointment: Omit<Appointment, 'id'>): Promise<Appointment> => {
-    const { data, error } = await supabase
-        .from('appointments')
-        .insert({
-            patient_id: appointment.patientId || null,
-            therapist_id: appointment.therapistId,
-            service_id: appointment.serviceId || null,
-            patient_name: (appointment.patientName ?? '').replace(/\s+/g, ' ').trim(),
-            therapist_name: (appointment.therapistName ?? '').replace(/\s+/g, ' ').trim(),
-            start_time: appointment.start,
-            end_time: appointment.end,
-            status: appointment.status,
-            type: appointment.type,
-            notes: appointment.notes,
-            session_diary: appointment.sessionDiary,
-            is_paid: appointment.status === 'Cancelada' ? false : (appointment.isPaid ?? false),
-            cancellation_reason: appointment.cancellationReason,
-            voice_note_url: appointment.voiceNoteUrl,
-            recurrence: buildRecurrencePayload(appointment),
-            notificacion_recordatorio_enviada: appointment.notificacionRecordatorioEnviada ?? false,
-            price: appointment.price ?? null,
-        })
-        .select()
-        .single();
-    if (error) throw error;
+    const isPaid = appointment.status === 'Cancelada' ? false : (appointment.isPaid ?? false);
+    const paymentDate = isPaid ? (appointment.paymentDate || new Date().toISOString()) : null;
+    const basePayload: any = {
+        patient_id: appointment.patientId || null,
+        therapist_id: appointment.therapistId,
+        service_id: appointment.serviceId || null,
+        patient_name: (appointment.patientName ?? '').replace(/\s+/g, ' ').trim(),
+        therapist_name: (appointment.therapistName ?? '').replace(/\s+/g, ' ').trim(),
+        start_time: appointment.start,
+        end_time: appointment.end,
+        status: appointment.status,
+        type: appointment.type,
+        notes: appointment.notes,
+        session_diary: appointment.sessionDiary,
+        is_paid: isPaid,
+        cancellation_reason: appointment.cancellationReason,
+        voice_note_url: appointment.voiceNoteUrl,
+        recurrence: buildRecurrencePayload(appointment),
+        notificacion_recordatorio_enviada: appointment.notificacionRecordatorioEnviada ?? false,
+        price: appointment.price ?? null,
+    };
+
+    let data: any, error: any;
+    try {
+        const res = await supabase
+            .from('appointments')
+            .insert({ ...basePayload, payment_date: paymentDate })
+            .select()
+            .single();
+        data = res.data;
+        error = res.error;
+    } catch (_) {}
+
+    if (error || !data) {
+        const fallbackRes = await supabase
+            .from('appointments')
+            .insert(basePayload)
+            .select()
+            .single();
+        if (fallbackRes.error) throw fallbackRes.error;
+        data = fallbackRes.data;
+    }
+
     const created = mapAppointment(data);
 
     broadcastCalendarChange({
@@ -197,31 +217,51 @@ export const createAppointmentsBatch = async (appointments: Omit<Appointment, 'i
 };
 
 export const updateAppointment = async (appointment: Appointment): Promise<Appointment> => {
-    const { data, error } = await supabase
-        .from('appointments')
-        .update({
-            patient_id: appointment.patientId || null,
-            therapist_id: appointment.therapistId,
-            service_id: appointment.serviceId || null,
-            patient_name: (appointment.patientName ?? '').replace(/\s+/g, ' ').trim(),
-            therapist_name: (appointment.therapistName ?? '').replace(/\s+/g, ' ').trim(),
-            start_time: appointment.start,
-            end_time: appointment.end,
-            status: appointment.status,
-            type: appointment.type,
-            notes: appointment.notes,
-            session_diary: appointment.sessionDiary,
-            is_paid: appointment.status === 'Cancelada' ? false : (appointment.isPaid ?? false),
-            cancellation_reason: appointment.cancellationReason,
-            voice_note_url: appointment.voiceNoteUrl,
-            recurrence: buildRecurrencePayload(appointment),
-            notificacion_recordatorio_enviada: appointment.notificacionRecordatorioEnviada ?? false,
-            price: appointment.price ?? null,
-        })
-        .eq('id', appointment.id)
-        .select()
-        .single();
-    if (error) throw error;
+    const isPaid = appointment.status === 'Cancelada' ? false : (appointment.isPaid ?? false);
+    const paymentDate = isPaid ? (appointment.paymentDate || new Date().toISOString()) : null;
+    const basePayload: any = {
+        patient_id: appointment.patientId || null,
+        therapist_id: appointment.therapistId,
+        service_id: appointment.serviceId || null,
+        patient_name: (appointment.patientName ?? '').replace(/\s+/g, ' ').trim(),
+        therapist_name: (appointment.therapistName ?? '').replace(/\s+/g, ' ').trim(),
+        start_time: appointment.start,
+        end_time: appointment.end,
+        status: appointment.status,
+        type: appointment.type,
+        notes: appointment.notes,
+        session_diary: appointment.sessionDiary,
+        is_paid: isPaid,
+        cancellation_reason: appointment.cancellationReason,
+        voice_note_url: appointment.voiceNoteUrl,
+        recurrence: buildRecurrencePayload(appointment),
+        notificacion_recordatorio_enviada: appointment.notificacionRecordatorioEnviada ?? false,
+        price: appointment.price ?? null,
+    };
+
+    let data: any, error: any;
+    try {
+        const res = await supabase
+            .from('appointments')
+            .update({ ...basePayload, payment_date: paymentDate })
+            .eq('id', appointment.id)
+            .select()
+            .single();
+        data = res.data;
+        error = res.error;
+    } catch (_) {}
+
+    if (error || !data) {
+        const fallbackRes = await supabase
+            .from('appointments')
+            .update(basePayload)
+            .eq('id', appointment.id)
+            .select()
+            .single();
+        if (fallbackRes.error) throw fallbackRes.error;
+        data = fallbackRes.data;
+    }
+
     const updated = mapAppointment(data);
 
     // Synchronize linked transaction if one exists
@@ -259,19 +299,37 @@ export const updateAppointment = async (appointment: Appointment): Promise<Appoi
             // 4. Sync status with appointment status / isPaid:
             if (updated.status === 'Cancelada') {
                 txUpdatePayload.status = 'Cancelada';
+                txUpdatePayload.payment_date = null;
             } else if (updated.status === 'Finalizada' || updated.status === 'Programada' || updated.isPaid === false) {
                 if (existingTx.method === 'Fin de mes' || updated.isPaid === false) {
                     txUpdatePayload.status = 'Pendiente';
+                    txUpdatePayload.payment_date = null;
                 }
             } else if (updated.status === 'Cobrada' || updated.isPaid === true) {
                 txUpdatePayload.status = 'Pagado';
+                txUpdatePayload.payment_date = updated.paymentDate || new Date().toISOString();
             }
 
             if (Object.keys(txUpdatePayload).length > 0) {
-                await supabase
-                    .from('transactions')
-                    .update(txUpdatePayload)
-                    .eq('id', existingTx.id);
+                try {
+                    const { error: txUpdErr } = await supabase
+                        .from('transactions')
+                        .update(txUpdatePayload)
+                        .eq('id', existingTx.id);
+                    if (txUpdErr) {
+                        delete txUpdatePayload.payment_date;
+                        await supabase
+                            .from('transactions')
+                            .update(txUpdatePayload)
+                            .eq('id', existingTx.id);
+                    }
+                } catch (_) {
+                    delete txUpdatePayload.payment_date;
+                    await supabase
+                        .from('transactions')
+                        .update(txUpdatePayload)
+                        .eq('id', existingTx.id);
+                }
             }
         }
     } catch (syncErr) {
@@ -325,29 +383,38 @@ export const deleteAppointmentsBatch = async (appointmentIds: string[]): Promise
     }).catch(err => console.warn('Broadcast sync error on batch delete:', err));
 };
 
-export const markAppointmentPaid = async (appointmentId: string): Promise<void> => {
+export const markAppointmentPaid = async (appointmentId: string, paymentDate?: string): Promise<void> => {
     const { data: currentAppt } = await supabase
         .from('appointments')
         .select('status, start_time, end_time')
         .eq('id', appointmentId)
         .maybeSingle();
 
-    const updatePayload: { is_paid: boolean; status?: string } = { is_paid: true };
+    const effectiveDate = paymentDate || new Date().toISOString();
+    const updatePayload: any = { is_paid: true, payment_date: effectiveDate };
     if (currentAppt && !['Cancelada', 'Ausente', 'Bloqueada'].includes(currentAppt.status)) {
         updatePayload.status = 'Cobrada';
     }
 
-    const { error } = await supabase
-        .from('appointments')
-        .update(updatePayload)
-        .eq('id', appointmentId);
-    if (error) throw error;
+    try {
+        const { error } = await supabase
+            .from('appointments')
+            .update(updatePayload)
+            .eq('id', appointmentId);
+        if (error) {
+            delete updatePayload.payment_date;
+            await supabase.from('appointments').update(updatePayload).eq('id', appointmentId);
+        }
+    } catch (_) {
+        delete updatePayload.payment_date;
+        await supabase.from('appointments').update(updatePayload).eq('id', appointmentId);
+    }
 
     // Sync linked transaction to Pagado con fecha de cobro actual
     try {
         const { error: txErr } = await supabase
             .from('transactions')
-            .update({ status: 'Pagado', payment_date: new Date().toISOString() })
+            .update({ status: 'Pagado', payment_date: effectiveDate })
             .eq('appointment_id', appointmentId);
         if (txErr) {
             // Fallback si la columna no existe
@@ -366,14 +433,15 @@ export const markAppointmentPaid = async (appointmentId: string): Promise<void> 
     }).catch(err => console.warn('Broadcast sync error on markAppointmentPaid:', err));
 };
 
-export const setAppointmentPaidStatus = async (appointmentId: string, isPaid: boolean): Promise<void> => {
+export const setAppointmentPaidStatus = async (appointmentId: string, isPaid: boolean, paymentDate?: string): Promise<void> => {
     const { data: currentAppt } = await supabase
         .from('appointments')
         .select('status, start_time, end_time')
         .eq('id', appointmentId)
         .maybeSingle();
 
-    const updatePayload: { is_paid: boolean; status?: string } = { is_paid: isPaid };
+    const effectiveDate = isPaid ? (paymentDate || new Date().toISOString()) : null;
+    const updatePayload: any = { is_paid: isPaid, payment_date: effectiveDate };
 
     if (currentAppt && !['Cancelada', 'Ausente', 'Bloqueada'].includes(currentAppt.status)) {
         if (isPaid) {
@@ -385,18 +453,32 @@ export const setAppointmentPaidStatus = async (appointmentId: string, isPaid: bo
         }
     }
 
-    const { error } = await supabase
-        .from('appointments')
-        .update(updatePayload)
-        .eq('id', appointmentId);
-    if (error) throw error;
+    try {
+        const { error } = await supabase
+            .from('appointments')
+            .update(updatePayload)
+            .eq('id', appointmentId);
+        if (error) {
+            delete updatePayload.payment_date;
+            await supabase.from('appointments').update(updatePayload).eq('id', appointmentId);
+        }
+    } catch (_) {
+        delete updatePayload.payment_date;
+        await supabase.from('appointments').update(updatePayload).eq('id', appointmentId);
+    }
 
     // Sync linked transaction status
     try {
-        await supabase
+        const { error: txErr } = await supabase
             .from('transactions')
-            .update({ status: isPaid ? 'Pagado' : 'Pendiente' })
+            .update({ status: isPaid ? 'Pagado' : 'Pendiente', payment_date: effectiveDate })
             .eq('appointment_id', appointmentId);
+        if (txErr) {
+            await supabase
+                .from('transactions')
+                .update({ status: isPaid ? 'Pagado' : 'Pendiente' })
+                .eq('appointment_id', appointmentId);
+        }
     } catch (err) {
         console.warn('Error syncing tx on setAppointmentPaidStatus:', err);
     }

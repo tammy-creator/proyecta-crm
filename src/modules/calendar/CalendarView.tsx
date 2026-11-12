@@ -3073,6 +3073,28 @@ const CalendarView: React.FC<CalendarViewProps> = ({ mode: initialMode, therapis
                                         </div>
                                     )}
 
+                                    {/* Fecha de Cobro (Si la cita está cobrada) */}
+                                    {(selectedAppt.status === 'Cobrada' || selectedAppt.isPaid) && (
+                                        <div className="form-group mb-3" style={{ background: '#f8fafc', padding: '0.6rem 0.75rem', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
+                                            <label className="text-xs font-semibold text-emerald-800 mb-1 flex items-center justify-between">
+                                                <span>📅 Fecha de Cobro Real</span>
+                                                <span className="text-[10px] text-emerald-600 font-normal">Caja / Datáfono / Banco</span>
+                                            </label>
+                                            <input
+                                                type="date"
+                                                value={(selectedAppt.paymentDate || selectedAppt.start || '').slice(0, 10)}
+                                                onChange={e => {
+                                                    const dateVal = e.target.value;
+                                                    setSelectedAppt({
+                                                        ...selectedAppt,
+                                                        paymentDate: dateVal ? new Date(dateVal + 'T12:00:00Z').toISOString() : undefined
+                                                    });
+                                                }}
+                                                style={{ height: '36px', padding: '0 0.75rem', borderRadius: '6px', border: '1px solid #cbd5e1', width: '100%', fontSize: '0.85rem' }}
+                                            />
+                                        </div>
+                                    )}
+
                                     {/* Motivo de Cancelación (Si aplica) */}
                                     {selectedAppt.status === 'Cancelada' && (
                                         <div className="form-group mb-3">

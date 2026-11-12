@@ -758,20 +758,21 @@ const AppointmentRegistry: React.FC = () => {
                             <th style={{ width: '100px' }}>Importe</th>
                             <th>Estado</th>
                             <th>Forma de Pago</th>
+                            <th style={{ width: '135px' }}>Fecha de Cobro</th>
                             <th className="text-right">Acciones</th>
                         </tr>
                     </thead>
                     <tbody>
                         {loading ? (
                             <tr>
-                                <td colSpan={8} className="text-center p-8">
+                                <td colSpan={9} className="text-center p-8">
                                     <div className="loading-spinner-small"></div>
                                     <p className="mt-2 text-secondary">Cargando citas...</p>
                                 </td>
                             </tr>
                         ) : filteredAppointments.length === 0 ? (
                             <tr>
-                                <td colSpan={8} className="text-center p-12">
+                                <td colSpan={9} className="text-center p-12">
                                     <div className="empty-state-icon">
                                         <Search size={48} />
                                     </div>
@@ -934,24 +935,19 @@ const AppointmentRegistry: React.FC = () => {
 
                                             if (isReconciled) {
                                                 return (
-                                                    <div className="flex flex-col gap-1" style={{ width: 'fit-content' }}>
-                                                        <div
-                                                            className="flex items-center gap-1.5 text-emerald-700 font-bold text-xs uppercase bg-emerald-50 px-2.5 py-1.5 rounded-lg border border-emerald-200"
-                                                            title="🔒 Cita cotejada: forma de pago bloqueada para edición. Solo se puede modificar desde Facturación -> Cotejo."
-                                                            style={{ width: 'fit-content', cursor: 'not-allowed' }}
-                                                        >
-                                                            <Lock size={12} className="text-emerald-600 flex-shrink-0" />
-                                                            {payInfo?.method === 'Tarjeta' && <CreditCard size={13} />}
-                                                            {payInfo?.method === 'Efectivo' && <Wallet size={13} />}
-                                                            {payInfo?.method === 'Transferencia' && <Send size={13} />}
-                                                            {payInfo?.method === 'Fin de mes' && <CalendarClock size={13} />}
-                                                            <span>{payInfo?.method || 'Cotejado'}</span>
-                                                            <span className="text-[10px] text-emerald-700 bg-emerald-100 px-1 py-0.5 rounded font-semibold ml-0.5">
-                                                                Cotejado
-                                                            </span>
-                                                        </div>
-                                                        <span className="text-[10px] text-slate-500 font-medium pl-1">
-                                                            F. Cobro: {format(parseISO(payInfo?.paymentDate || appt.paymentDate || appt.start), 'dd/MM/yyyy')}
+                                                    <div
+                                                        className="flex items-center gap-1.5 text-emerald-700 font-bold text-xs uppercase bg-emerald-50 px-2.5 py-1.5 rounded-lg border border-emerald-200"
+                                                        title="🔒 Cita cotejada: forma de pago bloqueada para edición. Solo se puede modificar desde Facturación -> Cotejo."
+                                                        style={{ width: 'fit-content', cursor: 'not-allowed' }}
+                                                    >
+                                                        <Lock size={12} className="text-emerald-600 flex-shrink-0" />
+                                                        {payInfo?.method === 'Tarjeta' && <CreditCard size={13} />}
+                                                        {payInfo?.method === 'Efectivo' && <Wallet size={13} />}
+                                                        {payInfo?.method === 'Transferencia' && <Send size={13} />}
+                                                        {payInfo?.method === 'Fin de mes' && <CalendarClock size={13} />}
+                                                        <span>{payInfo?.method || 'Cotejado'}</span>
+                                                        <span className="text-[10px] text-emerald-700 bg-emerald-100 px-1 py-0.5 rounded font-semibold ml-0.5">
+                                                            Cotejado
                                                         </span>
                                                     </div>
                                                 );
@@ -965,64 +961,80 @@ const AppointmentRegistry: React.FC = () => {
                                                 const isCurrentSaldo = currentMethod === 'Saldo a favor';
 
                                                 return (
-                                                    <div className="flex flex-col gap-1.5" style={{ width: 'fit-content' }}>
-                                                        <select
-                                                            className={`registry-payment-select ${isPaid ? 'paid' : 'unpaid'} ${currentMethod === 'Fin de mes' ? 'delayed' : ''} ${isCurrentSaldo ? 'saldo' : ''} ${currentMethod === 'TPV Virtual' ? 'tpv' : ''}`}
-                                                            value={currentMethod}
-                                                            onChange={(e) => handlePaymentChange(appt, e.target.value)}
-                                                        >
-                                                            <option value="PENDIENTE">⚠️ Pendiente</option>
-                                                            <option value="Tarjeta">💳 Tarjeta</option>
-                                                            <option value="Efectivo">💵 Efectivo</option>
-                                                            <option value="Transferencia">🏦 Transferencia</option>
-                                                            <option value="TPV Virtual">🔗 TPV Virtual / Link</option>
-                                                            <option value="Fin de mes">{isPaid ? '📅 Fin de mes (Cobrado)' : '📅 Fin de mes (Pendiente)'}</option>
-                                                            {(isCurrentSaldo || patBal > 0) && (
-                                                                <option value="Saldo a favor">
-                                                                    🟢 Saldo a favor / Beca {patBal > 0 ? `(Disp: ${patBal.toFixed(0)}€)` : ''}
-                                                                </option>
-                                                            )}
-                                                        </select>
-                                                        {isPaid && (
-                                                            <div className="flex items-center gap-1 text-[11px] text-slate-500 bg-slate-50 border border-slate-200 px-1.5 py-0.5 rounded" title="Editar fecha en que se cobró esta cita">
-                                                                <span className="font-medium text-slate-600">Cobro:</span>
-                                                                <input
-                                                                    type="date"
-                                                                    className="text-[11px] bg-transparent text-slate-700 font-semibold focus:outline-none cursor-pointer"
-                                                                    value={(payInfo?.paymentDate || appt.paymentDate || appt.start).slice(0, 10)}
-                                                                    onChange={(e) => handlePaymentDateChange(appt, e.target.value)}
-                                                                />
-                                                            </div>
+                                                    <select
+                                                        className={`registry-payment-select ${isPaid ? 'paid' : 'unpaid'} ${currentMethod === 'Fin de mes' ? 'delayed' : ''} ${isCurrentSaldo ? 'saldo' : ''} ${currentMethod === 'TPV Virtual' ? 'tpv' : ''}`}
+                                                        value={currentMethod}
+                                                        onChange={(e) => handlePaymentChange(appt, e.target.value)}
+                                                    >
+                                                        <option value="PENDIENTE">⚠️ Pendiente</option>
+                                                        <option value="Tarjeta">💳 Tarjeta</option>
+                                                        <option value="Efectivo">💵 Efectivo</option>
+                                                        <option value="Transferencia">🏦 Transferencia</option>
+                                                        <option value="TPV Virtual">🔗 TPV Virtual / Link</option>
+                                                        <option value="Fin de mes">{isPaid ? '📅 Fin de mes (Cobrado)' : '📅 Fin de mes (Pendiente)'}</option>
+                                                        {(isCurrentSaldo || patBal > 0) && (
+                                                            <option value="Saldo a favor">
+                                                                🟢 Saldo a favor / Beca {patBal > 0 ? `(Disp: ${patBal.toFixed(0)}€)` : ''}
+                                                            </option>
                                                         )}
-                                                    </div>
+                                                    </select>
                                                 );
                                             }
 
                                             if (payInfo?.isPaid) {
                                                 return (
-                                                    <div className="flex flex-col gap-1">
-                                                        <div className="flex items-center gap-2 text-emerald-600 font-bold text-xs uppercase bg-emerald-50 px-2 py-1 rounded-lg border border-emerald-100">
-                                                            {payInfo.method === 'Tarjeta' && <CreditCard size={14} />}
-                                                            {payInfo.method === 'Efectivo' && <Wallet size={14} />}
-                                                            {payInfo.method === 'Transferencia' && <Send size={14} />}
-                                                            {payInfo.method === 'TPV Virtual' && <LinkIcon size={14} />}
-                                                            {payInfo.method === 'Fin de mes' && <CalendarClock size={14} />}
-                                                            {payInfo.method === 'Saldo a favor' && <Wallet size={14} className="text-emerald-700" />}
-                                                            {payInfo.label}
-                                                        </div>
-                                                        <span className="text-[10px] text-slate-500 font-medium pl-0.5">
-                                                            F. Cobro: {format(parseISO(payInfo.paymentDate || appt.paymentDate || appt.start), 'dd/MM/yyyy')}
-                                                        </span>
+                                                    <div className="flex items-center gap-2 text-emerald-600 font-bold text-xs uppercase bg-emerald-50 px-2 py-1 rounded-lg border border-emerald-100" style={{ width: 'fit-content' }}>
+                                                        {payInfo.method === 'Tarjeta' && <CreditCard size={14} />}
+                                                        {payInfo.method === 'Efectivo' && <Wallet size={14} />}
+                                                        {payInfo.method === 'Transferencia' && <Send size={14} />}
+                                                        {payInfo.method === 'TPV Virtual' && <LinkIcon size={14} />}
+                                                        {payInfo.method === 'Fin de mes' && <CalendarClock size={14} />}
+                                                        {payInfo.method === 'Saldo a favor' && <Wallet size={14} className="text-emerald-700" />}
+                                                        {payInfo.label}
                                                     </div>
                                                 );
                                             } else {
                                                 return (
-                                                    <div className="flex items-center gap-1.5 text-amber-600 font-bold text-xs uppercase px-2 py-1 bg-amber-50 rounded-lg border border-amber-100">
+                                                    <div className="flex items-center gap-1.5 text-amber-600 font-bold text-xs uppercase px-2 py-1 bg-amber-50 rounded-lg border border-amber-100" style={{ width: 'fit-content' }}>
                                                         <AlertTriangle size={14} />
                                                         {payInfo?.label || 'Pendiente'}
                                                     </div>
                                                 );
                                             }
+                                        })()}
+                                    </td>
+                                    <td>
+                                        {(() => {
+                                            if (isOperational || isAbsence || isCancelled || isPossiblePatient) {
+                                                return <span className="text-slate-300 text-xs italic">—</span>;
+                                            }
+                                            const isPaid = payInfo?.isPaid || appt.isPaid || appt.status === 'Cobrada';
+                                            const effectivePaymentDate = payInfo?.paymentDate || appt.paymentDate || appt.start;
+
+                                            if (!isPaid) {
+                                                return <span className="text-slate-400 text-xs italic">Pendiente</span>;
+                                            }
+
+                                            if (isRole('ADMIN') && !isReconciled) {
+                                                return (
+                                                    <div className="flex items-center gap-1.5 bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded px-2 py-1 transition-colors" title="Haz clic para modificar la fecha en que se cobró esta cita">
+                                                        <CalendarIcon size={13} className="text-emerald-600 flex-shrink-0" />
+                                                        <input
+                                                            type="date"
+                                                            className="text-xs bg-transparent text-slate-700 font-semibold focus:outline-none cursor-pointer w-full"
+                                                            value={effectivePaymentDate ? effectivePaymentDate.slice(0, 10) : ''}
+                                                            onChange={(e) => handlePaymentDateChange(appt, e.target.value)}
+                                                        />
+                                                    </div>
+                                                );
+                                            }
+
+                                            return (
+                                                <div className="flex items-center gap-1 text-xs font-semibold text-slate-700" title="Fecha en que se cobró esta cita">
+                                                    <CalendarIcon size={13} className="text-emerald-600 flex-shrink-0" />
+                                                    <span>{effectivePaymentDate ? format(parseISO(effectivePaymentDate), 'dd/MM/yyyy') : '—'}</span>
+                                                </div>
+                                            );
                                         })()}
                                     </td>
                                     <td className="text-right">
@@ -1109,6 +1121,33 @@ const AppointmentRegistry: React.FC = () => {
                                     <div className="value">{selectedAppt.type}</div>
                                 </div>
                             </div>
+
+                            {/* Información de Pago y Cobro */}
+                            {(() => {
+                                const payInfo = getPaymentInfo(selectedAppt);
+                                const isPaid = payInfo?.isPaid || selectedAppt.isPaid || selectedAppt.status === 'Cobrada';
+                                const effPayDate = payInfo?.paymentDate || selectedAppt.paymentDate || selectedAppt.start;
+                                return (
+                                    <div className="detail-section grid grid-cols-2 gap-4 bg-slate-50 p-3 rounded-lg border border-slate-200">
+                                        <div className="info-block">
+                                            <label className="text-slate-500 font-semibold text-xs flex items-center gap-1.5">
+                                                <CreditCard size={14} className="text-slate-600" /> Forma de Pago
+                                            </label>
+                                            <div className="value font-bold text-slate-800 mt-1">
+                                                {payInfo?.method || (isPaid ? 'Cobrada' : 'Pendiente')}
+                                            </div>
+                                        </div>
+                                        <div className="info-block">
+                                            <label className="text-slate-500 font-semibold text-xs flex items-center gap-1.5">
+                                                <CalendarIcon size={14} className="text-emerald-600" /> Fecha de Cobro Real
+                                            </label>
+                                            <div className="value font-bold text-slate-800 mt-1">
+                                                {isPaid && effPayDate ? format(parseISO(effPayDate), "dd/MM/yyyy") : '— (Pendiente)'}
+                                            </div>
+                                        </div>
+                                    </div>
+                                );
+                            })()}
 
                             {selectedAppt.notes && (
                                 <div className="detail-section">

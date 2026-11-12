@@ -1939,6 +1939,12 @@ const BillingView: React.FC = () => {
                                                                 })()}
                                                             </div>
                                                         )}
+                                                        {t.paymentDate && (
+                                                            <div className="flex items-center gap-1 text-[11px] text-emerald-700 font-semibold mt-1" title="Fecha en que se cobró">
+                                                                <CalendarIcon size={11} className="text-emerald-600 flex-shrink-0" />
+                                                                <span>Cobro: {format(parseISO(t.paymentDate), 'dd/MM/yyyy')}</span>
+                                                            </div>
+                                                        )}
                                                     </td>
                                                     <td style={{ fontWeight: 600 }}>{t.patientName}</td>
                                                     <td className="text-secondary text-sm">{t.therapistName || '—'}</td>
@@ -2420,6 +2426,12 @@ const BillingView: React.FC = () => {
                                                                 })()}
                                                             </div>
                                                         )}
+                                                        {t.paymentDate && (
+                                                            <div className="flex items-center gap-1 text-[11px] text-emerald-700 font-semibold mt-1" title="Fecha en que se cobró">
+                                                                <CalendarIcon size={11} className="text-emerald-600 flex-shrink-0" />
+                                                                <span>Cobro: {format(parseISO(t.paymentDate), 'dd/MM/yyyy')}</span>
+                                                            </div>
+                                                        )}
                                                     </td>
                                                     <td style={{ fontWeight: 600 }}>{t.patientName}</td>
                                                     <td className="text-secondary text-sm">{t.therapistName || '—'}</td>
@@ -2899,6 +2911,12 @@ const BillingView: React.FC = () => {
                                                                 })()}
                                                             </div>
                                                         )}
+                                                        {t.paymentDate && (
+                                                            <div className="flex items-center gap-1 text-[11px] text-emerald-700 font-semibold mt-1" title="Fecha en que se cobró">
+                                                                <CalendarIcon size={11} className="text-emerald-600 flex-shrink-0" />
+                                                                <span>Cobro: {format(parseISO(t.paymentDate), 'dd/MM/yyyy')}</span>
+                                                            </div>
+                                                        )}
                                                     </td>
                                                     <td style={{ fontWeight: 600 }}>{t.patientName}</td>
                                                     <td className="text-secondary text-sm">{t.therapistName || '—'}</td>
@@ -2986,6 +3004,7 @@ const BillingView: React.FC = () => {
                                         <th style={{ width: '85px', textAlign: 'right' }}>Importe</th>
                                         <th style={{ width: '100px', textAlign: 'center' }}>Estado</th>
                                         <th style={{ width: '110px' }}>Método</th>
+                                        <th style={{ width: '120px' }}>Fecha Cobro</th>
                                         <th style={{ textAlign: 'center', width: '140px', whiteSpace: 'nowrap' }}>Acciones</th>
                                     </tr>
                                 </thead>
@@ -3031,6 +3050,7 @@ const BillingView: React.FC = () => {
                                             </td>
                                             <td style={{ textAlign: 'center' }}><span className="badge badge-warning">Sin cobrar</span></td>
                                             <td>—</td>
+                                            <td className="text-secondary text-sm">—</td>
                                             <td style={{ textAlign: 'center', width: '140px' }}>
                                                 <div className="charge-cell-container">
                                                     <button
@@ -3107,23 +3127,26 @@ const BillingView: React.FC = () => {
                                             </td>
                                             <td>
                                                 {t.method ? (
-                                                    <div className="flex flex-col gap-0.5">
-                                                        <span className={`method-tag ${t.method === 'TPV Virtual' ? 'tpv-virtual' : ''}`}>
-                                                            {t.method === 'Tarjeta' && <CreditCard size={12} />}
-                                                            {t.method === 'Efectivo' && <Wallet size={12} />}
-                                                            {t.method === 'Transferencia' && <Send size={12} />}
-                                                            {t.method === 'TPV Virtual' && <LinkIcon size={12} className="text-purple-600" />}
-                                                            {t.method === 'Fin de mes' && <CalendarClock size={12} />}
-                                                            {t.method === 'Saldo a favor' && <Wallet size={12} className="text-emerald-700" />}
-                                                            {t.method === 'TPV Virtual' ? 'TPV Virtual' : t.method}
-                                                        </span>
-                                                        {t.status === 'Pagado' && t.paymentDate && (
-                                                            <span className="text-[10px] text-slate-500 font-normal">
-                                                                F. Pago: {format(parseISO(t.paymentDate), 'dd/MM/yy')}
-                                                            </span>
-                                                        )}
-                                                    </div>
+                                                    <span className={`method-tag ${t.method === 'TPV Virtual' ? 'tpv-virtual' : ''}`}>
+                                                        {t.method === 'Tarjeta' && <CreditCard size={12} />}
+                                                        {t.method === 'Efectivo' && <Wallet size={12} />}
+                                                        {t.method === 'Transferencia' && <Send size={12} />}
+                                                        {t.method === 'TPV Virtual' && <LinkIcon size={12} className="text-purple-600" />}
+                                                        {t.method === 'Fin de mes' && <CalendarClock size={12} />}
+                                                        {t.method === 'Saldo a favor' && <Wallet size={12} className="text-emerald-700" />}
+                                                        {t.method === 'TPV Virtual' ? 'TPV Virtual' : t.method}
+                                                    </span>
                                                 ) : '—'}
+                                            </td>
+                                            <td>
+                                                {t.status === 'Pagado' ? (
+                                                    <div className="flex items-center gap-1 text-xs font-semibold text-slate-700" title="Fecha en que se cobró esta transacción">
+                                                        <CalendarIcon size={12} className="text-emerald-600 flex-shrink-0" />
+                                                        <span>{format(parseISO(t.paymentDate || t.date), 'dd/MM/yyyy')}</span>
+                                                    </div>
+                                                ) : (
+                                                    <span className="text-secondary text-sm">—</span>
+                                                )}
                                             </td>
                                             <td style={{ textAlign: 'center', width: '140px' }}>
                                                 <div className="charge-cell-container">
@@ -3198,6 +3221,7 @@ const BillingView: React.FC = () => {
                                             <th>Concepto</th>
                                             <th>Importe</th>
                                             <th>Método</th>
+                                            <th>Fecha Cobro</th>
                                             <th>Estado</th>
                                         </tr>
                                     </thead>
@@ -3219,6 +3243,12 @@ const BillingView: React.FC = () => {
                                                         {pt.method === 'TPV Virtual' && <LinkIcon size={12} className="text-purple-600" />}
                                                         {pt.method === 'TPV Virtual' ? 'TPV Virtual' : pt.method}
                                                     </span>
+                                                </td>
+                                                <td>
+                                                    <div className="flex items-center gap-1 text-xs font-semibold text-emerald-700">
+                                                        <CalendarIcon size={12} className="text-emerald-600 flex-shrink-0" />
+                                                        <span>{format(parseISO(pt.paymentDate || pt.date), 'dd/MM/yyyy')}</span>
+                                                    </div>
                                                 </td>
                                                 <td><span className="badge badge-success">Cobrado hoy</span></td>
                                             </tr>

@@ -216,24 +216,53 @@ export const categorizeMovement = (
     }
 
     // 4. Reglas de Gastos (amount < 0)
-    // Nóminas y Terapeutas
+    // Seguridad Social (TGSS - Régimen General y Autónomos)
     if (
-        fullText.includes('NOMINA') || 
         fullText.includes('TGSS') || 
         fullText.includes('SEGURIDAD SOCIAL') || 
         fullText.includes('SEG. SOCIAL') || 
+        fullText.includes('COTIZACION') || 
+        fullText.includes('R.E.AUTONOMOS') || 
+        fullText.includes('AUTONOMOS') ||
+        normOpType.includes('SEGURIDAD SOCIAL')
+    ) {
+        return { category: 'SEGURIDAD_SOCIAL' };
+    }
+
+    // Nóminas y Salarios del Equipo
+    if (
+        fullText.includes('NOMINA') || 
         fullText.includes('RETRIBUCION') || 
         fullText.includes('PAGA EXTRA') || 
         fullText.includes('LIQUIDACION HABERES') || 
-        fullText.includes('SALARIO') ||
-        fullText.includes('MUTUA')
+        fullText.includes('SALARIO')
     ) {
         return { category: 'NOMINAS_EQUIPO' };
+    }
+
+    // Impuestos y Tributos (Hacienda / AEAT / Modelos 111, 115, etc.)
+    if (
+        fullText.includes('IMPUESTO') || 
+        fullText.includes('IMP:') || 
+        fullText.includes('AGENCIA TRIBUTARIA') || 
+        fullText.includes('AEAT') || 
+        fullText.includes('HACIENDA') || 
+        fullText.includes('MODELO 111') || 
+        fullText.includes('MODELO 115') || 
+        fullText.includes('MODELO 303') || 
+        fullText.includes('MODELO 200') || 
+        fullText.includes('TRIBUTOS') || 
+        fullText.includes('AYUNTAMIENTO') || 
+        fullText.includes('IBI') ||
+        normOpType.includes('IMPUESTO')
+    ) {
+        return { category: 'IMPUESTOS_TASAS' };
     }
 
     // Alquiler y Local (ej. Inversiones Cabildo Principado, S.L.)
     if (
         fullText.includes('INVERSIONES CABILDO') || 
+        fullText.includes('CABILDO') || 
         fullText.includes('ALQUILER') || 
         fullText.includes('ARRENDAMIENTO') || 
         fullText.includes('COMUNIDAD PROPIETARIOS') || 
@@ -241,6 +270,32 @@ export const categorizeMovement = (
         fullText.includes('RENTA LOCAL')
     ) {
         return { category: 'ALQUILER_LOCAL' };
+    }
+
+    // Formación y Convenios Universitarios (ej. UNIR)
+    if (
+        fullText.includes('UNIVERSIDAD') || 
+        fullText.includes('UNIR') || 
+        fullText.includes('PRACTICAS') || 
+        fullText.includes('FORMACION')
+    ) {
+        return { category: 'FORMACION_UNIVERSIDAD' };
+    }
+
+    // Servicios Profesionales, Asesoría, Prevención, LOPD, Supervisión
+    if (
+        fullText.includes('EXPERTOS LOPD') || 
+        fullText.includes('LOPD') || 
+        fullText.includes('LABORAL RISK') || 
+        fullText.includes('PREVENCION') || 
+        fullText.includes('SUPERVISION') || 
+        fullText.includes('ASESORIA') || 
+        fullText.includes('GESTORIA') || 
+        fullText.includes('NOTARIA') ||
+        fullText.includes('GESTOR') || 
+        fullText.includes('ASESOR')
+    ) {
+        return { category: 'SERVICIOS_PROFESIONALES' };
     }
 
     // Suministros (Luz, Agua, Gas)
@@ -272,7 +327,7 @@ export const categorizeMovement = (
         return { category: 'COMUNICACIONES' };
     }
 
-    // Seguros
+    // Seguros y Mutuas
     if (
         fullText.includes('OCASO') || 
         fullText.includes('PREVISION MALLORQUINA') || 
@@ -283,13 +338,14 @@ export const categorizeMovement = (
         fullText.includes('SANITAS') || 
         fullText.includes('ADESLAS') || 
         fullText.includes('SEGUROS') || 
+        fullText.includes('MUTUA') || 
         fullText.includes('REASEGUROS') ||
         normOpType.includes('SEGUROS')
     ) {
         return { category: 'SEGUROS' };
     }
 
-    // Financiación / Amortizaciones
+    // Financiación / Amortizaciones / Préstamos
     if (
         fullText.includes('AMORTIZACION') || 
         fullText.includes('DEUDA') || 
@@ -302,18 +358,19 @@ export const categorizeMovement = (
         return { category: 'FINANCIERO_PRESTAMOS' };
     }
 
-    // Comisiones Bancarias
+    // Comisiones Bancarias y TPV
     if (
         fullText.includes('COMISION') || 
         fullText.includes('MANTENIMIENTO CUENTA') || 
         fullText.includes('GASTOS CORREO') || 
         fullText.includes('GASTOS CUSTODIA') || 
-        fullText.includes('TARIFA PLANA')
+        fullText.includes('TARIFA PLANA') ||
+        normOpType.includes('COMISION')
     ) {
         return { category: 'COMISIONES_BANCARIAS' };
     }
 
-    // Software y Servicios
+    // Software y Suscripciones Digitales
     if (
         fullText.includes('GOOGLE') || 
         fullText.includes('MICROSOFT') || 
@@ -323,16 +380,14 @@ export const categorizeMovement = (
         fullText.includes('VAPI') || 
         fullText.includes('CANVA') || 
         fullText.includes('ZOOM') || 
-        fullText.includes('DROPBOX') || 
-        fullText.includes('ASESORIA') || 
-        fullText.includes('GESTORIA') || 
-        fullText.includes('NOTARIA')
+        fullText.includes('DROPBOX')
     ) {
         return { category: 'SOFTWARE_SERVICIOS' };
     }
 
-    // Material y Mantenimiento
+    // Material, Compras y Mantenimiento (incluye PayPal, Amazon, etc.)
     if (
+        fullText.includes('PAYPAL') || 
         fullText.includes('AMAZON') || 
         fullText.includes('IKEA') || 
         fullText.includes('LEROY') || 
@@ -343,21 +398,6 @@ export const categorizeMovement = (
         fullText.includes('MATERIAL')
     ) {
         return { category: 'MATERIAL_MANTENIMIENTO' };
-    }
-
-    // Impuestos y Tasas
-    if (
-        fullText.includes('AGENCIA TRIBUTARIA') || 
-        fullText.includes('AEAT') || 
-        fullText.includes('MODELO 111') || 
-        fullText.includes('MODELO 115') || 
-        fullText.includes('MODELO 303') || 
-        fullText.includes('MODELO 200') || 
-        fullText.includes('TRIBUTOS') || 
-        fullText.includes('AYUNTAMIENTO') || 
-        fullText.includes('IBI')
-    ) {
-        return { category: 'IMPUESTOS_TASAS' };
     }
 
     return { category: 'OTROS_GASTOS' };

@@ -8,6 +8,7 @@ export type FinancialCategory =
     | 'OTROS_INGRESOS'
     // Gastos
     | 'NOMINAS_EQUIPO'
+    | 'SEGURIDAD_SOCIAL'
     | 'ALQUILER_LOCAL'
     | 'SUMINISTROS'
     | 'COMUNICACIONES'
@@ -15,6 +16,8 @@ export type FinancialCategory =
     | 'FINANCIERO_PRESTAMOS'
     | 'COMISIONES_BANCARIAS'
     | 'SOFTWARE_SERVICIOS'
+    | 'SERVICIOS_PROFESIONALES'
+    | 'FORMACION_UNIVERSIDAD'
     | 'MATERIAL_MANTENIMIENTO'
     | 'IMPUESTOS_TASAS'
     | 'OTROS_GASTOS';
@@ -57,6 +60,12 @@ export const FINANCIAL_CATEGORIES: Record<FinancialCategory, CategoryMeta> = {
         color: '#6366f1',
         description: 'Transferencias a profesionales, nóminas y retribuciones'
     },
+    SEGURIDAD_SOCIAL: {
+        label: 'Seguridad Social (TGSS)',
+        group: 'EXPENSE',
+        color: '#3b82f6',
+        description: 'Cotizaciones Seguridad Social régimen general y autónomos'
+    },
     ALQUILER_LOCAL: {
         label: 'Alquiler y Centro',
         group: 'EXPENSE',
@@ -78,7 +87,7 @@ export const FINANCIAL_CATEGORIES: Record<FinancialCategory, CategoryMeta> = {
     SEGUROS: {
         label: 'Seguros y Mutuas',
         group: 'EXPENSE',
-        color: '#8b5cf6',
+        color: '#10b981',
         description: 'Responsabilidad civil, seguros de salud y coberturas'
     },
     FINANCIERO_PRESTAMOS: {
@@ -88,28 +97,40 @@ export const FINANCIAL_CATEGORIES: Record<FinancialCategory, CategoryMeta> = {
         description: 'Amortización de deudas, créditos y préstamos'
     },
     COMISIONES_BANCARIAS: {
-        label: 'Comisiones Bancarias',
+        label: 'Comisiones Bancarias y TPV',
         group: 'EXPENSE',
         color: '#64748b',
-        description: 'Mantenimiento de cuenta, TPV y transferencias'
+        description: 'Mantenimiento de cuenta, datáfono TPV y transferencias'
     },
     SOFTWARE_SERVICIOS: {
         label: 'Software y Suscripciones',
         group: 'EXPENSE',
         color: '#38bdf8',
-        description: 'Google Workspace, telefonía VoIP, hosting, asesoría/gestoría'
+        description: 'Google Workspace, telefonía VoIP, hosting y herramientas digitales'
+    },
+    SERVICIOS_PROFESIONALES: {
+        label: 'Servicios Profesionales y Asesoría',
+        group: 'EXPENSE',
+        color: '#8b5cf6',
+        description: 'Asesoría jurídica, LOPD, prevención de riesgos y supervisión clínica'
+    },
+    FORMACION_UNIVERSIDAD: {
+        label: 'Formación y Convenios',
+        group: 'EXPENSE',
+        color: '#0ea5e9',
+        description: 'Convenios universitarios (UNIR), prácticas y formación continuada'
     },
     MATERIAL_MANTENIMIENTO: {
-        label: 'Material y Limpieza',
+        label: 'Material y Compras',
         group: 'EXPENSE',
         color: '#a855f7',
-        description: 'Material terapéutico, papelería, compras clínica y limpieza'
+        description: 'Material terapéutico, papelería, compras clínica y suministros'
     },
     IMPUESTOS_TASAS: {
-        label: 'Impuestos y Tasas',
+        label: 'Impuestos y Hacienda',
         group: 'EXPENSE',
         color: '#f43f5e',
-        description: 'Hacienda (AEAT), modelos tributarios y tasas municipales'
+        description: 'Hacienda (AEAT), retenciones IRPF (Modelo 111, 115) y tributos'
     },
     OTROS_GASTOS: {
         label: 'Otros Gastos',

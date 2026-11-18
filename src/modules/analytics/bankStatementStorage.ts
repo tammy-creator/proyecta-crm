@@ -198,13 +198,35 @@ export const fetchAllStatementsFromCloud = async (_startYear?: number): Promise<
 
         if (error || !data) return results;
 
+        const cloudKeys = new Set<string>();
         data.forEach((row: any) => {
             if (row.month_key && row.data) {
+                cloudKeys.add(row.month_key);
                 const calculated = recalculateStatementTotals(row.data);
                 results[row.month_key] = calculated;
                 localStorage.setItem(`${STORAGE_KEY_PREFIX}${row.month_key}`, JSON.stringify(calculated));
             }
         });
+
+        // Sincronización bidireccional automática: si en este navegador existiese algún mes que aún no esté en la nube, subirlo automáticamente
+        try {
+            for (let i = 0; i < localStorage.length; i++) {
+                const k = localStorage.key(i);
+                if (k && k.startsWith(STORAGE_KEY_PREFIX)) {
+                    const mKey = k.replace(STORAGE_KEY_PREFIX, '');
+                    if (mKey.match(/^\d{4}-\d{2}$/) && !cloudKeys.has(mKey) && mKey !== '2026-11') {
+                        const localRaw = localStorage.getItem(k);
+                        if (localRaw) {
+                            const localParsed = JSON.parse(localRaw);
+                            if (localParsed.movements && localParsed.movements.length > 5) {
+                                saveStatementToCloud(mKey, localParsed).catch(() => {});
+                            }
+                        }
+                    }
+                }
+            }
+        } catch {}
+
         return results;
     } catch (err) {
         console.warn('Error al cargar extractos bancarios desde la nube:', err);

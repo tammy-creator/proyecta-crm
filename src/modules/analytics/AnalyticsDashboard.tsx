@@ -49,7 +49,10 @@ import {
 import { 
     getStatementForMonth, 
     deleteStatementForMonth, 
-    updateMovementCategory 
+    updateMovementCategory,
+    fetchStatementFromCloud,
+    saveStatementToCloud,
+    deleteStatementFromCloud
 } from './bankStatementStorage';
 import { type ParseResult } from './bankStatementParser';
 import BankStatementUploader from './BankStatementUploader';
@@ -138,8 +141,23 @@ const AnalyticsDashboard: React.FC = () => {
     const loadData = async () => {
         setLoading(true);
         try {
-            const savedStmt = getStatementForMonth(monthKey);
-            setStatement(savedStmt);
+            // 1. Mostrar de inmediato la versión en caché local para respuesta instantánea
+            let activeStmt = getStatementForMonth(monthKey);
+            setStatement(activeStmt);
+
+            // 2. Consultar y sincronizar con la nube (Supabase) para que Ruth y otros usuarios compartan los extractos
+            const cloudStmt = await fetchStatementFromCloud(monthKey);
+            if (cloudStmt) {
+                activeStmt = cloudStmt;
+                setStatement(cloudStmt);
+            } else if (monthKey === '2026-11') {
+                // Si la nube no tiene extracto para noviembre, asegurar que no quede ningún residuo fantasma
+                if (activeStmt && (activeStmt.fileName?.toLowerCase().includes('octubre') || (activeStmt.movements?.length || 0) <= 10)) {
+                    deleteStatementForMonth('2026-11');
+                    activeStmt = null;
+                    setStatement(null);
+                }
+            }
 
             const [dataStats, dataCol, dataYear] = await Promise.all([
                 getAnalyticsData(month),
@@ -151,7 +169,7 @@ const AnalyticsDashboard: React.FC = () => {
             setCollectionSummary(dataCol);
             setAcademicYearData(dataYear);
 
-            const diagnosis = generateAiAdvisory(dataStats, savedStmt, dataCol, dataYear);
+            const diagnosis = generateAiAdvisory(dataStats, activeStmt, dataCol, dataYear);
             setAiDiagnosis(diagnosis);
         } catch (err) {
             console.error('Error al cargar analítica:', err);
@@ -160,7 +178,7 @@ const AnalyticsDashboard: React.FC = () => {
         }
     };
 
-    const handleStatementLoaded = (result: ParseResult) => {
+    const handleStatementLoaded = async (result: ParseResult) => {
         let newStmt: MonthlyStatementData | null = null;
         if (result.suggestedMonthKey && result.suggestedMonthKey !== monthKey) {
             const [y, m] = result.suggestedMonthKey.split('-').map(Number);
@@ -172,6 +190,11 @@ const AnalyticsDashboard: React.FC = () => {
             setStatement(newStmt);
         }
 
+        // Sincronizar todos los meses detectados con la nube (Supabase)
+        for (const [mKey, stmt] of Object.entries(result.allStatements)) {
+            saveStatementToCloud(mKey, stmt).catch(console.warn);
+        }
+
         // Recalcular diagnóstico y datos del curso con el nuevo extracto
         if (stats && collectionSummary) {
             setAiDiagnosis(generateAiAdvisory(stats, newStmt, collectionSummary, academicYearData));
@@ -181,6 +204,7 @@ const AnalyticsDashboard: React.FC = () => {
 
     const handleDeleteStatement = () => {
         deleteStatementForMonth(monthKey);
+        deleteStatementFromCloud(monthKey).catch(console.warn);
         setStatement(null);
         showToast(`Extracto bancario de ${monthLabel} eliminado.`, 'info');
         if (stats && collectionSummary) {

@@ -513,12 +513,13 @@ export const parseBankStatementFile = async (
 
         if (amount === 0) continue; // Si no hay importe no es un movimiento válido
 
-        // Fechas: Priorizar fecha contable / operación sobre fecha valor
-        const accDateRaw = colMap.accDate !== undefined ? row[colMap.accDate] : undefined;
+        // Fechas: Priorizar fecha de operación real sobre fecha contable o fecha valor
+        // (Evita que movimientos de fin de mes, como un sábado 31/10, pasen al lunes 02/11 contable)
         const opDateRaw = colMap.opDate !== undefined ? row[colMap.opDate] : undefined;
+        const accDateRaw = colMap.accDate !== undefined ? row[colMap.accDate] : undefined;
         const valDateRaw = colMap.valDate !== undefined ? row[colMap.valDate] : undefined;
 
-        const date = parseDateToISO(accDateRaw) || parseDateToISO(opDateRaw) || parseDateToISO(valDateRaw) || `${monthKey}-01`;
+        const date = parseDateToISO(opDateRaw) || parseDateToISO(accDateRaw) || parseDateToISO(valDateRaw) || `${monthKey}-01`;
         const valueDate = parseDateToISO(valDateRaw);
         const operationDate = parseDateToISO(opDateRaw);
 

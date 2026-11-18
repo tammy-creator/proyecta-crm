@@ -14,7 +14,7 @@ import {
     type FinancialCategory, 
     FINANCIAL_CATEGORIES 
 } from './types';
-import { getStatementForMonth } from './bankStatementStorage';
+import { getStatementForMonth, fetchAllStatementsFromCloud } from './bankStatementStorage';
 
 export interface KPIStats {
     occupancyRate: number; // %
@@ -268,6 +268,9 @@ export const getMonthlyCollectionData = async (month: Date): Promise<MonthlyColl
  * agregando tanto la actividad de CRM como los extractos bancarios persistidos.
  */
 export const getAcademicYearData = async (startYear: number = 2026): Promise<AcademicYearData> => {
+    // Sincronizar todos los extractos bancarios desde la nube para asegurar que todos los usuarios (Ruth, etc.) tengan los datos actualizados
+    await fetchAllStatementsFromCloud(startYear).catch(() => {});
+
     const transactions = await getTransactions().catch(() => []);
 
     // Crear array de los 13 meses del ciclo escolar: Sep Y1 -> Sep Y2

@@ -25,9 +25,9 @@ export const extractPhoneFromMessage = (message: string): string => {
     if (!message) return '';
 
     // Patrón 1: "Teléfono: +34699608046" o "Teléfono: 699608046"
-    const telMatch = message.match(/Tel[ée]fono:\s*([^\s|,;.]+)/i);
+    const telMatch = message.match(/Tel[ée]fono:\s*([^\s|,;.()]+)/i);
     if (telMatch && telMatch[1] && telMatch[1].toLowerCase() !== 'desconocido') {
-        return telMatch[1];
+        return telMatch[1].replace(/[^\d+]/g, '');
     }
 
     // Patrón 2: "El contacto (699608046)"
@@ -65,7 +65,7 @@ export const getClaraCalls = async (): Promise<ClaraCall[]> => {
         const { data: dbNotifications, error: notifError } = await supabase
             .from('system_notifications')
             .select('*')
-            .or('type.ilike.AI_LOG,type.ilike.BOT,title.ilike.%Llamada%,title.ilike.%Cita%,title.ilike.%Asistente%')
+            .or('type.ilike.AI_LOG,type.ilike.BOT,title.ilike.%Llamada%,title.ilike.%Cita%,title.ilike.%Asistente%,title.ilike.%Espera%,title.ilike.%Paciente%')
             .order('created_at', { ascending: false })
             .limit(200);
 
@@ -139,7 +139,15 @@ export const getClaraCalls = async (): Promise<ClaraCall[]> => {
             if (!resolvedTracking) {
                 let defaultStatus: CallStatus = 'INFO_ONLY';
                 const lowerTitle = (n.title || '').toLowerCase();
-                if (lowerTitle.includes('devolver llamada') || lowerTitle.includes('solicitud de cita') || lowerTitle.includes('reserva') || lowerTitle.includes('revisar')) {
+                if (
+                    lowerTitle.includes('devolver llamada') || 
+                    lowerTitle.includes('solicitud de cita') || 
+                    lowerTitle.includes('reserva') || 
+                    lowerTitle.includes('revisar') ||
+                    lowerTitle.includes('espera') ||
+                    lowerTitle.includes('lead') ||
+                    lowerTitle.includes('paciente')
+                ) {
                     defaultStatus = 'PENDING';
                 }
 

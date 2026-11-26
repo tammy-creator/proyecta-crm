@@ -128,7 +128,7 @@ export const getClaraCalls = async (): Promise<ClaraCall[]> => {
         }
 
         // 4. Construir listado unificado de ClaraCall
-        return dbNotifications.map((n: any) => {
+        const allCalls: ClaraCall[] = dbNotifications.map((n: any) => {
             const rawPhone = extractPhoneFromMessage(n.message || '');
             const normalized = normalizePhone(rawPhone);
             const matchedPatient = normalized ? phoneToPatient.get(normalized) : undefined;
@@ -171,6 +171,70 @@ export const getClaraCalls = async (): Promise<ClaraCall[]> => {
                 tracking: resolvedTracking
             };
         });
+
+        // 5. Deduplicar llamadas del mismo número dentro de una misma conversación (ventana de 5 minutos)
+        // Conserva el registro con la información más rica/específica y respeta el seguimiento gestionado
+        const deduplicatedCalls: ClaraCall[] = [];
+
+        for (const call of allCalls) {
+            const normPhone = normalizePhone(call.phone);
+            if (!normPhone) {
+                deduplicatedCalls.push(call);
+                continue;
+            }
+
+            const existingIndex = deduplicatedCalls.findIndex(existing => {
+                const existingNorm = normalizePhone(existing.phone);
+                if (existingNorm !== normPhone) return false;
+                const diffMs = Math.abs(existing.date.getTime() - call.date.getTime());
+                return diffMs <= 5 * 60 * 1000; // 5 minutos
+            });
+
+            if (existingIndex === -1) {
+                deduplicatedCalls.push(call);
+            } else {
+                const existing = deduplicatedCalls[existingIndex];
+                const existingSummary = existing.summary || '';
+                const callSummary = call.summary || '';
+
+                const existingIsGeneric = (existing.title || '').includes('registrada') || 
+                                          (existing.title || '').includes('finalizada') || 
+                                          existingSummary.includes('No hay resumen') || 
+                                          existingSummary.includes('Sin detalles');
+                const callIsSpecific = (call.title || '').includes('Espera') || 
+                                       (call.title || '').includes('cita') || 
+                                       (call.title || '').includes('reserva') || 
+                                       (call.title || '').includes('cancel');
+
+                const existingIsManaged = existing.tracking?.status === 'RETURNED' || existing.isDismissed;
+                const callIsManaged = call.tracking?.status === 'RETURNED' || call.isDismissed;
+
+                const bestTracking = (existingIsManaged && !callIsManaged)
+                    ? existing.tracking
+                    : (callIsManaged && !existingIsManaged)
+                        ? call.tracking
+                        : (existing.tracking?.notes ? existing.tracking : call.tracking);
+
+                if (callIsSpecific && existingIsGeneric) {
+                    deduplicatedCalls[existingIndex] = {
+                        ...call,
+                        tracking: bestTracking
+                    };
+                } else if (!existingIsGeneric && callSummary.length > existingSummary.length) {
+                    deduplicatedCalls[existingIndex] = {
+                        ...call,
+                        tracking: bestTracking
+                    };
+                } else {
+                    deduplicatedCalls[existingIndex] = {
+                        ...existing,
+                        tracking: bestTracking
+                    };
+                }
+            }
+        }
+
+        return deduplicatedCalls;
     } catch (error) {
         console.error('Error fetching Clara calls:', error);
         return [];
